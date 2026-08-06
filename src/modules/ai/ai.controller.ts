@@ -1,0 +1,218 @@
+import { Router, Request, Response } from "express";
+import { GoogleGenAI } from "@google/genai";
+import { halls } from "../../data/mockData.js";
+
+const router = Router();
+
+// Lazy initialization of GoogleGenAI client to prevent startup crash if key is missing
+let aiClient: GoogleGenAI | null = null;
+
+function getAiClient(): GoogleGenAI {
+  if (!aiClient) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY environment variable is required to run the Smart Calendar Assistant.");
+    }
+    aiClient = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiClient;
+}
+
+const systemPrompt = `أنت "المساعد الذكي للتقويم" في منصة ليلة (وهي منصة سعودية متكاملة لإدارة وحجز قاعات الأفراح والمناسبات والاستراحات والشاليهات والخدمات المصاصبة).
+
+مهمتك الأساسية هي مساعدة العملاء والمستخدمين في العثور على أفضل يوم لمناسباتهم، واقتراح القاعات الملائمة بناءً على السعة المطلوبة، والمدينة، والميزانية المتوفرة، والخدمات الخاصة التي يفضلونها.
+
+إليك قائمة القاعات المتوفرة حالياً في نظام منصة ليلة:
+\${JSON.stringify(halls.map(h => ({
+  id: h.id,
+  name: h.name,
+  city: h.city,
+  category: h.category,
+  price: h.price,
+  capacity: h.capacity,
+  location: h.location,
+  features: h.features,
+  description: h.description,
+  rating: h.rating
+})), null, 2)}
+
+إرشادات الاستجابة والأسلوب:
+1. تحدث بلهجة سعودية/خليجية دافئة، ترحيبية ومحترفة في نفس الوقت.
+2. نسّق ردك بشكل رائع ومريح جداً للقراءة باستخدام نقاط وعناوين واضحة وخطوط عريضة (Markdown).
+3. عندما يطلب المستخدم قاعة في مدينة معينة (مثال: الرياض، جدة، الدمام، مكة المكرمة، الطائف)، رشّح له القاعات المطابقة لمدينته مع توضيح السعر والسعة والمميزات الرئيسية.
+4. ساعدهم في التخطيط الذكي للمناسبات بالربط بين التواريخ الهجرية والميلادية المفضلة أو المواسم المميزة لعقد الحفلات في المملكة العربية السعودية.
+5. وجّه المستخدم إلى إمكانية النقر مباشرة على أي تاريخ في "التقويم الذكي" الموجود في نفس الصفحة لاستعراض القاعات المتاحة فوراً لحجزها.
+6. اجعل ردودك مختصرة ومبنية على تلبية الاحتياجات مباشرة من دون إطالة مفرطة.`;
+
+// Heuristic Saudi-accented contextual fallback engine when Gemini API is throttled or credits are depleted
+function getFallbackResponse(userMessage: string): string {
+  const query = userMessage.trim().toLowerCase();
+  
+  // 1. Check for specific Saudi cities
+  const cities = [
+    { key: "رياض", name: "الرياض" },
+    { key: "جدة", name: "جدة" },
+    { key: "دمام", name: "الدمام" },
+    { key: "مكة", name: "مكة المكرمة" },
+    { key: "طائف", name: "الطائف" },
+    { key: "مدينة", name: "المدينة المنورة" },
+    { key: "عسير", name: "منطقة عسير" },
+    { key: "أبها", name: "أبها" },
+    { key: "خميس", name: "خميس مشيط" },
+    { key: "تبوك", name: "تبوك" },
+    { key: "جيزان", name: "جيزان" },
+    { key: "نجران", name: "نجران" },
+    { key: "باحة", name: "الباحة" }
+  ];
+
+  const matchedCity = cities.find(c => query.includes(c.key));
+
+  if (matchedCity) {
+    const matchedHalls = halls.filter(h => 
+      (h.city && h.city.includes(matchedCity.name)) || 
+      matchedCity.name.includes(h.city || "")
+    );
+    
+    if (matchedHalls.length > 0) {
+      let response = `يا هلا والله وغلا بك! لقد قمت بفرز أفضل وأجمل الصروح والقاعات المتاحة في مدينة **\${matchedCity.name}** لتسهيل تنظيم ليلتك السعيدة: \n\n`;
+      
+      matchedHalls.forEach((h, index) => {
+        response += `### \${index + 1}. **\${h.name}** 🏛️\n`;
+        response += `* **التصنيف:** \${h.category || 'قاعة / مرفق'}\n`;
+        response += `* **الموقع:** \${h.location || matchedCity.name}\n`;
+        response += `* **السعة الاستيعابية:** تتسع حتى **\${h.capacity || 'غير محدد'}** شخص 👥\n`;
+        response += `* **السعر التقديري:** يبدأ من **\${h.price || '0'} ريال** شامل الخدمات الأساسية 💳\n`;
+        if (h.features && h.features.length > 0) {
+          response += `* **المميزات:** \${h.features.slice(0, 3).join(' • ')}\n`;
+        }
+        if (h.description) {
+          response += `* **الوصف:** _\${h.description}_\n`;
+        }
+        response += `\n---\n`;
+      });
+      
+      response += `\n💡 **نصيحة ذكية:** يمكنك النقر مباشرة على أي تاريخ في **التقويم الذكي** في هذه الصفحة لاستعراض توفر القاعات فوراً لهذا اليوم بالذات وحجزها تلقائياً. هل تفضل تحديد سعة حضور معينة أو نطاق ميزانية معين؟ ✨`;
+      return response;
+    }
+  }
+
+  // 2. Check for capacity or size criteria
+  if (query.includes("سعة") || query.includes("حجم") || query.includes("شخص") || query.includes("حضور") || query.includes("كبير") || query.includes("صغير") || query.includes("زواج")) {
+    const largeHalls = halls.filter(h => Number(h.capacity || 0) >= 300);
+    const smallHalls = halls.filter(h => Number(h.capacity || 0) < 300);
+    
+    let response = `أهلاً بك يا غالي، يسعدني جداً إرشادك لخيارات السعة الملائمة لضيوفك الكرام: \n\n`;
+    
+    if (query.includes("كبير") || query.includes("ملايين") || query.includes("ضخم") || query.includes("عائلي") || query.includes("صالح") || query.includes("أكثر") || query.includes("شخص")) {
+      response += `🌟 **أبرز الصروح والقاعات الكبرى المجهزة للمناسبات والزواجات (سعة 300 شخص فأكثر):**\n\n`;
+      largeHalls.slice(0, 3).forEach((h, idx) => {
+        response += `* **\${h.name}** (\${h.city}) — تتسع لـ **\${h.capacity}** شخص • السعر يبدأ من: **\${h.price} ريال** 🏛️\n`;
+      });
+    } else {
+      response += `🌸 **أبرز الاستراحات والشاليهات والقاعات الصغيرة للمناسبات الضيقة والملتقيات العائلية:**\n\n`;
+      smallHalls.slice(0, 3).forEach((h, idx) => {
+        response += `* **\${h.name}** (\${h.city}) — تتسع لـ **\${h.capacity}** person • السعر يبدأ من: **\${h.price} ريال** 🏡\n`;
+      });
+    }
+    
+    response += `\nأنصحك باستهداف إجازة نهاية الأسبوع للتنسيق المثالي. اختر اليوم المناسب عبر حقول **التقويم الذكي** للمقارنة السريعة. في أي مدينة تود الحجز؟`;
+    return response;
+  }
+
+  // 3. Calendar & Date, Hijri/Gregorian questions
+  if (query.includes("تاريخ") || query.includes("هجر") || query.includes("ميلاد") || query.includes("تقويم") || query.includes("يوم") || query.includes("موسم") || query.includes("متى") || query.includes("خميس") || query.includes("جمعة")) {
+    return `أهلاً بك عيني! مقارنة التواريخ والشهور الهجرية والميلادية في منصة ليلة تسهل عليك حجز وتخطيط المناسبات الذكية بكل أريحية:
+
+* **الدورة الهجرية والميلادية:** يمكنك بكل سهولة تبديل نظام التقويم والاطلاع على المواعيد المتقابلة بمجرد النقر على زري "ميلادي" و "هجري" في التقويم الذكي.
+* **إجازات نهاية الأسبوع:** أيام الخميس والجمعة والسبت تحظى بنوافذ طلب سريعة وطلب ممتاز من العملاء.
+* **مواسم الزواج البركة:** فترات الأعياد (عيد الفطر وعيد الأضحى وصيف السعودية) تزدحم بالتخطيط، تصفح التقويم الذكي لاكتشاف القاعات وتفاصيل الأسعار الموسمية.
+
+💡 **طريقة الحجز الخاطف:** حدد أي يوم تود حجز الصالة فيه مباشرة من المربعات المعروضة، وسيقوم النظام بتفصيل كافة القاعات الشاغرة لهذا اليوم فوراً!`;
+  }
+
+  // 4. Budget check
+  if (query.includes("ميزانية") || query.includes("سعر") || query.includes("أسعار") || query.includes("رخيص") || query.includes("مبلغ") || query.includes("ريال") || query.includes("تكلفة")) {
+    const budgetHalls = [...halls].sort((a,b) => (a.price || 0) - (b.price || 0));
+    let response = `هلا بك يا غالي! إذا كنت تخطط لليلة العمر بميزانية مرنة، وفرنا لك قائمة بأسعار تبدأ من الأقل كالتالي:\n\n`;
+    
+    budgetHalls.slice(0, 3).forEach((h, idx) => {
+      response += `* **\${h.name}** — يقع في مدينة **\${h.city}** • السعر يبدأ من **\${h.price} ريال** فقط! (السعة الاستيعابية: **\${h.capacity}** شخص) 👥\n`;
+    });
+    
+    response += `\nيمكنك تقليل التكلفة بتجنب أيام الذروة الموسمية واستهداف وسط الأسبوع. اضغط على أيام الأسبوع المختلفة في **التقويم الذكي** لمشاهدة أسعار اليوم المحدد. هل لديك مبلغ مالي معين مستهدف؟`;
+    return response;
+  }
+
+  // 5. Default Warm Greeting & Guide
+  return `يا هلا والله بضيفنا الغالي في منصة ليلة الموحدة! 🌟
+
+أنا مساعدك الذكي للتخطيط والبحث بالتقاويم. يسعدني جداً إرشادك وتسهيل ليلتك المميزة بناءً على قاعدة بياناتنا المحلية الشاملة!
+
+أستطيع بسرعة وسلاسة مساعدتك في:
+1. **أهم قصور الأفراح والاستراحات والشاليهات** متطابقة مع احتياجاتك في الرياض، جدة، الدمام، وباقي مدن المملكة.
+2. **سياسات التسعير وقدرات السعة الاستيعابية** بدقة.
+3. **تنسيق مواعيد الويكند وتوافق التواريخ** الهجرية والميلادية بكل سلاسة.
+
+**اكتب لي المدينة التي تود الحجز بها، أو السعة المتوقعة لعدد الحضور، وسأفرز لك الخيارات الفائقة فوراً!** 🌸`;
+}
+
+router.post("/chat", async (req: Request, res: Response) => {
+  try {
+    const { messages } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Missing or invalid messages parameter" });
+    }
+
+    const lastMessage = messages[messages.length - 1]?.content || "";
+
+    try {
+      const client = getAiClient();
+
+      // Map history to the structured format required by the SDK
+      const contents = messages.map((m: any) => ({
+        role: m.role === 'model' ? 'model' : 'user',
+        parts: [{ text: m.content || m.text || "" }]
+      }));
+
+      const response = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: contents,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.7,
+        },
+      });
+
+      const aiText = response.text || "عذراً، لم أستطع توليد رد حالياً. المحاولة مجدداً.";
+
+      return res.json({
+        success: true,
+        text: aiText
+      });
+    } catch (apiErr: any) {
+      console.log("Using direct smart calendar backup mode.");
+      const fallbackText = getFallbackResponse(lastMessage);
+      return res.json({
+        success: true,
+        text: fallbackText
+      });
+    }
+  } catch (err: any) {
+    console.log("AI assistant fallback exception handled safely.");
+    return res.status(500).json({ 
+      success: false, 
+      error: "Service unavailable, safe mode activated",
+      text: "عذراً، واجه المساعد مشكلة في الاتصال بالخادم الذكي. جرب مرة أخرى بعد قليل."
+    });
+  }
+});
+
+export default router;

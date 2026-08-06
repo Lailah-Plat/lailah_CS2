@@ -1,0 +1,8 @@
+{
+  "name": "منصة ليلة",
+  "description": "Comprehensive Event Management ERP System tailored for the Saudi Arabian market.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
