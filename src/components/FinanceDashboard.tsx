@@ -189,7 +189,7 @@ export default function FinanceDashboard({
   setPromotions?: (p: any[]) => void,
   services?: any[]
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts'>(() => {
+  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts' | 'treasury'>(() => {
     return userRole === 'provider' ? 'wallet' : 'reports';
   });
   const [seasonsInternalTab, setSeasonsInternalTab] = useState<'seasons' | 'promotions'>('seasons');
@@ -4522,6 +4522,9 @@ export default function FinanceDashboard({
           escrowLiabilityBalance={kpis.pendingClaims}
           vatPayableBalance={kpis.totalVAT}
           refundsPayableBalance={expenses.filter(e => e.type === 'refund' || e.category === 'مستردات').reduce((a, b) => a + (b.total || 0), 0)}
+          totalPlatformRevenue={kpis.totalRevenue}
+          totalPlatformExpense={kpis.totalExpense}
+          netProfit={kpis.netProfit}
         />
       )}
 

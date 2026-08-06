@@ -274,8 +274,21 @@ export interface CorporateLiability {
   startDate: string;
   dueDate: string;
   monthlyPayment: number;
-  status: 'active' | 'settled' | 'defaulted' | 'grace_period';
+  status: 'active' | 'settled' | 'defaulted' | 'grace_period' | 'early_settled';
   installments: AmortizationInstallment[];
+  earlySettlementDetails?: {
+    settlementDate: string;
+    waivedProfit: number;
+    compensationFee: number;
+    thirdPartyFees: number;
+    netSettledAmount: number;
+    savingsAmount: number;
+    settlementInvoiceNo: string; // INV-YYXXXXXXXXXX format
+    revenueNo: string; // REV-YY-XXXXXXXXXX format
+    expenseNo: string; // EXP-YY-XXXXXXXXXX format
+    notes?: string;
+  };
+  isRealEstate?: boolean;
   notes?: string;
   createdAt: string;
 }
