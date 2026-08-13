@@ -7,18 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  repo-sync:
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Sync to Organization Repo
-        uses: repo-sync/github-sync@v2
-        with:
-          source_repo: "Kas30/lailah_CS"
-          source_branch: "main"
-          destination_branch: "main"
-          github_token: ${{ secrets.LAILAH_CS2_SYNC }}
+      - name: Push to Organization Repo
+        run: |
+          git remote add destination "https://x-access-token:${{ secrets.LAILAH_CS2_SYNC }}@github.com/Lailah-Plat/lailah_CS2.git"
+          git push destination main --force
