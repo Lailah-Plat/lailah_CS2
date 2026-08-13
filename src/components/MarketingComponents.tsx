@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Plus, Search, MessageSquare, Mail, Share2, Bell, Eye, Pencil, CheckCircle2, FileText, Target, CalendarDays, Wallet, Banknote, Activity, X, ShieldCheck, Percent, Power, Trash2, Users, Send } from 'lucide-react';
+import { Megaphone, Plus, Search, MessageSquare, Mail, Share2, Bell, Eye, Pencil, CheckCircle2, FileText, Target, CalendarDays, Wallet, Banknote, Activity, X, ShieldCheck, Percent, Power, Trash2, Users, Send, AlertCircle, XCircle } from 'lucide-react';
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(amount);
@@ -8,8 +8,9 @@ const formatCurrency = (amount: number) => {
 import { AdRequestProviderWizard, AdRequestsTable } from './AdRequestProviderWizard';
 export { AdRequestProviderWizard, AdRequestsTable };
 
-export const AgencyMarketingView = ({ campaigns, setCampaigns, setActiveTab }: any) => {
-  const [activeSubTab, setActiveSubTab] = useState<'master' | 'kanban' | 'expenses' | 'overview'>('overview');
+export const AgencyMarketingView = ({ campaigns, setCampaigns, setActiveTab, marketingCommissionPercentage = 20 }: any) => {
+  const [activeSubTab, setActiveSubTab] = useState<'master' | 'kanban' | 'expenses' | 'overview' | 'agreements'>('overview');
+  const mComm = marketingCommissionPercentage || 20;
 
   const totalBudget = campaigns.reduce((sum: any, c: any) => sum + (c.adBudget || 0), 0);
   const totalSpent = campaigns.reduce((sum: any, c: any) => sum + (c.spent || 0), 0);
@@ -19,16 +20,17 @@ export const AgencyMarketingView = ({ campaigns, setCampaigns, setActiveTab }: a
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">إدارة الحملات (لوحة الوكالة)</h2>
-          <p className="text-slate-500 mt-1">إدارة ميزانيات الحملات، وسير العمل، وتقارير الأداء.</p>
+          <h2 className="text-2xl font-bold text-slate-800">إدارة الحملات (لوحة الوكالة المعتمدة)</h2>
+          <p className="text-slate-500 mt-1">إدارة ميزانيات البث، أتعاب الوكالة، سير العمل، وتقارير أداء الحملات التسويقية.</p>
         </div>
       </div>
 
-      <div className="flex space-x-2 space-x-reverse mb-6 border-b border-slate-200">
-        <button className={`px-4 py-2 font-medium ${activeSubTab === 'overview' ? 'text-amber-600 border-b-2 border-amber-600' : 'text-slate-500'}`} onClick={() => setActiveSubTab('overview')}>نظرة عامة</button>
-        <button className={`px-4 py-2 font-medium ${activeSubTab === 'master' ? 'text-amber-600 border-b-2 border-amber-600' : 'text-slate-500'}`} onClick={() => setActiveSubTab('master')}>الجدول الموحد (Master Sheet)</button>
-        <button className={`px-4 py-2 font-medium ${activeSubTab === 'kanban' ? 'text-amber-600 border-b-2 border-amber-600' : 'text-slate-505'}`} onClick={() => setActiveSubTab('kanban')}>سير العمل (Kanban)</button>
-        <button className={`px-4 py-2 font-medium ${activeSubTab === 'expenses' ? 'text-amber-600 border-b-2 border-amber-600' : 'text-slate-505'}`} onClick={() => setActiveSubTab('expenses')}>المصروفات والميزانيات</button>
+      <div className="flex space-x-2 space-x-reverse mb-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
+        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'overview' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-500'}`} onClick={() => setActiveSubTab('overview')}>نظرة عامة</button>
+        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'master' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-500'}`} onClick={() => setActiveSubTab('master')}>الجدول الموحد (Master Sheet)</button>
+        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'kanban' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('kanban')}>سير العمل (Kanban)</button>
+        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'expenses' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('expenses')}>المصروفات والميزانيات</button>
+        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'agreements' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('agreements')}>اتفاقية الوكالة والعمولة (Agreement)</button>
       </div>
 
       {activeSubTab === 'overview' && (
@@ -133,6 +135,46 @@ export const AgencyMarketingView = ({ campaigns, setCampaigns, setActiveTab }: a
              <input type="number" placeholder="المبلغ (ر.س)" className="p-3 border rounded-xl" />
              <input type="text" placeholder="البيان (مثال: إعلانات سناب شات)" className="p-3 border rounded-xl" />
              <button className="bg-amber-500 text-slate-900 font-bold px-6 py-3 rounded-xl hover:bg-amber-600">تسجيل الصرف</button>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'agreements' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6 text-right">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">عقود واتفاقيات الوكالة الرقمية المعتمدة</h3>
+              <p className="text-xs text-slate-500 mt-0.5">شروط الشراكة والاستحقاقات المالية وعمولة منصة ليلة المحددة في النظام</p>
+            </div>
+            <span className="bg-amber-100 text-amber-800 font-extrabold text-xs px-3 py-1.5 rounded-full border border-amber-200">
+              اتفاقية سارية المفعول ✅
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-150 space-y-1">
+              <span className="text-xs text-slate-400 font-bold">اسم الوكالة المشغلة:</span>
+              <p className="font-extrabold text-slate-800 text-sm">وكالة ليلة المعتمدة للتسويق وإدارة الحملات</p>
+            </div>
+            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-1">
+              <span className="text-xs text-amber-800 font-bold">نسبة عمولة ليلة من أتعاب الوكالة:</span>
+              <p className="font-black text-amber-600 text-base font-mono">{mComm}% ({mComm * 100} BPS) - محددة بالإعدادات المالية</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-150 space-y-1">
+              <span className="text-xs text-slate-400 font-bold">اتفاقية مستوى الخدمة (SLA):</span>
+              <p className="font-extrabold text-slate-800 text-sm">إصدار العرض خلال 24 ساعة / إطلاق خلال 48 ساعة</p>
+            </div>
+          </div>
+
+          <div className="p-4 bg-amber-50/30 rounded-xl border border-amber-100/60 text-xs leading-relaxed text-slate-700 space-y-2">
+            <h4 className="font-black text-amber-900 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-amber-600" /> الضوابط السيادية لحفظ الحقوق وتوثيق اللقطات المالية ومسار الاسترداد
+            </h4>
+            <ul className="list-disc list-inside space-y-1 font-sans text-slate-600">
+              <li>يتم توثيق لقطة اتفاقية العقد الحالية (AgreementSnapshot) في قاعدة البيانات فور اعتماد أي حملة جديدة لمنع تأثر العقود الجارية بأي تحديثات مستقبلية لنسب العمولة.</li>
+              <li>عمولة منصة ليلة تُقتطع حصرياً من أتعاب الوكالة (Agency Fee) ولا تُحسب إطلاقاً على ميزانية الشراء الإعلامي للبث المباشر (Ad Budget).</li>
+              <li><strong>مسار الاسترداد (Refund Path):</strong> عند طلب إلغاء حملة تم سدادها وقبل بدء تشغيلها، تتحول تلقائياً إلى مسار استرداد موثق عبر بوابة السداد (`RefundPending` ➔ `Refunded`). أما إذا ألغيت بعد بدء التشغيل والإنفاق، فتكون ملغاة بدون استرداد (No Refund).</li>
+            </ul>
           </div>
         </div>
       )}
@@ -609,14 +651,61 @@ export const PromotionsManagement = ({
     setEditingPromotion(null);
   };
 
-  const handleDelete = (id: number, e: React.MouseEvent) => {
+  const handleDelete = (p: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('هل أنت متأكد من حذف هذا العرض؟')) {
-      setPromotions(promotions.filter((p: any) => p.id !== id));
+    const id = p.id;
+    const isApprovedOrStarted = p.status === 'active' || p.status === 'cancellation_requested' || p.status === 'cancelled' || p.status === 'expired' || (p.startDate && new Date(p.startDate) <= new Date());
+    
+    if (!isAdmin && isApprovedOrStarted) {
+      showNotification('error', 'يُمنع حذف العروض المعتمدة أو التي بدأت للحفاظ على توثيق العقود، وتقتصر صلاحية الحذف النهائي على إدارة منصة ليلة.');
+      return;
+    }
+
+    if (window.confirm('هل أنت متأكد من حذف هذا العرض نهائياً؟')) {
+      setPromotions(promotions.filter((item: any) => item.id !== id));
       showNotification('success', 'تم حذف العرض الترويجي بنجاح.');
       if (viewingPromotion?.id === id) {
         setViewingPromotion(null);
       }
+    }
+  };
+
+  const handleCancelOffer = (p: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isBeforeApprovalOrStart = p.status === 'pending' || p.status === 'rejected' || (p.startDate && new Date(p.startDate) > new Date());
+
+    if (isBeforeApprovalOrStart) {
+      setPromotions(promotions.map((item: any) => 
+        item.id === p.id ? { ...item, status: 'cancelled', cancelledAt: new Date().toISOString() } : item
+      ));
+      showNotification('info', 'تم إلغاء العرض الترويجي بشكل مباشر بنجاح.');
+      if (viewingPromotion?.id === p.id) {
+        setViewingPromotion((prev: any) => ({ ...prev, status: 'cancelled' }));
+      }
+    } else {
+      setPromotions(promotions.map((item: any) => 
+        item.id === p.id ? { ...item, status: 'cancellation_requested', cancellationRequestedAt: new Date().toISOString() } : item
+      ));
+      showNotification('warning', 'تم رفع طلب إلغاء العرض لإدارة منصة ليلة بانتظار الموافقة لحماية حقوق العملاء الذين حجزوا أثناء فترة العرض.');
+      if (viewingPromotion?.id === p.id) {
+        setViewingPromotion((prev: any) => ({ ...prev, status: 'cancellation_requested' }));
+      }
+    }
+  };
+
+  const handleApproveCancellation = (id: number) => {
+    setPromotions(promotions.map((p: any) => p.id === id ? { ...p, status: 'cancelled', cancelledByAdminAt: new Date().toISOString() } : p));
+    showNotification('success', 'تمت الموافقة على طلب إلغاء العرض الترويجي وتحويل حالته إلى ملغي.');
+    if (viewingPromotion?.id === id) {
+      setViewingPromotion((prev: any) => ({ ...prev, status: 'cancelled' }));
+    }
+  };
+
+  const handleRejectCancellation = (id: number) => {
+    setPromotions(promotions.map((p: any) => p.id === id ? { ...p, status: 'active', cancellationRejectedAt: new Date().toISOString() } : p));
+    showNotification('info', 'تم رفض طلب إلغاء العرض وإعادة تفعيله كعرض نشط.');
+    if (viewingPromotion?.id === id) {
+      setViewingPromotion((prev: any) => ({ ...prev, status: 'active' }));
     }
   };
 
@@ -629,28 +718,49 @@ export const PromotionsManagement = ({
     showNotification('success', newStatus === 'active' ? 'تم تنشيط العرض بنجاح.' : 'تم إيقاف تفعيل العرض.');
   };
 
-  const handleApprove = (id: number, approvedValue?: number) => {
+  const [approvingPromotion, setApprovingPromotion] = useState<any>(null);
+  const [chosenPolicy, setChosenPolicy] = useState<'CommissionOnDiscountedPrice' | 'CommissionOnOriginalPrice'>('CommissionOnDiscountedPrice');
+  const [approvedDiscountValue, setApprovedDiscountValue] = useState<number>(0);
+  const [adminRejectionNotes, setAdminRejectionNotes] = useState<string>('');
+
+  const handleApprove = (id: number, approvedValue?: number, policySelection: 'CommissionOnDiscountedPrice' | 'CommissionOnOriginalPrice' = 'CommissionOnDiscountedPrice') => {
     setPromotions(promotions.map((p: any) => {
       if (p.id === id) {
         return { 
           ...p, 
           status: 'active',
-          value: approvedValue !== undefined ? approvedValue : p.value
+          value: approvedValue !== undefined ? approvedValue : p.value,
+          commissionPolicy: policySelection,
+          platformParticipatesInDiscount: policySelection === 'CommissionOnDiscountedPrice',
+          approvedAt: new Date().toISOString(),
+          approvedBy: 'الإدارة (Admin)'
         };
       }
       return p;
     }));
-    showNotification('success', 'تم اعتماد ومطابقة العرض الترويجي للعميل!');
+    showNotification('success', `تم اعتماد العرض الترويجي وتطبيق سياسة (${policySelection === 'CommissionOnDiscountedPrice' ? 'العمولة بعد الخصم' : 'العمولة قبل الخصم'}) بنجاح!`);
     if (viewingPromotion?.id === id) {
-      setViewingPromotion((prev: any) => ({ ...prev, status: 'active', value: approvedValue !== undefined ? approvedValue : prev.value }));
+      setViewingPromotion((prev: any) => ({
+        ...prev,
+        status: 'active',
+        value: approvedValue !== undefined ? approvedValue : prev.value,
+        commissionPolicy: policySelection,
+        platformParticipatesInDiscount: policySelection === 'CommissionOnDiscountedPrice'
+      }));
     }
   };
 
-  const handleReject = (id: number) => {
-    setPromotions(promotions.map((p: any) => p.id === id ? { ...p, status: 'rejected' } : p));
-    showNotification('error', 'تم رفض طلب العرض الترويجي.');
+  const handleReject = (id: number, notes?: string) => {
+    const finalNotes = notes || 'تم رفض الطلب وتوجيه الملاحظات للمزود لإعادة التعديل والتقديم.';
+    setPromotions(promotions.map((p: any) => p.id === id ? { 
+      ...p, 
+      status: 'rejected',
+      adminNotes: finalNotes,
+      rejectedAt: new Date().toISOString()
+    } : p));
+    showNotification('warning', 'تم رفض طلب العرض الترويجي وتوجيه الملاحظات للمزود بنجاح.');
     if (viewingPromotion?.id === id) {
-      setViewingPromotion((prev: any) => ({ ...prev, status: 'rejected' }));
+      setViewingPromotion((prev: any) => ({ ...prev, status: 'rejected', adminNotes: finalNotes }));
     }
   };
 
@@ -672,6 +782,24 @@ export const PromotionsManagement = ({
 
   return (
     <div className="space-y-6 text-right">
+      {/* Concurrency Guard & Dynamic Discount Engine Banner */}
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white p-5 rounded-3xl shadow-lg border border-emerald-500/30 flex flex-col md:flex-row justify-between items-center gap-4 text-right font-sans" dir="rtl">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-0.5 rounded-full border border-emerald-400/30">
+              قفل الخصومات المتزامن (Concurrency Guard)
+            </span>
+            <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-3 py-0.5 rounded-full border border-amber-400/30">
+              تطبيق تلقائي في محرك الحجوزات ⚡
+            </span>
+          </div>
+          <h3 className="font-black text-base text-white">محرك العروض والخصومات الذكية (Automated Promotions & Concurrency Engine)</h3>
+          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            يتم حجز حصة الخصم مؤقتاً عند الـ Checkout بحالة <span className="font-mono text-emerald-300 font-bold">Reserved</span> مع قفل المدى الزمني (<span className="font-mono text-amber-300 font-bold">expiresAt</span>)، ثم تثبيتها كـ <span className="font-mono text-teal-300 font-bold">Redeemed</span> فور تأكيد الدفع والـ Webhook. تُحتسب عمولة المنصة بناءً على سياسة التسعير المحددة (السعر الأصلي vs السعر بعد الخصم).
+          </p>
+        </div>
+      </div>
+
       {/* KPIs Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans">
         <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-sm flex items-center justify-end gap-4 hover:border-emerald-500 transition-all duration-200">
@@ -768,7 +896,7 @@ export const PromotionsManagement = ({
                         </span>
                       )}
                       <span className="text-[9px] text-slate-400 font-bold font-mono">
-                         #{p.id.toString().slice(-6)}
+                         #{String(p.id || '').slice(-6)}
                       </span>
                     </div>
                     {isAdmin && (
@@ -823,19 +951,24 @@ export const PromotionsManagement = ({
                   <td className="p-5 text-slate-600 font-mono text-center font-bold">{p.endDate || 'مفتوح'}</td>
                   <td className="p-5 text-center">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black border flex items-center justify-center gap-1.5 mx-auto w-fit ${
-                      p.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-250 shadow-sm shadow-emerald-100' :
-                      p.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-250 shadow-sm shadow-amber-100' :
-                      p.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-250 shadow-sm shadow-red-100' :
+                      p.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm shadow-emerald-100' :
+                      p.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm shadow-amber-100' :
+                      p.status === 'cancellation_requested' ? 'bg-rose-50 text-rose-700 border-rose-200 shadow-sm shadow-rose-100 animate-pulse' :
+                      p.status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200 shadow-sm shadow-red-100' :
+                      p.status === 'cancelled' ? 'bg-slate-100 text-slate-500 border-slate-200 line-through' :
                       'bg-slate-100 text-slate-600 border-slate-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
                         p.status === 'active' ? 'bg-emerald-500' : 
-                        p.status === 'pending' ? 'bg-amber-500' :
+                        p.status === 'pending' ? 'bg-amber-500 animate-ping' :
+                        p.status === 'cancellation_requested' ? 'bg-rose-500 animate-ping' :
                         p.status === 'rejected' ? 'bg-red-500' : 'bg-slate-400'
                       }`} />
                       {p.status === 'active' ? 'نشط ومفعل' : 
                        p.status === 'pending' ? 'قيد المراجعة' :
-                       p.status === 'rejected' ? 'مرفوض' : 'منتهي الصلاحية'}
+                       p.status === 'cancellation_requested' ? 'قيد طلب الإلغاء' :
+                       p.status === 'rejected' ? 'مرفوض' : 
+                       p.status === 'cancelled' ? 'ملغي' : 'منتهي الصلاحية'}
                     </span>
                   </td>
                   <td className="p-5">
@@ -849,6 +982,7 @@ export const PromotionsManagement = ({
                   </td>
                   <td className="p-5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1.5">
+                       {/* 1. View Details */}
                        <button 
                          onClick={() => setViewingPromotion(p)}
                          className="p-1.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-150 transition-all border border-slate-200 cursor-pointer"
@@ -857,74 +991,134 @@ export const PromotionsManagement = ({
                          <Eye className="w-3.5 h-3.5" />
                        </button>
 
-                       {/* Admin approval panel */}
+                       {/* Admin Approval for Pending Requests */}
                        {isAdmin && p.status === 'pending' && (
                          <>
                            <button 
                              onClick={() => {
-                               const proposedVal = prompt(`موافقة واعتماد العرض: حدد قيمة الخصم المعتمدة للطلب (الحالي: ${p.value}):`, p.value);
-                               if (proposedVal !== null) {
-                                 const valNum = parseInt(proposedVal) || p.value;
-                                 handleApprove(p.id, valNum);
-                               }
+                               setApprovingPromotion(p);
+                               setApprovedDiscountValue(p.value);
+                               setChosenPolicy(p.commissionPolicy || 'CommissionOnDiscountedPrice');
                              }} 
                              className="p-1.5 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-200 cursor-pointer" 
-                             title="اعتماد"
+                             title="موافقة واعتماد الطلب"
                            >
                              <CheckCircle2 className="w-3.5 h-3.5" />
                            </button>
                            <button 
                              onClick={() => handleReject(p.id)} 
                              className="p-1.5 bg-red-50 text-red-700 rounded-xl hover:bg-red-100 transition-all border border-red-200 cursor-pointer" 
-                             title="رفض"
+                             title="رفض الطلب"
                            >
                              <X className="w-3.5 h-3.5" />
                            </button>
                          </>
                        )}
 
-                       {/* Edit option */}
-                       {(isAdmin || p.status === 'pending' || p.status === 'rejected') && (
+                       {/* Admin Handling for Cancellation Requests */}
+                       {isAdmin && p.status === 'cancellation_requested' && (
+                         <>
+                           <button 
+                             onClick={() => handleApproveCancellation(p.id)} 
+                             className="p-1.5 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-200 cursor-pointer" 
+                             title="الموافقة على طلب الإلغاء"
+                           >
+                             <CheckCircle2 className="w-3.5 h-3.5" />
+                           </button>
+                           <button 
+                             onClick={() => handleRejectCancellation(p.id)} 
+                             className="p-1.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition-all border border-amber-200 cursor-pointer" 
+                             title="رفض طلب الإلغاء واستمرار العرض"
+                           >
+                             <XCircle className="w-3.5 h-3.5" />
+                           </button>
+                         </>
+                       )}
+
+                       {/* 2. Edit option (Locked after approval) */}
+                       {(isAdmin || p.status === 'pending' || p.status === 'rejected') ? (
                          <button 
                            onClick={(e) => openEditModal(p, e)} 
                            className="p-1.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-105 border border-blue-200 transition-all cursor-pointer" 
-                           title="تعديل"
+                           title="تعديل العرض"
+                         >
+                           <Pencil className="w-3.5 h-3.5" />
+                         </button>
+                       ) : (
+                         <button 
+                           disabled
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             showNotification('warning', 'محظور التعديل لحماية عقود العروض المعتمدة والنشطة.');
+                           }}
+                           className="p-1.5 bg-slate-100 text-slate-300 rounded-xl border border-slate-200 cursor-not-allowed" 
+                           title="محظور التعديل لحماية عقود العروض المعتمدة"
                          >
                            <Pencil className="w-3.5 h-3.5" />
                          </button>
                        )}
 
-                       {/* Smart Retargeting */}
-                       {p.status === 'active' && (
+                       {/* 3. Smart Retargeting */}
+                       {(p.status === 'pending' || p.status === 'active') ? (
                          <button 
                            onClick={(e) => {
                              e.stopPropagation();
                              setRetargetingPromotion(p);
                            }} 
-                           className="p-1.5 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 hover:text-indigo-900 border border-indigo-200 transition-all cursor-pointer ml-1" 
-                           title="إعادة استهداف المهتمين (المفضلة)"
+                           className="p-1.5 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 hover:text-indigo-900 border border-indigo-200 transition-all cursor-pointer" 
+                           title="إعادة استهداف المهتمين (قوائم المفضلة)"
+                         >
+                           <Users className="w-3.5 h-3.5" />
+                         </button>
+                       ) : (
+                         <button 
+                           disabled
+                           className="p-1.5 bg-slate-100 text-slate-300 rounded-xl border border-slate-200 cursor-not-allowed" 
+                           title="إعادة الاستهداف غير متاحة للعروض الملغاة أو المنتهية"
                          >
                            <Users className="w-3.5 h-3.5" />
                          </button>
                        )}
 
-                       {/* Power active switch */}
+                       {/* 4. Cancel Offer / Request Cancellation Button */}
+                       {(p.status === 'pending' || p.status === 'active') && (
+                         <button 
+                           onClick={(e) => handleCancelOffer(p, e)} 
+                           className="p-1.5 bg-rose-50 text-rose-700 rounded-xl hover:bg-rose-100 transition-all border border-rose-200 cursor-pointer" 
+                           title={p.status === 'pending' || (p.startDate && new Date(p.startDate) > new Date()) ? 'إلغاء العرض الترويجي' : 'تقديم طلب إلغاء لإدارة المنصة'}
+                         >
+                           <XCircle className="w-3.5 h-3.5" />
+                         </button>
+                       )}
+
+                       {/* Power active/toggle switch */}
                        {p.status === 'active' && (
                          <button 
                            onClick={(e) => handleToggleStatus(p, e)} 
                            className="p-1.5 bg-amber-50 text-amber-700 rounded-xl hover:bg-amber-100 transition-all border border-amber-200 cursor-pointer" 
-                           title="تعطيل مؤقت"
+                           title="تعطيل مؤقت / إيقاف"
                          >
                            <Power className="w-3.5 h-3.5" />
                          </button>
                        )}
 
-                       {/* Delete option */}
-                       {(isAdmin || p.status !== 'active') && (
+                       {/* 5. Delete option (Locked if approved or started) */}
+                       {(isAdmin || p.status === 'pending') ? (
                          <button 
-                           onClick={(e) => handleDelete(p.id, e)} 
+                           onClick={(e) => handleDelete(p, e)} 
                            className="p-1.5 bg-slate-100 text-slate-500 rounded-xl hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all border border-slate-200 cursor-pointer" 
                            title="حذف العرض"
+                         >
+                           <Trash2 className="w-3.5 h-3.5" />
+                         </button>
+                       ) : (
+                         <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             showNotification('error', 'يُمنع حذف العروض المعتمدة أو التي بدأت للحفاظ على توثيق العقود، وتقتصر صلاحية الحذف النهائي على إدارة منصة ليلة.');
+                           }}
+                           className="p-1.5 bg-slate-100 text-slate-300 rounded-xl border border-slate-200 cursor-not-allowed" 
+                           title="يُمنع حذف العروض المعتمدة أو التي بدأت"
                          >
                            <Trash2 className="w-3.5 h-3.5" />
                          </button>
@@ -1060,16 +1254,17 @@ export const PromotionsManagement = ({
                 <div className="flex gap-2 w-full">
                   <button 
                     onClick={() => {
-                      const proposedVal = prompt(`اعتماد العرض الترويجي: يمكنك تحديد وتأكيد قيمة الخصم المعتمدة للعميل (القيمة الحالية: ${viewingPromotion.value}):`, viewingPromotion.value);
-                      if (proposedVal !== null) {
-                        const valNum = parseInt(proposedVal) || viewingPromotion.value;
-                        handleApprove(viewingPromotion.id, valNum);
-                        setViewingPromotion(null);
-                      }
+                      const pToApprove = viewingPromotion;
+                      setViewingPromotion(null);
+                      setApprovingPromotion(pToApprove);
+                      setApprovedDiscountValue(pToApprove.value);
+                      setChosenPolicy(pToApprove.commissionPolicy || 'CommissionOnDiscountedPrice');
+                      setAdminRejectionNotes(pToApprove.adminNotes || '');
                     }} 
-                    className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-md text-xs cursor-pointer"
+                    className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-md text-xs cursor-pointer flex items-center justify-center gap-1.5"
                   >
-                    موافقة واعتماد الطلب
+                    <CheckCircle2 className="w-4 h-4" />
+                    موافقة واعتماد الطلب وتحديد سياسة العمولة
                   </button>
                   <button 
                     onClick={() => {
@@ -1107,7 +1302,218 @@ export const PromotionsManagement = ({
         </div>
       )}
 
-      {/* SMART RETARGETING MODAL */}
+      {/* ADMIN APPROVAL & FINANCIAL POLICY MODAL */}
+      {approvingPromotion && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-100 font-sans text-right" dir="rtl">
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-l from-emerald-900 via-slate-900 to-slate-900 text-white flex items-start justify-between rounded-t-3xl border-b border-emerald-800">
+              <button 
+                onClick={() => setApprovingPromotion(null)} 
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+              <div>
+                <div className="flex items-center gap-2 justify-end mb-1">
+                  <span className="px-2.5 py-0.5 bg-emerald-500/30 text-emerald-300 rounded-full text-[10px] font-mono font-black border border-emerald-400/30">
+                    {approvingPromotion.srvNumber || `SRV-26-${String(approvingPromotion.id).padStart(10, '0')}`}
+                  </span>
+                  <span className="px-2.5 py-0.5 bg-amber-500/30 text-amber-300 rounded-full text-[10px] font-black border border-amber-400/30">
+                    طلب كود خصم معلق
+                  </span>
+                </div>
+                <h3 className="font-black text-xl text-white">اعتماد العرض الترويجي وتحديد سياسة العمولة</h3>
+                <p className="text-emerald-200/80 text-xs mt-1 font-medium">
+                  مراجعة طلب المزود: <span className="font-bold text-white">{approvingPromotion.providerName}</span> لكود الخصم ({approvingPromotion.couponCode || 'LILATALAM'})
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Summary card */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-slate-400 block mb-0.5 font-bold">كود الخصم المطلوب:</span>
+                  <span className="font-mono font-black text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 inline-block text-sm">
+                    {approvingPromotion.couponCode || approvingPromotion.name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block mb-0.5 font-bold">قيمة الخصم المطلوبة:</span>
+                  <span className="font-mono font-black text-emerald-600 text-sm">
+                    {approvingPromotion.type === 'percentage' ? `${approvingPromotion.value}% خصم` : `${approvingPromotion.value} ر.س`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Adjust value input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-black text-slate-700">تأكيد أو تعديل قيمة الخصم المعتمدة للعميل:</label>
+                <input 
+                  type="number"
+                  value={approvedDiscountValue}
+                  onChange={(e) => setApprovedDiscountValue(Number(e.target.value) || 0)}
+                  className="w-full p-3 rounded-xl border border-slate-200 font-mono font-black text-emerald-700 bg-white outline-none focus:border-emerald-500 text-sm text-right"
+                />
+              </div>
+
+              {/* Policy Selector */}
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-slate-900 flex items-center justify-end gap-1.5">
+                  تحديد سياسة مشاركة المنصة في الخصم (Platform Commission Policy)
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                </label>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Option 1: CommissionOnDiscountedPrice */}
+                  <div 
+                    onClick={() => setChosenPolicy('CommissionOnDiscountedPrice')}
+                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                      chosenPolicy === 'CommissionOnDiscountedPrice'
+                        ? 'border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 flex-row-reverse">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                        chosenPolicy === 'CommissionOnDiscountedPrice' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {chosenPolicy === 'CommissionOnDiscountedPrice' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                      <div className="text-right flex-1">
+                        <span className="text-xs font-black text-emerald-900 block mb-1">
+                          العمولة بعد الخصم (مشاركة المنصة)
+                        </span>
+                        <p className="text-[11px] text-emerald-800/80 leading-relaxed font-medium">
+                          تُحسب عمولة ليلة من السعر الصافي بعد الخصم. تشارك المنصة في دعم المبيعات وتحمل جزء من الخصم من عمولتها.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Option 2: CommissionOnOriginalPrice */}
+                  <div 
+                    onClick={() => setChosenPolicy('CommissionOnOriginalPrice')}
+                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative ${
+                      chosenPolicy === 'CommissionOnOriginalPrice'
+                        ? 'border-amber-500 bg-amber-50/50 shadow-md ring-2 ring-amber-500/20'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 flex-row-reverse">
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                        chosenPolicy === 'CommissionOnOriginalPrice' ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {chosenPolicy === 'CommissionOnOriginalPrice' && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                      <div className="text-right flex-1">
+                        <span className="text-xs font-black text-amber-900 block mb-1">
+                          العمولة قبل الخصم (تحمل المزود)
+                        </span>
+                        <p className="text-[11px] text-amber-800/80 leading-relaxed font-medium">
+                          تُحسب عمولة ليلة من السعر الأصلي قبل الخصم. لا تشارك المنصة في الخصم، ويتحمل المزود تكلفة الخصم كاملاً.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Financial Simulation Card */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                  <span className="text-amber-400 font-mono font-black">نسبة عمولة ليلة المفترضة: 10%</span>
+                  <span className="font-black text-slate-200">📊 محاكاة حية للأثر المالي على حجز افتراضي (10,000 ر.س)</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="text-slate-400 font-bold border-b border-slate-800">
+                      <tr>
+                        <th className="p-2">البند المالي</th>
+                        <th className="p-2 text-emerald-400">سياسة العمولة بعد الخصم</th>
+                        <th className="p-2 text-amber-400">سياسة العمولة قبل الخصم</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono font-bold text-[11px]">
+                      <tr>
+                        <td className="p-2 text-slate-300 font-sans">المبلغ المدفوع من العميل</td>
+                        <td className="p-2 text-emerald-300">9,000 ر.س</td>
+                        <td className="p-2 text-amber-300">9,000 ر.س</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-slate-300 font-sans">عمولة منصة ليلة (10%)</td>
+                        <td className="p-2 text-emerald-400 font-black">900 ر.س <span className="text-[9px] text-slate-400 font-sans font-normal">(من 9,000)</span></td>
+                        <td className="p-2 text-amber-400 font-black">1,000 ر.س <span className="text-[9px] text-slate-400 font-sans font-normal">(من 10,000)</span></td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-slate-300 font-sans">مستحق المزود الصافي</td>
+                        <td className="p-2 text-emerald-300 font-black">8,100 ر.س</td>
+                        <td className="p-2 text-amber-300 font-black">8,000 ر.س</td>
+                      </tr>
+                      <tr className="bg-slate-800/40 font-sans text-[10px]">
+                        <td className="p-2 text-slate-400">حصة مشاركة المنصة في الخصم</td>
+                        <td className="p-2 text-emerald-300 font-bold">تتحمل المنصة 100 ر.س من الخصم</td>
+                        <td className="p-2 text-amber-300 font-bold">تتحمل 0 ر.س (المزود يتحمل 1,000)</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+              {/* Admin Notes / Rejection Directives Box */}
+              <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-200/80 space-y-2">
+                <label className="block text-xs font-black text-rose-900 flex items-center justify-end gap-1.5">
+                  ملاحظات وتوجيهات الإدارة للمزود (تظهر للمزود عند الرفض أو التعديل):
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                </label>
+                <textarea 
+                  rows={2}
+                  placeholder="مثال: يرجى تعديل تاريخ بداية العرض لتكون بعد أسبوعين من تاريخ اليوم، أو تعديل قيمة الخصم لتصبح 10% كحد أقصى لضمان الهامش المالي..."
+                  value={adminRejectionNotes}
+                  onChange={(e) => setAdminRejectionNotes(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-rose-200 bg-white font-sans text-xs text-slate-800 outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 text-right"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 rounded-b-3xl">
+              <button 
+                onClick={() => setApprovingPromotion(null)}
+                className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold transition-all text-xs cursor-pointer"
+              >
+                إلغاء
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    handleReject(approvingPromotion.id, adminRejectionNotes);
+                    setApprovingPromotion(null);
+                  }}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <XCircle className="w-4 h-4 text-white" />
+                  رفض الطلب وإرسال الملاحظات للمزود
+                </button>
+
+                <button 
+                  onClick={() => {
+                    handleApprove(approvingPromotion.id, approvedDiscountValue, chosenPolicy);
+                    setApprovingPromotion(null);
+                  }}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black transition-all shadow-lg text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  تأكيد اعتماد الكود والسياسة المالية
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       {retargetingPromotion && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200/60 overflow-hidden font-sans relative text-right" dir="rtl">
@@ -1383,11 +1789,50 @@ export const PromotionsManagement = ({
                       </div>
                     )}
 
-                    {!isAdmin && (
-                      <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-[11px] text-red-800 leading-relaxed font-sans text-right">
-                        <strong>⚠️ تنبيه حظر التنشيط التلقائي للشركاء:</strong> سيخضع هذا العرض أو التخفيض لمراجعة واعتماد الإدارة للتأكد من مبررات التعديل المالي ومنع ممارسات حرق الأسعار (Price Dumping)، ولن يتم تفعيله تلقائياً للعملاء حتى تتم الموافقة.
+                    {/* Commission Calculation Policy */}
+                    <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80 space-y-2 text-right">
+                      <label className="block text-xs font-black text-emerald-950">سياسة احتساب عمولة المنصة عند الخصم (Commission Policy)</label>
+                      <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                        حدد القاعدة المحاسبية لاقتطاع عمولة منصة ليلة من الحجوزات المستفيدة من هذا العرض:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                        <label className={`p-3 rounded-xl border text-right cursor-pointer flex items-start gap-2 transition-all ${
+                          formData.commissionPolicy !== 'CommissionOnOriginalPrice' 
+                            ? 'bg-white border-emerald-500 shadow-sm text-emerald-950 font-bold' 
+                            : 'bg-white/60 border-slate-200 text-slate-600'
+                        }`}>
+                          <input 
+                            type="radio" 
+                            name="commissionPolicy"
+                            checked={formData.commissionPolicy !== 'CommissionOnOriginalPrice'}
+                            onChange={() => setFormData({ ...formData, commissionPolicy: 'CommissionOnDiscountedPrice' })}
+                            className="mt-0.5 accent-emerald-600 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-black block">بعد الخصم (CommissionOnDiscounted)</span>
+                            <span className="text-[9px] text-slate-500 block mt-0.5">تُقتطع عمولة ليلة من المبلغ الصافي الفعلي بعد الخصم</span>
+                          </div>
+                        </label>
+
+                        <label className={`p-3 rounded-xl border text-right cursor-pointer flex items-start gap-2 transition-all ${
+                          formData.commissionPolicy === 'CommissionOnOriginalPrice' 
+                            ? 'bg-white border-emerald-500 shadow-sm text-emerald-950 font-bold' 
+                            : 'bg-white/60 border-slate-200 text-slate-600'
+                        }`}>
+                          <input 
+                            type="radio" 
+                            name="commissionPolicy"
+                            checked={formData.commissionPolicy === 'CommissionOnOriginalPrice'}
+                            onChange={() => setFormData({ ...formData, commissionPolicy: 'CommissionOnOriginalPrice' })}
+                            className="mt-0.5 accent-emerald-600 cursor-pointer"
+                          />
+                          <div>
+                            <span className="text-xs font-black block">قبل الخصم (CommissionOnOriginal)</span>
+                            <span className="text-[9px] text-slate-500 block mt-0.5">تُقتطع عمولة ليلة من السعر الأساسي للخدمة قبل الخصم</span>
+                          </div>
+                        </label>
                       </div>
-                    )}
+                    </div>
 
                     {isAdmin && (
                       <div className="group">

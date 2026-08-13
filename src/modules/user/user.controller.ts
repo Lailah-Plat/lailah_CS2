@@ -99,6 +99,16 @@ export class UserController {
     }
   }
 
+  async profileSync(req: Request, res: Response) {
+    try {
+      const result = await this.userService.syncProfile(req.body);
+      return res.json(result);
+    } catch (error: any) {
+      console.error("Error in profileSync controller:", error);
+      res.status(500).json({ success: false, error: error.message || 'حدث خطأ أثناء تزامن بيانات البروفايل' });
+    }
+  }
+
   async migrateProviders(req: Request, res: Response) {
     try {
       const { providers } = req.body;
@@ -125,5 +135,6 @@ export const createUser = controllerInstance.createUser.bind(controllerInstance)
 export const updateUser = controllerInstance.updateUser.bind(controllerInstance);
 export const deleteUser = controllerInstance.deleteUser.bind(controllerInstance);
 export const completeProfile = controllerInstance.completeProfile.bind(controllerInstance);
+export const profileSync = controllerInstance.profileSync.bind(controllerInstance);
 export const migrateProviders = controllerInstance.migrateProviders.bind(controllerInstance);
 export default controllerInstance;

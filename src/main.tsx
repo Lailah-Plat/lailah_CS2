@@ -1,6 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import App from './App.tsx';
 import HomePage from './pages/HomePage';
 import ExplorePage from './pages/ExplorePage';
@@ -166,6 +166,31 @@ const router = createBrowserRouter([
         <ProviderDashboardPage />
       </RoleRouteGuard>
     ),
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/provider/bos/*",
+    element: <Navigate to="/provider-dashboard" replace />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/provider/bos",
+    element: <Navigate to="/provider-dashboard" replace />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/provider/lite/*",
+    element: <Navigate to="/provider-dashboard" replace />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/provider/lite",
+    element: <Navigate to="/provider-dashboard" replace />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/provider/dashboard",
+    element: <Navigate to="/provider-dashboard" replace />,
     errorElement: <RouteErrorPage />
   },
   {

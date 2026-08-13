@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -39,7 +39,8 @@ import {
   Image as ImageIcon,
   AlignLeft,
   Coins,
-  MessageCircle
+  MessageCircle,
+  LayoutDashboard
 } from 'lucide-react';
 import { 
   getStoredHalls, 
@@ -52,6 +53,7 @@ import {
 import GoogleMapsModal from '../components/common/GoogleMapsModal';
 import { validateImageFile, validateVideoFile } from '../utils/uploadValidator';
 import ProviderChatModal from '../components/ProviderChatModal';
+import { MediaStandardsGuideModal, MediaStandardsGuideTrigger } from '../components/MediaStandardsGuideModal';
 
 const SAUDI_REGIONS = [
   { name: 'الرياض', cities: ['الرياض', 'الخرج', 'الدرعية', 'الدوادمي'] },
@@ -577,6 +579,12 @@ export default function HallsServicesPortalPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Graceful forwarding to Unified Provider Dashboard
+    navigate('/provider-dashboard?tab=halls', { replace: true });
+  }, [navigate]);
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
@@ -588,6 +596,10 @@ export default function HallsServicesPortalPage() {
   // Real-time Provider Chat Modal trigger
   const [isProviderChatOpen, setIsProviderChatOpen] = useState(false);
   const [chatData, setChatData] = useState({ providerName: '', hallName: '' });
+
+  // Media Standards & Interactive Guide Modal State
+  const [isMediaGuideOpen, setIsMediaGuideOpen] = useState(false);
+  const [mediaGuideTab, setMediaGuideTab] = useState<'guide' | 'inspector' | 'camera_setup'>('guide');
 
   const openProviderChat = (e: React.MouseEvent, providerName: string, hallName: string) => {
     e.preventDefault();
@@ -1639,11 +1651,20 @@ export default function HallsServicesPortalPage() {
               </p>
             </div>
 
-            {/* Quick Status Pill */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center md:text-right">
-              <p className="text-xs text-slate-300 leading-none">مستوى الحساب المكتشف</p>
-              <h4 className="text-lg font-black text-amber-400 mt-1">{userRole === 'admin' ? 'مدير النظام المركزي' : 'مزود خدمة معتمد'}</h4>
-              <p className="text-[10px] text-slate-400 mt-0.5">{currentProviderName}</p>
+            {/* Quick Status Pill and Navigation */}
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              <Link
+                to="/provider-dashboard?tab=halls"
+                className="px-5 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs rounded-2xl shadow-lg transition-all flex items-center gap-2 border border-amber-400/30"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                <span>الانتقال للوحة التحكم الموحدة 👑</span>
+              </Link>
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center md:text-right">
+                <p className="text-xs text-slate-300 leading-none">مستوى الحساب المكتشف</p>
+                <h4 className="text-lg font-black text-amber-400 mt-1">{userRole === 'admin' ? 'مدير النظام المركزي' : 'مزود خدمة معتمد'}</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">{currentProviderName}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -3853,8 +3874,14 @@ export default function HallsServicesPortalPage() {
                           )}
 
                           {/* Multi Image facility uploader */}
-                          <div className="space-y-1">
-                            <label className={`text-xs font-black ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>ألبوم صور القاعة (الحد الأقصى ١٥ صورة)</label>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <label className={`text-xs font-black ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>ألبوم صور القاعة (الحد الأقصى ١٥ صورة)</label>
+                              <MediaStandardsGuideTrigger 
+                                onOpenGuide={() => { setMediaGuideTab('guide'); setIsMediaGuideOpen(true); }}
+                                onOpenInspector={() => { setMediaGuideTab('inspector'); setIsMediaGuideOpen(true); }}
+                              />
+                            </div>
                             <MultiImageUploader
                               images={hallForm.images || []}
                               maxImages={15}
@@ -4329,9 +4356,15 @@ export default function HallsServicesPortalPage() {
 
                       {/* Multi-Image Upload */}
                       <div className="space-y-2">
-                        <label id="lbl-service-image" className={`text-xs font-extrabold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                          صور الخدمة المساندة (الحد الأقصى ١٠ صور)
-                        </label>
+                        <div className="flex items-center justify-between gap-2">
+                          <label id="lbl-service-image" className={`text-xs font-extrabold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                            صور الخدمة المساندة (الحد الأقصى ١٠ صور)
+                          </label>
+                          <MediaStandardsGuideTrigger 
+                            onOpenGuide={() => { setMediaGuideTab('guide'); setIsMediaGuideOpen(true); }}
+                            onOpenInspector={() => { setMediaGuideTab('inspector'); setIsMediaGuideOpen(true); }}
+                          />
+                        </div>
                         <MultiImageUploader
                           images={serviceForm.images || []}
                           maxImages={10}
@@ -4667,6 +4700,13 @@ export default function HallsServicesPortalPage() {
         onClose={() => setIsProviderChatOpen(false)}
         providerName={chatData.providerName}
         hallName={chatData.hallName}
+      />
+
+      {/* Interactive Media Standards Guide & Inspector Modal */}
+      <MediaStandardsGuideModal
+        isOpen={isMediaGuideOpen}
+        onClose={() => setIsMediaGuideOpen(false)}
+        defaultTab={mediaGuideTab}
       />
     </div>
   );

@@ -71,6 +71,22 @@ export interface Hall {
   pendingPayload?: any;
 }
 
+export interface AppliedPromotionSnapshot {
+  promotionId?: number | string;
+  couponCode?: string;
+  discountType: 'percentage' | 'fixed' | 'free_service' | string;
+  discountValue: number;
+  calculatedDiscountAmount: number;
+  originalPrice: number;
+  discountedPrice: number;
+  commissionPolicy: 'CommissionOnDiscountedPrice' | 'CommissionOnOriginalPrice';
+  platformParticipatesInDiscount: boolean;
+  commissionRate: number; // e.g. 0.10 for 10%
+  platformCommissionAmount: number;
+  providerEntitlementAmount: number;
+  appliedAt: string;
+}
+
 export interface Booking {
   id: number | string;
   bookingNumber?: string; // BKG-YY-XXXXXXXXXX format
@@ -101,6 +117,7 @@ export interface Booking {
   selectedAddons?: any[];
   externalServices?: any[];
   paymentMethod?: string;
+  appliedPromotionSnapshot?: AppliedPromotionSnapshot;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -200,6 +217,8 @@ export interface User {
 
 export interface Promotion {
   id: number | string;
+  srvNumber?: string;
+  couponCode?: string;
   name: string;
   type: 'percentage' | 'fixed' | 'free_service';
   value: number;
@@ -208,6 +227,10 @@ export interface Promotion {
   applyTo: 'halls' | 'services';
   targetIds: (number | string)[]; // empty means "Apply to all"
   status: 'active' | 'expired' | 'pending' | 'rejected';
+  commissionPolicy?: 'CommissionOnDiscountedPrice' | 'CommissionOnOriginalPrice';
+  platformParticipatesInDiscount?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
   startDate: string;
   endDate: string;
   providerName: string; // vendor name
@@ -274,8 +297,21 @@ export interface CorporateLiability {
   startDate: string;
   dueDate: string;
   monthlyPayment: number;
-  status: 'active' | 'settled' | 'defaulted' | 'grace_period';
+  status: 'active' | 'settled' | 'defaulted' | 'grace_period' | 'early_settled';
   installments: AmortizationInstallment[];
+  earlySettlementDetails?: {
+    settlementDate: string;
+    waivedProfit: number;
+    compensationFee: number;
+    thirdPartyFees: number;
+    netSettledAmount: number;
+    savingsAmount: number;
+    settlementInvoiceNo: string; // INV-YYXXXXXXXXXX format
+    revenueNo: string; // REV-YY-XXXXXXXXXX format
+    expenseNo: string; // EXP-YY-XXXXXXXXXX format
+    notes?: string;
+  };
+  isRealEstate?: boolean;
   notes?: string;
   createdAt: string;
 }

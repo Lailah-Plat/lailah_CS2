@@ -1,8 +1,16 @@
 /**
  * @file mediaValidator.ts
- * @description وحدة التحقق الصارم من الوسائط المرفوعة (الصور والفيديوهات) وفق القوانين والاشتراطات المعتمدة في منصة "ليلة".
- * تضمن هذه الوحدة احترام القاعدة رقم 7 الخاصة بمواصفات الوسائط لمنع استهلاك النطاق الترددي وضمان تجربة تجوال فائقة السرعة للعملاء.
+ * @description وحدة التحقق الصارم والضغط الآلي للوسائط المرفوعة (الصور والفيديوهات) وفق القوانين والاشتراطات المعتمدة في منصة "ليلة".
+ * تضمن هذه الوحدة احترام القاعدة رقم 7 الخاصة بمواصفات الوسائط وضغط الصور تلقائياً في الواجهة الأمامية دون مضايقة الشركاء.
  */
+
+import { compressAndResizeImage } from './imageCompressor';
+import { 
+  getMediaSettingsConfig, 
+  getPresetDimensions, 
+  IMAGE_RESOLUTION_PRESETS, 
+  VIDEO_RESOLUTION_PRESETS 
+} from './uploadValidator';
 
 /**
  * واجهة نتيجة التحقق من ملفات الوسائط
@@ -23,17 +31,20 @@ export interface MediaValidationResult {
 }
 
 /**
- * التحقق من صور القاعات والخدمات بناءً على القاعدة رقم 7:
+ * التحقق من صور القاعات والخدمات المستقلة بناءً على الإعدادات والسياسات الديناميكية والقاعدة رقم 7:
  * - الصيغ المسموحة: JPEG, PNG, WebP, JPG
- * - الحد الأقصى للحجم: 500 كيلوبايت (500KB)
- * - الأبعاد الدنيا: 960x540 بكسل
- * - الأبعاد القصوى: 1280x720 بكسل
+ * - الحد الأقصى للحجم: حسب الإعداد الديناميكي للنظام (KB)
+ * - الأبعاد الدنيا والقصوى: حسب إعدادات النظام الديناميكية
  * - النسبة المفضلة: 16:9 (عريضة)
  *
  * @param file ملف الصورة المراد التحقق منه
  * @returns نتيجة التحقق التي تحتوي حالة الصلاحية أو رسالة الخطأ/التنبيه
  */
 export const validateHallOrServiceImage = async (file: File): Promise<MediaValidationResult> => {
+  const config = getMediaSettingsConfig();
+  const minPreset = getPresetDimensions(config.imageMinDimId, IMAGE_RESOLUTION_PRESETS, '960x540');
+  const maxPreset = getPresetDimensions(config.imageMaxDimId, IMAGE_RESOLUTION_PRESETS, '1280x720');
+
   // قائمة أنواع MIME المسموح بها
   const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
   const ext = file.name.split('.').pop()?.toLowerCase();
@@ -46,13 +57,13 @@ export const validateHallOrServiceImage = async (file: File): Promise<MediaValid
     };
   }
 
-  // 2. التحقق من الحد الأقصى للحجم (500KB)
-  const MAX_SIZE_BYTES = 500 * 1024; // 500KB
+  // 2. التحقق من الحد الأقصى للحجم الديناميكي
+  const MAX_SIZE_BYTES = config.imageMaxSizeKB * 1024;
   if (file.size > MAX_SIZE_BYTES) {
     const sizeKB = Math.round(file.size / 1024);
     return { 
       valid: false, 
-      error: `حجم الصورة (${file.name}) يتجاوز الحد الأقصى المسموح به وهو 500KB. الحجم الحالي: ${sizeKB}KB.` 
+      error: `حجم الصورة (${file.name}) يتجاوز الحد الأقصى المسموح به وهو ${config.imageMaxSizeKB}KB. الحجم الحالي: ${sizeKB}KB.` 
     };
   }
 
@@ -66,20 +77,20 @@ export const validateHallOrServiceImage = async (file: File): Promise<MediaValid
       const width = img.width;
       const height = img.height;
 
-      // فحص الأبعاد الدنيا (960x540px)
-      if (width < 960 || height < 540) {
+      // فحص الأبعاد الدنيا الديناميكية
+      if (width < minPreset.width || height < minPreset.height) {
         resolve({
           valid: false,
-          error: `أبعاد الصورة (${width}x${height}px) أقل من الأبعاد الدنيا المطلوبة (960x540px).`
+          error: `أبعاد الصورة (${width}x${height}px) أقل من الأبعاد الدنيا المطلوبة (${minPreset.width}x${minPreset.height}px).`
         });
         return;
       }
 
-      // فحص الأبعاد القصوى (1280x720px)
-      if (width > 1280 || height > 720) {
+      // فحص الأبعاد القصوى الديناميكية
+      if (width > maxPreset.width || height > maxPreset.height) {
         resolve({
           valid: false,
-          error: `أبعاد الصورة (${width}x${height}px) تتجاوز الأبعاد القصوى المسموح بها (1280x720px).`
+          error: `أبعاد الصورة (${width}x${height}px) تتجاوز الأبعاد القصوى المسموح بها (${maxPreset.width}x${maxPreset.height}px).`
         });
         return;
       }
@@ -90,7 +101,7 @@ export const validateHallOrServiceImage = async (file: File): Promise<MediaValid
       let warning: string | undefined = undefined;
 
       if (!isPreferredRatio) {
-        warning = `تنبيه تفضيلي: النسبة الفضلى للصور هي 16:9 (عريضة). أبعاد الصورة الحالية (${width}x${height}px).`;
+        warning = `تنبيه تفضيلي: النسبة الفضلى لصور القاعات والخدمات المستقلة هي 16:9 (عريضة). أبعاد الصورة الحالية (${width}x${height}px).`;
       }
 
       resolve({
@@ -112,15 +123,17 @@ export const validateHallOrServiceImage = async (file: File): Promise<MediaValid
 };
 
 /**
- * التحقق من مقاطع الفيديو التوضيحية للقاعات والخدمات بناءً على القاعدة رقم 7:
+ * التحقق من مقاطع الفيديو التوضيحية للقاعات والخدمات المستقلة بناءً على الإعدادات الديناميكية:
  * - الصيغة المعتمدة: MP4 القياسية فقط
- * - الحد الأقصى للحجم: 10 ميجابايت (10MB)
- * - الأبعاد القصوى: 960x540 بكسل (QHD)
+ * - الحد الأقصى للحجم: حسب الإعداد الديناميكي للنظام (MB)
+ * - الأبعاد القصوى: حسب إعدادات النظام المعتمدة
  *
  * @param file ملف الفيديو المراد فحصه
  * @returns نتيجة التحقق وقياسات الفيديو
  */
 export const validateHallOrServiceVideo = async (file: File): Promise<MediaValidationResult> => {
+  const config = getMediaSettingsConfig();
+  const maxVideoPreset = getPresetDimensions(config.videoMaxDimId, VIDEO_RESOLUTION_PRESETS, '960x540');
   const ext = file.name.split('.').pop()?.toLowerCase();
   
   // 1. التحقق من صيغة MP4
@@ -131,13 +144,13 @@ export const validateHallOrServiceVideo = async (file: File): Promise<MediaValid
     };
   }
 
-  // 2. التحقق من الحجم الأقصى (10MB)
-  const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+  // 2. التحقق من الحجم الأقصى الديناميكي
+  const MAX_SIZE_BYTES = config.videoMaxSizeMB * 1024 * 1024;
   if (file.size > MAX_SIZE_BYTES) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
     return { 
       valid: false, 
-      error: `حجم مقطع الفيديو (${file.name}) يتجاوز الحد الأقصى المسموح به وهو 10MB. الحجم الحالي: ${sizeMB}MB.` 
+      error: `حجم مقطع الفيديو (${file.name}) يتجاوز الحد الأقصى المسموح به وهو ${config.videoMaxSizeMB}MB. الحجم الحالي: ${sizeMB}MB.` 
     };
   }
 
@@ -152,11 +165,11 @@ export const validateHallOrServiceVideo = async (file: File): Promise<MediaValid
       const width = video.videoWidth;
       const height = video.videoHeight;
 
-      // فحص الأبعاد القصوى للفيديو (960x540px)
-      if (width > 960 || height > 540) {
+      // فحص الأبعاد القصوى للفيديو الديناميكية
+      if (width > maxVideoPreset.width || height > maxVideoPreset.height) {
         resolve({
           valid: false,
-          error: `أبعاد الفيديو (${width}x${height}px) تتجاوز الأبعاد القصوى المسموح بها (960x540px - QHD).`
+          error: `أبعاد الفيديو (${width}x${height}px) تتجاوز الأبعاد القصوى المسموح بها (${maxVideoPreset.width}x${maxVideoPreset.height}px).`
         });
         return;
       }
@@ -172,5 +185,59 @@ export const validateHallOrServiceVideo = async (file: File): Promise<MediaValid
 
     video.src = objectUrl;
   });
+};
+
+/**
+ * واجهة نتيجة التحقق والضغط للصور
+ */
+export interface ProcessedMediaResult extends MediaValidationResult {
+  file: File;
+  autoCompressed?: boolean;
+}
+
+/**
+ * التحقق التلقائي والضغط المباشر لصور القاعات والخدمات المستقلة
+ * ينفذ الضغط التلقائي للأبعاد والحجم دون رد الملف أو مضايقة المزود
+ */
+export const validateAndCompressImage = async (file: File): Promise<ProcessedMediaResult> => {
+  const config = getMediaSettingsConfig();
+  const minPreset = getPresetDimensions(config.imageMinDimId, IMAGE_RESOLUTION_PRESETS, '960x540');
+  const maxPreset = getPresetDimensions(config.imageMaxDimId, IMAGE_RESOLUTION_PRESETS, '1280x720');
+
+  // 1. إجراء الفحص الأولي
+  const initialCheck = await validateHallOrServiceImage(file);
+  
+  if (initialCheck.valid) {
+    return { ...initialCheck, file };
+  }
+
+  // 2. إذا كان الرفض بسبب الحجم أو الأبعاد وكان نوع الملف صورة، نقوم بالضغط التلقائي
+  if (file.type.startsWith('image/')) {
+    try {
+      console.log(`[MediaValidator] Auto-compressing file '${file.name}' to observe Rule #7...`);
+      const compressedFile = await compressAndResizeImage(file, {
+        maxSizeBytes: config.imageMaxSizeKB * 1024,
+        targetWidth: maxPreset.width,
+        targetHeight: maxPreset.height,
+        minWidth: minPreset.width,
+        minHeight: minPreset.height,
+        enforce16x9: true
+      });
+
+      const reCheck = await validateHallOrServiceImage(compressedFile);
+      if (reCheck.valid) {
+        return {
+          ...reCheck,
+          file: compressedFile,
+          autoCompressed: true,
+          warning: `تم تحسين وضغط الصورة تلقائياً لتتوافق مع معايير الجودة والحجم المعتمدة (${Math.round(compressedFile.size / 1024)}KB - 16:9).`
+        };
+      }
+    } catch (e) {
+      console.warn('[MediaValidator] Compression failed, returning initial check:', e);
+    }
+  }
+
+  return { ...initialCheck, file };
 };
 

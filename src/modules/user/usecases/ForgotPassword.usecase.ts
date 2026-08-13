@@ -30,20 +30,42 @@ export class ForgotPasswordUseCase {
       return { success: true, message: 'تم إرسال رمز التحقق بنجاح', email: emailClean, otp: otpCode, isMock: true };
     }
 
-    const user = await this.userRepository.findUserByEmail(emailClean);
+    let user = await this.userRepository.findUserByIdentifier(emailClean);
+    let pendingUser = null;
+
     if (!user) {
-      return { success: false, error: 'المستخدم غير مسجل بالمنصة', message: '', email: '', otp: '' };
+      pendingUser = await this.userRepository.findPendingByEmail(emailClean);
+      if (!pendingUser) {
+        return { success: false, error: 'المستخدم غير مسجل بالمنصة', message: '', email: '', otp: '' };
+      }
     }
 
-    const otpCode = this.otpService.generateOtpCode();
-    ResetTokenStore.set(emailClean, otpCode, new Date(Date.now() + 10 * 60 * 1000));
+    const targetEmail = user ? user.email : (pendingUser ? pendingUser.email : emailClean);
+    const targetPhone = user ? user.phone : (pendingUser ? pendingUser.phone : undefined);
 
-    console.log(`[ForgotPasswordUseCase] Sent reset code ${otpCode} to ${emailClean}`);
+    const otpCode = this.otpService.generateOtpCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Save token for all possible keys
+    ResetTokenStore.set(emailClean, otpCode, expiresAt);
+    if (targetEmail) {
+      ResetTokenStore.set(targetEmail.trim().toLowerCase(), otpCode, expiresAt);
+    }
+    if (targetPhone) {
+      ResetTokenStore.set(targetPhone.trim(), otpCode, expiresAt);
+    }
+
+    console.log(`[ForgotPasswordUseCase] Sent reset code ${otpCode} to ${targetEmail || emailClean}`);
 
     // Standard platform notification message
     const otpMessage = `رمز استعادة كلمة المرور لمنصة ليلة هو: ${otpCode}`;
-    await this.otpService.sendEmail(emailClean, otpCode, 'استعادة كلمة المرور - منصة ليلة', otpMessage);
+    if (targetEmail) {
+      await this.otpService.sendEmail(targetEmail, otpCode, 'استعادة كلمة المرور - منصة ليلة', otpMessage);
+    }
+    if (targetPhone) {
+      await this.otpService.sendSms(targetPhone, otpCode, otpMessage);
+    }
 
-    return { success: true, message: 'تم إرسال رمز استعادة كلمة المرور', email: emailClean, otp: otpCode };
+    return { success: true, message: 'تم إرسال رمز استعادة كلمة المرور بنجاح', email: targetEmail || emailClean, otp: otpCode };
   }
 }

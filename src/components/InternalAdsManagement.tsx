@@ -251,6 +251,24 @@ export const InternalAdsManagement = ({
 
   return (
     <div className="space-y-6">
+      {/* Server-Side Delivery Pipeline Banner */}
+      <div className="bg-gradient-to-r from-blue-950 via-indigo-900 to-slate-900 text-white p-5 rounded-3xl shadow-lg border border-blue-500/30 flex flex-col md:flex-row justify-between items-center gap-4 text-right" dir="rtl">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="bg-blue-500/20 text-blue-300 text-[10px] font-black px-3 py-0.5 rounded-full border border-blue-400/30">
+              قياس خادمي معتمد (Server-Side Measurement)
+            </span>
+            <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-0.5 rounded-full border border-emerald-400/30">
+              تصفية Bot + Deduplication خادمي ✅
+            </span>
+          </div>
+          <h3 className="font-black text-base text-white">سلسلة أحداث قياس وإسناد الإعلانات المعتمدة (Ad Events Pipeline)</h3>
+          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            تُحتسب القياسات خادمياً بدقة عالية وتمر بسلسلة التحقق الثمانية: <span className="font-mono text-blue-300 font-bold">AdEligible ➔ AdSelected ➔ AdRendered ➔ AdViewable ➔ AdClicked ➔ BookingStarted ➔ BookingAttributed ➔ BookingCompleted</span> دون تكرار أو تلاعب بالعدادات المحلية.
+          </p>
+        </div>
+      </div>
+
       {/* Overview Analytics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Total Revenue card */}

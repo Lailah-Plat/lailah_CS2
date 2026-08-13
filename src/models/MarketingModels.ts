@@ -107,6 +107,98 @@ CampaignExpense.init({
   date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, { sequelize, modelName: 'CampaignExpense' });
 
+// Agency Proposals (MPR-YY-XXXXXXXXXX)
+export class AgencyProposal extends Model {
+  declare id: number;
+  declare proposalNumber: string;
+  declare srvNumber: string;
+  declare campaignRequestId: string;
+  declare providerName: string;
+  declare agencyId: string;
+  declare agencyName: string;
+  declare title: string;
+  declare goalStrategy: string;
+  declare targetAudience: string;
+  declare proposedChannels: string;
+  declare adBudget: number;
+  declare agencyFee: number;
+  declare totalBudget: number;
+  declare platformCommissionBps: number;
+  declare startDate: string;
+  declare endDate: string;
+  declare status: 'Submitted' | 'Accepted' | 'ModificationRequested' | 'Rejected';
+  declare providerFeedback: string;
+}
+
+AgencyProposal.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  proposalNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
+  srvNumber: { type: DataTypes.STRING, allowNull: false },
+  campaignRequestId: { type: DataTypes.STRING, allowNull: true },
+  providerName: { type: DataTypes.STRING, allowNull: false },
+  agencyId: { type: DataTypes.STRING, allowNull: false, defaultValue: 'main_agency' },
+  agencyName: { type: DataTypes.STRING, defaultValue: 'وكالة ليلة التسويقية' },
+  title: { type: DataTypes.STRING, allowNull: false },
+  goalStrategy: { type: DataTypes.TEXT, allowNull: true },
+  targetAudience: { type: DataTypes.STRING, allowNull: true },
+  proposedChannels: { type: DataTypes.STRING, allowNull: true },
+  adBudget: { type: DataTypes.FLOAT, defaultValue: 0 },
+  agencyFee: { type: DataTypes.FLOAT, defaultValue: 0 },
+  totalBudget: { type: DataTypes.FLOAT, defaultValue: 0 },
+  platformCommissionBps: { type: DataTypes.INTEGER, defaultValue: 2000 },
+  startDate: { type: DataTypes.STRING, allowNull: true },
+  endDate: { type: DataTypes.STRING, allowNull: true },
+  status: { type: DataTypes.ENUM('Submitted', 'Accepted', 'ModificationRequested', 'Rejected'), defaultValue: 'Submitted' },
+  providerFeedback: { type: DataTypes.TEXT, allowNull: true }
+}, { sequelize, modelName: 'AgencyProposal' });
+
+// Administrative Marketing Grants (حالة الحملة المجانية أو الممنوحة للمزودين)
+export class AdministrativeMarketingGrant extends Model {
+  declare id: number;
+  declare grantNumber: string;
+  declare srvNumber: string;
+  declare campaignId: string;
+  declare providerId: number;
+  declare providerName: string;
+  declare grantReason: string;
+  declare grantedBudget: number;
+  declare agencyFeeCovered: number;
+  declare budgetSource: string;
+  declare costCenter: string;
+  declare financialImpact: string;
+  declare creatorEmployeeId: string;
+  declare creatorEmployeeName: string;
+  declare approvingManagerId: string;
+  declare approvingManagerName: string;
+  declare status: 'PendingManagerApproval' | 'Approved' | 'Rejected';
+  declare startDate: string;
+  declare endDate: string;
+  declare auditLog: string;
+}
+
+AdministrativeMarketingGrant.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  grantNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
+  srvNumber: { type: DataTypes.STRING, allowNull: false },
+  campaignId: { type: DataTypes.STRING, allowNull: true },
+  providerId: { type: DataTypes.INTEGER, allowNull: true },
+  providerName: { type: DataTypes.STRING, allowNull: false },
+  grantReason: { type: DataTypes.TEXT, allowNull: false },
+  grantedBudget: { type: DataTypes.FLOAT, defaultValue: 0 },
+  agencyFeeCovered: { type: DataTypes.FLOAT, defaultValue: 0 },
+  budgetSource: { type: DataTypes.STRING, defaultValue: 'ميزانية المنح التسويقية للمنصة' },
+  costCenter: { type: DataTypes.STRING, defaultValue: 'مركز كلفة التسويق والنمو - ليلة' },
+  financialImpact: { type: DataTypes.STRING, defaultValue: 'مصروفات تسويقية مباشرة محتملة بواسطة المنصة' },
+  creatorEmployeeId: { type: DataTypes.STRING, allowNull: false },
+  creatorEmployeeName: { type: DataTypes.STRING, allowNull: false },
+  approvingManagerId: { type: DataTypes.STRING, allowNull: true },
+  approvingManagerName: { type: DataTypes.STRING, allowNull: true },
+  status: { type: DataTypes.ENUM('PendingManagerApproval', 'Approved', 'Rejected'), defaultValue: 'PendingManagerApproval' },
+  startDate: { type: DataTypes.STRING, allowNull: true },
+  endDate: { type: DataTypes.STRING, allowNull: true },
+  auditLog: { type: DataTypes.TEXT, allowNull: true }
+}, { sequelize, modelName: 'AdministrativeMarketingGrant' });
+
 import { User } from './UserModels.js';
 
 // Relationships

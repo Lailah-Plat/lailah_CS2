@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,6 +10,13 @@ import {
 } from 'lucide-react';
 
 export default function ProviderMessagesPage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Graceful forwarding to Unified Provider Dashboard
+    navigate('/provider-dashboard?tab=messages', { replace: true });
+  }, [navigate]);
+
   const [user, setUser] = useState<any>(() => {
     try {
       const saved = localStorage.getItem('currentUser');

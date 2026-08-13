@@ -1,7 +1,6 @@
 {
   "preFlightCheckEnabled": true,
   "preFlightTimeoutMs": 3000,
-  "localDatabaseEnabled": false,
-  "dbProvider": "remote_sql",
-  "encryptedDbUrl": "U2FsdGVkX1/sVyp4X29lX7GdUbXBy0FK8m03KVLza8nRFAMp9o3iLqMxbGvNT3FaD9tPDgvP++kicGW4B81tU3j96GgUpZapjAMWq9TleKf9/PaqasZf3GUU9eipMsWG7vQi48fw8yMOXTARLsQ3en/SizHqJlU4Ndqjypg/oW2kpQ4lsysXR1dfKn8WfpNni9emP6FHhONEPu3fody9id6JuX+GtjnPyurDM3qySK0="
+  "localDatabaseEnabled": true,
+  "dbProvider": "sqlite"
 }

@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { PhoneInput, CrNumberInput, TaxNumberInput, NationalIdInput } from '../common/ValidationInputs';
 import { validateHallOrServiceImage, validateHallOrServiceVideo } from '../../utils/mediaValidator';
+import { MediaDimensionsHelperModal } from '../common/MediaDimensionsHelperModal';
 
 interface HallStepperModalProps {
   isOpen: boolean;
@@ -59,6 +60,7 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
   
   // Image upload state
   const [isUploadingHallImages, setIsUploadingHallImages] = useState(false);
+  const [showMediaGuideModal, setShowMediaGuideModal] = useState(false);
 
   // Sync extra service edit forms when selecting to edit
   const handleAddOrUpdateExtraService = () => {
@@ -1041,11 +1043,20 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
                   {/* Images & Video Upload Section according to Rule 7 */}
                   <div className="space-y-3">
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                         <label className="block text-xs font-bold text-slate-700">ألبوم صور المرفق والقاعة (حد أقصى 10 صور)</label>
-                        <span className="text-[9px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-semibold border border-amber-200/60">
-                          الاشتراطات: 500KB | 960x540 إلى 1280x720 | 16:9
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowMediaGuideModal(true)}
+                            className="text-[10px] bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 px-2.5 py-0.5 rounded-full font-bold border border-amber-500/30 transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>📱 دليل التصوير الأفقي والوسائط</span>
+                          </button>
+                          <span className="text-[9px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-semibold border border-amber-200/60">
+                            الاشتراطات: 500KB | 16:9
+                          </span>
+                        </div>
                       </div>
                       <div className="border-2 border-dashed border-amber-200 bg-amber-50/10 hover:border-amber-400 rounded-xl p-4 text-center transition-all relative hover:bg-amber-50/20 cursor-pointer flex flex-col justify-center items-center">
                         <input 
@@ -1452,6 +1463,10 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
 
         </div>
 
+        <MediaDimensionsHelperModal 
+          isOpen={showMediaGuideModal} 
+          onClose={() => setShowMediaGuideModal(false)} 
+        />
       </div>
     </div>
   );

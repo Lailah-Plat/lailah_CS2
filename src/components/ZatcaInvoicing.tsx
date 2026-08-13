@@ -69,15 +69,17 @@ export default function ZatcaInvoicing({
   const formatInvoiceId = (id: any) => globalFormatInvoiceId(id);
   const formatBookingId = (id: any) => id ? globalFormatBookingId(id) : '-';
 
-  // Sample DB Invoices constructed dynamically based on current bookings info
+  // DB Invoices constructed dynamically based on current bookings and service requests
   const providerBookings = useMemo(() => {
     return bookings.filter((b: any) => {
-      const matchStatus = b.status === 'مؤكد' || b.status === 'completed' || b.status === 'confirmed';
+      // Exclude explicitly cancelled or rejected bookings from tax invoice listings
+      if (b.status === 'cancelled' || b.status === 'ملغي' || b.status === 'مرفوض') return false;
+      if (userRole === 'admin') return true;
       const matchProvider = b.providerName === currentProvider || b.provider === currentProvider || 
         halls.some((h: any) => h.name === b.hall && h.provider === currentProvider);
-      return matchStatus && matchProvider;
+      return matchProvider;
     });
-  }, [bookings, currentProvider, halls]);
+  }, [bookings, currentProvider, halls, userRole]);
 
   // Dynamic values based on bookings
   const parsedInvoices = useMemo(() => {

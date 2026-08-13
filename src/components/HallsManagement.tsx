@@ -4,11 +4,12 @@ import {
   Building2, Sparkles, Search, Filter, Table, List, LayoutGrid, Eye, 
   Settings2, RefreshCw, Pencil, Plus, Power, Trash2, Layers, Star, 
   Edit, ShieldCheck, ShieldAlert, BadgePercent, X, MapPin, UploadCloud, 
-  ScrollText, Landmark, Info, Coins, HelpCircle
+  ScrollText, Landmark, Info, Coins, HelpCircle, Camera
 } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import { AddServiceModal } from './AddServiceModal';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
+import { MediaStandardsGuideModal, MediaStandardsGuideTrigger } from './MediaStandardsGuideModal';
 import GoogleMapsModal from './common/GoogleMapsModal';
 import { CrNumberInput, TaxNumberInput, PhoneInput } from './common/ValidationInputs';
 import { getFullDateInfo } from '../utils/dateUtils';
@@ -89,6 +90,8 @@ export default function HallsManagement({
   const [uploadingDocSlot, setUploadingDocSlot] = useState<string | null>(null);
   const [isAddServiceModalOpen, setIsAddServiceModalOpen] = useState(false);
   const [isExternalBlockModalOpen, setIsExternalBlockModalOpen] = useState(false);
+  const [isMediaGuideOpen, setIsMediaGuideOpen] = useState(false);
+  const [mediaGuideTab, setMediaGuideTab] = useState<'guide' | 'inspector' | 'camera_setup'>('guide');
   const [selectedBlockTargetId, setSelectedBlockTargetId] = useState<string | number | undefined>(undefined);
   const [selectedBlockTargetType, setSelectedBlockTargetType] = useState<'hall' | 'service'>('hall');
 
@@ -440,6 +443,19 @@ export default function HallsManagement({
                 <option value="price_desc">السعر: من الأعلى إلى الأقل</option>
                 <option value="capacity_desc">الاستيعاب: تنازلياً</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMediaGuideTab('guide');
+                  setIsMediaGuideOpen(true);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-950 text-emerald-300 font-extrabold text-xs flex items-center gap-2 border border-emerald-500/40 shadow-sm transition-all active:scale-95 cursor-pointer"
+                title="دليل معايير واشتراطات تصوير ورفع الوسائط والصور (16:9)"
+              >
+                <Camera className="w-4 h-4 text-emerald-400" />
+                <span>دليل تصوير ورفع الوسائط 📷</span>
+              </button>
 
               <button
                 type="button"
@@ -3282,6 +3298,13 @@ export default function HallsManagement({
           onClose={() => setIsExternalBlockModalOpen(false)}
         />
       )}
+
+      {/* Media Standards Guide Modal */}
+      <MediaStandardsGuideModal
+        isOpen={isMediaGuideOpen}
+        onClose={() => setIsMediaGuideOpen(false)}
+        defaultTab={mediaGuideTab}
+      />
     </div>
   );
 }

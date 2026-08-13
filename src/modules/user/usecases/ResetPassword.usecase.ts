@@ -56,7 +56,7 @@ export class ResetPasswordUseCase {
       return { success: false, error: 'انتهت صلاحية رمز التحقق', message: '' };
     }
 
-    const user = await this.userRepository.findUserByEmail(emailClean);
+    const user = await this.userRepository.findUserByIdentifier(emailClean);
     if (!user) {
       return { success: false, error: 'المستخدم غير موجود', message: '' };
     }

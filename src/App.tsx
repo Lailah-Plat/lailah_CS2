@@ -24,8 +24,12 @@ import { PartnerRequestsManagement } from './components/admin/PartnerRequestsMan
 import { AdminUsersManagement } from './components/AdminUsersManagement';
 import { UsersManagementMain } from './components/UsersManagementMain';
 import { MarketingManagement } from './components/MarketingManagement';
+import { LPASManager } from './components/lpas/LPASManager';
+import { LPASPageRenderer } from './components/lpas/LPASPageRenderer';
+import { resolveLPASPage } from './services/LPASResolverService';
 import { BookingsManagement } from './components/BookingsManagement';
 import { ReviewsManagement } from './components/ReviewsManagement';
+import { AdminHeaderNotificationBell } from './components/AdminHeaderNotificationBell';
 import { Toaster } from 'react-hot-toast';
 
 // Resilient dynamic code splitting helper with fallback retry
@@ -67,6 +71,7 @@ import ServicesManagement from './components/ServicesManagement';
 import ProviderStaffManagement from './components/ProviderStaffManagement';
 import { SupportManagement } from './components/SupportManagement';
 import { SettingsManagement } from './components/SettingsManagement';
+import { PhasesExecutionPortal } from './components/PhasesExecutionPortal';
 import { SupportSection } from './components/admin/SupportSection';
 import { ReviewsSection } from './components/admin/ReviewsSection';
 import { MarketingSection } from './components/admin/MarketingSection';
@@ -100,6 +105,11 @@ import { getSubscriptions, saveSubscriptions } from './utils/subscriptions';
 import { getDiscounts, saveDiscounts, isDiscountApplicable, calculateDiscountAmount } from './utils/discounts';
 import { loadDynamicRegions } from './utils/dataLoaders';
 import { DiscountsManagement } from './components/admin/DiscountsManagement';
+import { UrgentAlertsDashboard } from './components/UrgentAlertsDashboard';
+import { FeatureAdoptionAnalytics } from './components/FeatureAdoptionAnalytics';
+import { AffiliateReferralDashboard } from './components/AffiliateReferralDashboard';
+import { SystemDiagnosticsHealth } from './components/SystemDiagnosticsHealth';
+import { TechnicalDiagnosticsHub } from './components/TechnicalDiagnosticsHub';
 import { getServices, saveServices, providers as mockProviders, getPartnerLevel as getLevelFromMock, getPartnerLevelThresholds, Hall, getStoredHalls, saveStoredHalls } from './data/mockData';
 import BookingInvoice from './components/BookingInvoice';
 import UnifiedInvoiceTab from './components/UnifiedInvoiceTab';
@@ -291,6 +301,11 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
 
+  const [publicLpasSlug, setPublicLpasSlug] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('lpas_page') || params.get('lpas_slug') || params.get('landing_page') || null;
+  });
+
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const profileContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -448,7 +463,7 @@ export default function App() {
   const visibleTabs = useMemo(() => {
     if (userRole === 'admin') {
       return TABS.filter(tab => 
-        ['overview', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'financial_settings', 'marketing', 'users', 'customers', 'providers', 'staff', 'support', 'reviews', 'messages', 'settings', 'staff_profile'].includes(tab.id)
+        ['overview', 'urgent_alerts', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'financial_settings', 'technical_diagnostics', 'marketing', 'feature_adoption', 'users', 'customers', 'providers', 'staff', 'support', 'reviews', 'messages', 'settings', 'staff_profile', 'roadmap_phases'].includes(tab.id)
       );
     }
     if (userRole === 'agency') {
@@ -466,7 +481,7 @@ export default function App() {
     const anyState = state as any;
 
     // Strict Access Control: Redirect non-admins trying to access forbidden admin tabs
-    if (userRole !== 'admin' && (activeTab === 'financial_settings' || activeTab === 'unified_invoice' || activeTab === 'diagnostics' || activeTab === 'settings' || activeTab === 'users' || activeTab === 'staff' || activeTab === 'subscriptions')) {
+    if (userRole !== 'admin' && (activeTab === 'financial_settings' || activeTab === 'unified_invoice' || activeTab === 'diagnostics' || activeTab === 'technical_diagnostics' || activeTab === 'system_health' || activeTab === 'settings' || activeTab === 'users' || activeTab === 'staff' || activeTab === 'subscriptions' || activeTab === 'roadmap_phases')) {
       setTimeout(() => {
         setActiveTab('overview');
       }, 0);
@@ -479,6 +494,50 @@ export default function App() {
           <Suspense fallback={<LoadingSpinner />}>
             <AdminDashboard {...anyState} activeSection={activeSection} setActiveSection={setActiveSection} />
           </Suspense>
+        );
+
+      case 'urgent_alerts':
+        return <UrgentAlertsDashboard showNotification={state.showNotification} setActiveTab={(tab: any) => setActiveTab(tab)} bookings={state.bookings} supportServiceRequests={state.supportServiceRequests} />;
+
+      case 'feature_adoption':
+        return <FeatureAdoptionAnalytics showNotification={state.showNotification} />;
+
+      case 'affiliate_referrals':
+        return (
+          <MarketingManagement
+            {...anyState}
+            activeMarketingSubTab="affiliate_codes"
+            setActiveMarketingSubTab={state.setActiveMarketingSubTab}
+          />
+        );
+
+      case 'lpas_studio':
+        return (
+          <LPASManager
+            onBackToDashboard={() => setActiveTab('overview')}
+            onSelectPageToRegister={(context) => {
+              setActiveTab('providers');
+              if (state.showNotification) {
+                state.showNotification('info', `تم توجيه التسجيل بسياق: ${context?.providerType || 'عام'}`);
+              }
+            }}
+          />
+        );
+
+      case 'technical_diagnostics':
+      case 'system_health':
+      case 'diagnostics':
+        return (
+          <TechnicalDiagnosticsHub
+            initialTab={activeTab === 'system_health' ? 'system_health' : 'self_diagnostics'}
+            halls={state.halls}
+            bookings={state.bookings}
+            services={state.services}
+            supportServiceRequests={state.supportServiceRequests}
+            setBookings={state.setBookings}
+            setSupportServiceRequests={state.setSupportServiceRequests}
+            showNotification={state.showNotification}
+          />
         );
 
       case 'bookings':
@@ -523,9 +582,6 @@ export default function App() {
 
       case 'unified_invoice':
         return <FinancialSettingsSection {...anyState} initialSubTab="unified_invoice" />;
-
-      case 'diagnostics':
-        return <FinancialSettingsSection {...anyState} initialSubTab="diagnostics" />;
 
       case 'marketing':
         if (userRole === 'admin') {
@@ -606,6 +662,9 @@ export default function App() {
       case 'settings':
         return <SettingsSection {...anyState} />;
 
+      case 'roadmap_phases':
+        return <PhasesExecutionPortal userRole={userRole} providerId={state.currentProviderId || 'PROV-1'} />;
+
       case 'provider_profile':
         return <ProviderProfileComponent {...anyState} />;
 
@@ -632,6 +691,28 @@ export default function App() {
   const activeTabLabel = useMemo(() => {
     return TABS.find(t => t.id === activeTab)?.label || 'لوحة التحكم';
   }, [activeTab]);
+
+  if (publicLpasSlug) {
+    const lpasPage = resolveLPASPage(publicLpasSlug);
+    return (
+      <AppProvider value={state}>
+        <LPASPageRenderer
+          page={lpasPage}
+          onNavigateToRegistration={(context) => {
+            setPublicLpasSlug(null);
+            setActiveTab('providers');
+            if (state.showNotification) {
+              state.showNotification('info', `تم توجيه التسجيل بسياق: ${context?.providerType || 'عام'}`);
+            }
+          }}
+          onViewOtherPages={() => {
+            setPublicLpasSlug(null);
+            setActiveTab('lpas_studio');
+          }}
+        />
+      </AppProvider>
+    );
+  }
 
   return (
     <AppProvider value={state}>
@@ -726,7 +807,7 @@ export default function App() {
               [
                 {
                   title: 'مركز التشغيل والعمليات',
-                  tabs: ['overview', 'bookings', 'support', 'messages']
+                  tabs: ['overview', 'urgent_alerts', 'bookings', 'support', 'messages']
                 },
                 {
                   title: 'السوق والخدمات',
@@ -738,11 +819,11 @@ export default function App() {
                 },
                 {
                   title: 'العملاء والتسويق',
-                  tabs: ['customers', 'marketing', 'reviews']
+                  tabs: ['customers', 'marketing', 'feature_adoption', 'reviews']
                 },
                 {
                   title: 'إدارة النظام والتقنية',
-                  tabs: ['users', 'staff', 'settings']
+                  tabs: ['users', 'staff', 'settings', 'technical_diagnostics', 'roadmap_phases']
                 },
                 {
                   title: 'إدارة بياناتي',
@@ -868,12 +949,44 @@ export default function App() {
               </div>
             </div>
 
-            {/* Left: Quick Actions */}
-            <div className="flex items-center gap-3">
+            {/* Left: Quick Actions & Operational Bell Notification Bar */}
+            <div className="flex items-center gap-2.5">
               <div className="hidden sm:flex items-center gap-1 bg-slate-50 dark:bg-slate-900/60 border border-slate-250/60 dark:border-slate-800 px-3 py-1.5 rounded-full text-[10px] font-black text-slate-500 dark:text-slate-400 shadow-sm select-none">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>النظام متصل وبكامل كفاءته</span>
               </div>
+
+              {/* Top Navigation Button for Urgent Operational & Financial Alerts */}
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => setActiveTab('urgent_alerts')}
+                  className={`px-3 py-1.5 rounded-2xl transition-all duration-200 text-right flex items-center gap-2 border cursor-pointer ${
+                    activeTab === 'urgent_alerts'
+                      ? 'bg-red-950/90 text-red-100 border-red-500 shadow-lg ring-2 ring-red-500/50 font-black'
+                      : 'bg-gradient-to-r from-red-950/80 via-slate-900 to-red-900/60 hover:from-red-900 text-red-200 border-red-800/80 hover:border-red-500'
+                  }`}
+                  title="الإنذارات التشغيلية والمالية العاجلة"
+                >
+                  <span className="p-1 bg-red-500/20 text-red-400 rounded-xl animate-pulse text-sm leading-none">
+                    🚨
+                  </span>
+                  <div className="flex flex-col text-right">
+                    <div className="text-xs font-black text-red-200 flex items-center gap-1.5">
+                      الإنذارات العاجلة
+                      <span className="px-1.5 py-0.2 bg-red-600 text-white text-[9px] rounded-full font-black animate-bounce">3</span>
+                    </div>
+                    <div className="text-[9px] text-red-300/80 font-medium hidden md:block">المركزي للإنذارات والنزاعات</div>
+                  </div>
+                </button>
+              )}
+
+              {/* Top Navigation Bell Bar for Operational Alerts */}
+              <AdminHeaderNotificationBell
+                userRole={userRole}
+                setActiveTab={setActiveTab}
+                theme={theme}
+                toggleTheme={toggleTheme}
+              />
             </div>
           </header>
 

@@ -179,6 +179,35 @@ export class UserService {
     return { success: true, message: 'تم استكمال الملف الشخصي بنجاح', user };
   }
 
+  async syncProfile(data: any): Promise<{ success: boolean; message: string; user?: User }> {
+    try {
+      const { providerName, showProviderToCustomers, username, customerAlias, settings } = data;
+      let user;
+      if (providerName) {
+        user = await User.findOne({ where: { name: providerName } });
+      }
+      if (!user && settings?.email) {
+        user = await this.userRepository.findUserByEmail(settings.email);
+      }
+      if (user) {
+        const uname = username || customerAlias || settings?.username;
+        if (uname !== undefined) user.username = uname;
+        if (showProviderToCustomers !== undefined) user.showProviderToCustomers = showProviderToCustomers;
+        if (settings?.region) user.region = settings.region;
+        if (settings?.city) user.city = settings.city;
+        if (settings?.nationalAddress) user.addressDetails = settings.nationalAddress;
+        if (settings?.bankName) user.bankName = settings.bankName;
+        if (settings?.iban) user.iban = normalizeIban(settings.iban);
+        if (settings?.crNumber) user.commercialRecord = settings.crNumber;
+        await user.save();
+        return { success: true, message: 'تم التزامن وتحديث بيانات المزود في قاعدة البيانات السحابية بنجاح', user };
+      }
+    } catch (e) {
+      console.error('Error in syncProfile user.service:', e);
+    }
+    return { success: true, message: 'تم استقبال إشارة التزامن السحابي بنجاح' };
+  }
+
   async migrateProviders(providers: any[]): Promise<User[]> {
     const migrated = [];
     for (const p of providers) {

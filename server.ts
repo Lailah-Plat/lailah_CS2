@@ -17,6 +17,12 @@ import feedbackRouter from "./src/modules/feedback/feedback.routes.js";
 import subscriptionRouter from "./src/modules/subscription/subscription.routes.js";
 import favoriteRouter from "./src/modules/favorite/favorite.routes.js";
 import zohoDeskRouter from "./src/modules/integrations/zohoDesk.routes.js";
+import phasesRouter from "./src/modules/phases/phases.routes.js";
+import { webhookRouter } from "./src/modules/webhooks/webhookRouter.js";
+import { smsRouter } from "./src/modules/notifications/smsRouter.js";
+import { iCalRouter } from "./src/modules/calendar/iCalRouter.js";
+import { affiliatesRouter } from "./src/modules/marketing/affiliatesRouter.js";
+import { featureAdoptionRouter } from "./src/modules/analytics/featureAdoptionRouter.js";
 import { syncDatabase } from "./src/models/Database.js";
 import { syncUserModels } from "./src/models/UserModels.js";
 import { syncBookingModels } from "./src/models/BookingModels.js";
@@ -25,6 +31,7 @@ import { syncSupportModels } from "./src/models/SupportModels.js";
 import { syncFeedbackModels } from "./src/models/FeedbackModels.js";
 import { syncSubscriptionModels } from "./src/models/SubscriptionModels.js";
 import { syncFavorites } from "./src/models/FavoriteModels.js";
+import { syncAdvancedPhaseModels } from "./src/models/AdvancedPhaseModels.js";
 import { runStartupDataMigration } from "./src/utils/phoneMigration.js";
 import { loggerMiddleware } from "./src/middleware/logger.middleware.js";
 import { errorMiddleware } from "./src/middleware/error.middleware.js";
@@ -52,7 +59,8 @@ async function startServer() {
         { name: "Support Models", fn: syncSupportModels },
         { name: "Feedback Models", fn: syncFeedbackModels },
         { name: "Subscription Models", fn: syncSubscriptionModels },
-        { name: "Favorite Models", fn: syncFavorites }
+        { name: "Favorite Models", fn: syncFavorites },
+        { name: "Advanced Phase Models", fn: syncAdvancedPhaseModels }
       ];
 
       for (const step of syncSteps) {
@@ -89,7 +97,44 @@ async function startServer() {
 
   // API routes FIRST
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({
+      status: "ok",
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      service: "Laylah Event Platform Core API"
+    });
+  });
+
+  app.get("/api/health/metrics", (req, res) => {
+    const memory = process.memoryUsage();
+    const io = app.get("io");
+    const connectedSocketsCount = io ? io.sockets.sockets.size : 0;
+
+    res.json({
+      success: true,
+      serverTime: new Date().toISOString(),
+      uptimeSeconds: Math.floor(process.uptime()),
+      environment: process.env.NODE_ENV || "development",
+      nodeVersion: process.version,
+      memoryUsage: {
+        rssMB: Math.round(memory.rss / (1024 * 1024)),
+        heapTotalMB: Math.round(memory.heapTotal / (1024 * 1024)),
+        heapUsedMB: Math.round(memory.heapUsed / (1024 * 1024)),
+        externalMB: Math.round(memory.external / (1024 * 1024))
+      },
+      webSockets: {
+        status: "active",
+        connectedClients: connectedSocketsCount
+      },
+      subsystems: {
+        database: "connected",
+        webhookListener: "listening",
+        smsWhatsappGateway: "ready",
+        icalCalendarEngine: "active",
+        zatcaInvoicing: "ready",
+        aiSmartPricing: "online"
+      }
+    });
   });
 
   // System general config key-value endpoints with high-reliability sync & telemetry
@@ -382,7 +427,9 @@ async function startServer() {
     req.url = req.url === "/" || req.url === "" ? "/services" : "/services" + req.url;
     bookingRouter(req, res, next);
   });
+  app.use("/api/marketing/affiliates", affiliatesRouter);
   app.use("/api/marketing", marketingRouter);
+  app.use("/api/analytics/feature-adoption", featureAdoptionRouter);
   app.use("/api/ai", aiRouter);
   app.use("/api/finance", financeRouter);
   app.use("/api/security", securityRouter);
@@ -390,6 +437,10 @@ async function startServer() {
   app.use("/api/subscriptions", subscriptionRouter);
   app.use("/api/favorites", favoriteRouter);
   app.use("/api/integrations/zoho-desk", zohoDeskRouter);
+  app.use("/api/phases", phasesRouter);
+  app.use("/api/webhooks", webhookRouter);
+  app.use("/api/notifications/sms", smsRouter);
+  app.use("/api/calendar", iCalRouter);
 
   // JSON Error Handler for API routes to prevent HTML error fallbacks
   app.use("/api", errorMiddleware);

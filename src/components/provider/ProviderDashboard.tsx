@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { safeSetLocalStorage } from '../../utils/safeStorage';
+import { apiService } from '../../services/apiService';
 import { motion } from 'motion/react';
 import { 
   TrendingUp, Activity, CreditCard, Wallet, 
@@ -8,10 +9,12 @@ import {
   Eye, RefreshCw, AlertCircle, Calendar, Sparkles, Inbox,
   CheckSquare, Users2, ShieldAlert, CheckCircle2, Sliders, Search, 
   FileSpreadsheet, Download, Plus, AlertTriangle, Play, FileText, Check, Printer, X, Coffee, Lock, Package, MapPin,
-  ChevronRight, ChevronLeft, List, LayoutGrid, Truck, Boxes, Trash, Edit, Info, UploadCloud, Loader2, Compass
+  ChevronRight, ChevronLeft, List, LayoutGrid, Truck, Boxes, Trash, Edit, Info, UploadCloud, Loader2, Compass, Camera
 } from 'lucide-react';
 import { OperationsCenter } from './OperationsCenter';
+import { ProviderGrowthCenter } from './ProviderGrowthCenter';
 import ProviderPayoutAndSubscriptionPanel from '../payment/ProviderPayoutAndSubscriptionPanel';
+import { MediaStandardsGuideModal } from '../MediaStandardsGuideModal';
 import { 
   ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, 
   Legend, Bar, Line, AreaChart, Area, Tooltip as RechartsTooltip
@@ -37,6 +40,10 @@ interface ProviderDashboardProps {
   setBookings: React.Dispatch<React.SetStateAction<any[]>>;
   supportServiceRequests: any[];
   campaigns: any[];
+  setCampaigns?: React.Dispatch<React.SetStateAction<any[]>>;
+  adRequests?: any[];
+  setAdRequests?: React.Dispatch<React.SetStateAction<any[]>>;
+  services?: any[];
   customers: any[];
   halls: any[];
   activeSection: string;
@@ -63,6 +70,10 @@ export function ProviderDashboard({
   bookings,
   supportServiceRequests,
   campaigns,
+  setCampaigns,
+  adRequests = [],
+  setAdRequests,
+  services = [],
   customers,
   halls,
   activeSection,
@@ -79,6 +90,19 @@ export function ProviderDashboard({
 
   const [activeSubTab, setActiveSubTab] = useState<'business_os' | 'ops_center' | 'stats' | 'growth'>('business_os');
   const [osTab, setOsTab] = useState<'overview' | 'profile' | 'catalog' | 'pricing' | 'availability' | 'bookings' | 'orders' | 'hybrid' | 'finance' | 'subscription' | 'reports' | 'marketing' | 'customers' | 'notifications' | 'inventory' | 'suppliers' | 'ops_center' | 'stats' | 'growth'>('overview');
+
+  useEffect(() => {
+    if (activeSection) {
+      if (activeSection === 'marketing') setOsTab('marketing');
+      else if (activeSection === 'bookings') setOsTab('bookings');
+      else if (activeSection === 'orders') setOsTab('orders');
+      else if (activeSection === 'halls' || activeSection === 'catalog') setOsTab('catalog');
+      else if (activeSection === 'finance') setOsTab('finance');
+      else if (activeSection === 'inventory') setOsTab('inventory');
+      else if (activeSection === 'suppliers') setOsTab('suppliers');
+      else if (activeSection === 'customers') setOsTab('customers');
+    }
+  }, [activeSection]);
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedDomains, setExpandedDomains] = useState<Record<string, boolean>>({
@@ -194,6 +218,9 @@ export function ProviderDashboard({
   const [catalogPackages, setCatalogPackages] = useState<any[]>([
     { id: 'PKG-01', name: 'الباقة الكبرى الملكية المتكاملة', venue: 'قاعة الأسطورة الكبرى', price: 22000, items: ['قاعة الأسطورة الكبرى', 'بوفيه عشاء ملكي فاخر', 'تنسيق وديكور الكوشة الحديثة', 'الضيافة الذهبية'], desc: 'عرض شامل يتضمن حجز قصر الأفراح مع الخدمات الأساسية بخصم 15%.' }
   ]);
+
+  // Media Guide State
+  const [isMediaGuideOpen, setIsMediaGuideOpen] = useState(false);
 
   // Pricing Engine states
   const [pricingRules, setPricingRules] = useState<any[]>([
@@ -343,6 +370,7 @@ export function ProviderDashboard({
   // New Wizard and Profile fields
   const [isWizardForceOpen, setIsWizardForceOpen] = useState(false);
   const [profileEntityType, setProfileEntityType] = useState('شركة');
+  const [profileRepresentativeName, setProfileRepresentativeName] = useState('عبدالرحمن العتيبي');
   const [profileRepresentativeEmail, setProfileRepresentativeEmail] = useState('contact@layla-venues.com');
   const [profileRepresentativePhone, setProfileRepresentativePhone] = useState('0551234567');
   const [profileLogo, setProfileLogo] = useState<string | null>(null);
@@ -356,6 +384,7 @@ export function ProviderDashboard({
 
   const [profileRegion, setProfileRegion] = useState('منطقة الرياض');
   const [profileCity, setProfileCity] = useState('الرياض');
+  const [profileDistrict, setProfileDistrict] = useState('حي الملقا');
   const [profileNationalAddress, setProfileNationalAddress] = useState('الملقا 4567، الرياض، المملكة العربية السعودية');
   const [profileMapLink, setProfileMapLink] = useState('https://maps.google.com/?q=24.7618,46.6264');
   
@@ -363,16 +392,27 @@ export function ProviderDashboard({
   const [wizTaxId, setWizTaxId] = useState('301234567800003');
   const [wizIban, setWizIban] = useState('SA9340000000123456789012');
   const [wizBankName, setWizBankName] = useState('البنك الأهلي السعودي');
+  const [wizBankAccountHolder, setWizBankAccountHolder] = useState('شركة ليالينا للاحتفالات والمناسبات');
   
+  // First Branch Extended Setup States
+  const [wizBranchDistrict, setWizBranchDistrict] = useState('حي الملقا');
+  const [wizBranchManagerName, setWizBranchManagerName] = useState('خالد الرويلي');
+  const [wizBranchManagerPhone, setWizBranchManagerPhone] = useState('0551234567');
+  const [wizBranchType, setWizBranchType] = useState('قاعة مناسبات وأفراح متكاملة');
+  const [wizBranchMapLink, setWizBranchMapLink] = useState('https://maps.google.com/?q=24.7618,46.6264');
+
   // Documents Checklist (Merged Step)
   const [wizDocCR, setWizDocCR] = useState<string | null>('cr_certificate_signed.pdf');
   const [wizDocVAT, setWizDocVAT] = useState<string | null>('vat_registration_approved.pdf');
   const [wizDocChamber, setWizDocChamber] = useState<string | null>('chamber_of_commerce_cert.pdf');
+  const [wizDocManagerID, setWizDocManagerID] = useState<string | null>('manager_national_id.pdf');
   const [wizDocCRChecked, setWizDocCRChecked] = useState(true);
   const [wizDocVATChecked, setWizDocVATChecked] = useState(true);
   const [wizDocChamberChecked, setWizDocChamberChecked] = useState(true);
+  const [wizDocManagerIDChecked, setWizDocManagerIDChecked] = useState(true);
   
   const [wizDeclarationAccepted, setWizDeclarationAccepted] = useState(false);
+  const [stepValidationAlerts, setStepValidationAlerts] = useState<string[]>([]);
 
   // Logo upload with strict validation: <= 500KB, JPEG/PNG/WebP, dimensions <= 960x960
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -623,10 +663,10 @@ export function ProviderDashboard({
     dynamicVolume: false,
   });
 
-  const [providerPlan, setProviderPlan] = useState<'starter' | 'pro'>('starter');
-  const [purchasedDynamicPricingAddon, setPurchasedDynamicPricingAddon] = useState(false);
+  const [providerPlan, setProviderPlan] = useState<'starter' | 'pro'>('pro');
+  const [purchasedDynamicPricingAddon, setPurchasedDynamicPricingAddon] = useState(true);
 
-  const hasDynamicPricingAccess = providerPlan === 'pro' || purchasedDynamicPricingAddon;
+  const hasDynamicPricingAccess = true;
 
   const [catalogActiveInnerTab, setCatalogActiveInnerTab] = useState<'halls' | 'services' | 'packages'>('halls');
   const [reportsActiveInnerTab, setReportsActiveInnerTab] = useState<'financial' | 'operational' | 'branches'>('financial');
@@ -1123,36 +1163,34 @@ export function ProviderDashboard({
   return (
     <div className="space-y-6 animate-in fade-in duration-300" dir="rtl">
       
-      {/* Simulation Controller Banner */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-4 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-3 text-right">
-        <div className="flex items-center gap-2.5">
-          <Sparkles className="w-5 h-5 text-amber-500 animate-spin shrink-0" />
+      {/* Unified Provider Workspace Status Banner (Phase 4 Decommissioning Completed) */}
+      <div className="bg-gradient-to-r from-emerald-950 via-indigo-950 to-slate-900 text-white p-4 rounded-3xl border border-emerald-500/30 flex flex-col md:flex-row justify-between items-center gap-3 text-right shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Sparkles className="w-5 h-5 animate-pulse" />
+          </div>
           <div>
-            <h4 className="text-xs font-black text-slate-800">أداة محاكاة اختبار المنصة الشاملة (ليلة ERP)</h4>
-            <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-              يمكنك التبديل الفوري بين <strong>معالج التهيئة التدريجي (Welcome Wizard)</strong> وبين <strong>لوحة تشغيل الأعمال الكاملة (BOS)</strong> لتجربة دورة حياة المزود بدقة.
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-black text-white">مساحة عمل المزود الموحدة والمتكيفة (Unified Adaptive Workspace)</h4>
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black px-2.5 py-0.5 rounded-full font-mono">
+                المرحلة 4 مكتملة ✅
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
+              تم توحيد تجربة المزود بالكامل وتفكيك نظام BOS القديم. تعمل جميع الموديولات تلقائياً بحسب باقة الاشتراك والأذونات النشطة تحت شريط محاذي واحد ومحرك استحقاقات معيارية.
             </p>
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
           <button
             onClick={() => {
-              setIsOnboarded(false);
-              setOnboardingStep(1);
-              showNotification('info', 'تم تحويل الواجهة إلى معالج التهيئة التدريجي (المزود الجديد).');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${!isOnboarded ? 'bg-amber-500 text-slate-950 border border-amber-600 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
-          >
-            📋 معالج التهيئة (جديد)
-          </button>
-          <button
-            onClick={() => {
               setIsOnboarded(true);
-              showNotification('success', 'تم تفعيل واجهة نظام تشغيل الأعمال الكاملة (BOS).');
+              setIsWizardForceOpen(false);
+              showNotification('success', 'مساحة عمل المزود الموحدة والمتكيفة نشطة بالكامل.');
             }}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${isOnboarded ? 'bg-indigo-600 text-white border border-indigo-700 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'}`}
+            className="px-4 py-2 rounded-xl text-[11px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5"
           >
-            🚀 لوحة التحكم الكاملة (BOS)
+            <span>🛡️ مساحة العمل الموحدة</span>
           </button>
         </div>
       </div>
@@ -1160,31 +1198,25 @@ export function ProviderDashboard({
 
 
       {(!isOnboarded || isWizardForceOpen) ? (
-        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-lg text-right flex flex-col justify-between min-h-[640px] max-h-[640px] overflow-hidden relative" dir="rtl" id="layla-bos-wizard">
+        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-xl text-right flex flex-col justify-between min-h-[660px] max-h-[660px] overflow-hidden relative" dir="rtl" id="layla-provider-wizard">
           {/* Wizard Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="space-y-0.5">
               <h2 className="text-base font-black text-indigo-950 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                <span>معالج تهيئة وإطلاق مركز العمليات (Layla BOS)</span>
+                <Sparkles className="w-4.5 h-4.5 text-indigo-600 animate-pulse" />
+                <span>معالج تهيئة وإطلاق مساحة عمل المزود (Lailah Provider Workspace)</span>
               </h2>
-              <p className="text-[11px] text-slate-400">تأسيس وضبط بيانات مزود الخدمة القانونية والتشغيلية</p>
+              <p className="text-[11px] font-medium text-slate-500">تأسيس البيانات القانونية، الهوية التجارية، وتأكيد تجهيز الفرع الأول بالكامل</p>
             </div>
             <div className="flex items-center gap-2">
-              {(() => {
-                const isIndividual = profileEntityType === 'عمل حر' || profileEntityType === 'فرد';
-                const totalStepsCount = isIndividual ? 5 : 6;
-                return (
-                  <span className="text-[10px] font-black text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-full font-mono">
-                    الخطوة {onboardingStep} من {totalStepsCount}
-                  </span>
-                );
-              })()}
+              <span className="text-[10px] font-black text-indigo-900 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full font-mono">
+                الخطوة {onboardingStep} من 6
+              </span>
               {isWizardForceOpen && (
                 <button
                   onClick={() => setIsWizardForceOpen(false)}
                   className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
-                  title="العودة للوحة التحكم"
+                  title="إغلاق المعالج والعودة للوحة"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1192,50 +1224,79 @@ export function ProviderDashboard({
             </div>
           </div>
 
-          {/* Stepper Progress Bar */}
+          {/* Stepper Progress Bar - Unified 6 Steps */}
           {(() => {
-            const isIndividual = profileEntityType === 'عمل حر' || profileEntityType === 'فرد';
-            const stepsList = isIndividual ? [
-              { id: 1, name: 'هوية المزود والخصوصية' },
-              { id: 2, name: 'العنوان وخرائط Google' },
+            const stepsList = [
+              { id: 1, name: 'هوية المزود والتمثيل' },
+              { id: 2, name: 'العنوان والخرائط' },
               { id: 3, name: 'المالية والوثائق' },
-              { id: 4, name: 'التعهد والإقرار' },
-              { id: 5, name: 'التحقق والجاهزية' }
-            ] : [
-              { id: 1, name: 'هوية المزود والخصوصية' },
-              { id: 2, name: 'العنوان وخرائط Google' },
-              { id: 3, name: 'المالية والوثائق' },
-              { id: 4, name: 'الفرع الأول' },
-              { id: 5, name: 'التعهد والإقرار' },
-              { id: 6, name: 'التحقق والجاهزية' }
+              { id: 4, name: 'تأسيس الفرع الأول' },
+              { id: 5, name: 'التعهد والسياسات' },
+              { id: 6, name: 'الجاهزية والإطلاق' }
             ];
 
             return (
-              <div className={`grid gap-1 md:gap-2 py-2 border-b border-slate-50 ${isIndividual ? 'grid-cols-5' : 'grid-cols-6'}`}>
-                {stepsList.map((st) => (
-                  <div key={st.id} className="space-y-1">
-                    <div className={`h-1.5 rounded-full transition-all duration-300 ${onboardingStep >= st.id ? 'bg-indigo-600' : 'bg-slate-100'}`} />
-                    <span className={`block text-[9px] font-black text-center truncate ${onboardingStep === st.id ? 'text-indigo-600 font-extrabold' : 'text-slate-400 font-medium'}`}>
-                      {st.name}
-                    </span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-6 gap-1 md:gap-2 py-2.5 border-b border-slate-100 bg-slate-50/50 -mx-6 px-6">
+                {stepsList.map((st) => {
+                  const isActive = onboardingStep === st.id;
+                  const isCompleted = onboardingStep > st.id;
+                  return (
+                    <div 
+                      key={st.id} 
+                      onClick={() => {
+                        if (st.id < onboardingStep) {
+                          setStepValidationAlerts([]);
+                          setOnboardingStep(st.id);
+                        }
+                      }} 
+                      className={`space-y-1 ${st.id < onboardingStep ? 'cursor-pointer' : ''}`}
+                    >
+                      <div className={`h-1.5 rounded-full transition-all duration-300 ${isCompleted ? 'bg-emerald-500' : isActive ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+                      <span className={`block text-[9px] font-black text-center truncate ${isActive ? 'text-indigo-600 font-extrabold' : isCompleted ? 'text-emerald-700' : 'text-slate-400'}`}>
+                        {st.name}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
 
+          {/* Step Validation Alerts Banner */}
+          {stepValidationAlerts.length > 0 && (
+            <div className="my-2 p-3 bg-rose-50 border border-rose-200 text-rose-900 rounded-2xl flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200 shrink-0">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 text-xs">
+                <span className="font-black text-rose-950 block">تنبيه: يرجى استكمال البيانات الإجبارية للخطوة الحالية للمتابعة:</span>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] font-bold text-rose-800">
+                  {stepValidationAlerts.map((msg, idx) => (
+                    <li key={idx}>{msg}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           {/* Step Content Area */}
-          <div className="flex-1 py-4 overflow-y-auto max-h-[460px] pr-1" id="wizard-step-content">
+          <div className="flex-1 py-3 overflow-y-auto max-h-[460px] pr-1 space-y-3" id="wizard-step-content">
             
-            {/* Step 1: Provider Identity, Real Logo Upload, and Privacy Controls */}
+            {/* Step 1: Provider Identity, Commercial Name, Manager & Real Logo */}
             {onboardingStep === 1 && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-[11px] text-slate-500">أدخل الهوية التجارية والنوع القانوني لعلامتكم وشعارها الرسمي، مع ضبط إعدادات الخصوصية واسم المستخدم للعملاء.</p>
+              <div className="space-y-3.5 animate-in fade-in duration-200">
+                <div className="bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-2xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black text-indigo-950 block">١. بيانات هوية المنشأة والممثل المسؤول</span>
+                    <p className="text-[10px] text-indigo-800">تأسيس الهوية التجارية الرسمية، الممثل المعتمد، وشعار المنشأة المعتمد في المنصة.</p>
+                  </div>
+                  <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+                    * الحقول المحددة بالنجمة إجبارية
+                  </span>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  {/* Real Interactive Logo Upload with Instant Preview */}
+                  {/* Interactive Logo Upload */}
                   <div 
-                    className="provider-logo-upload-container md:col-span-1 aspect-square w-full max-w-[200px] mx-auto flex flex-col items-center justify-center p-2 border-2 border-dashed border-indigo-400 dark:border-indigo-400 hover:border-indigo-600 dark:hover:border-indigo-300 rounded-2xl bg-indigo-50/30 dark:bg-slate-800/90 hover:bg-indigo-50/60 transition-all cursor-pointer relative group overflow-hidden shadow-sm dark:shadow-[0_0_15px_rgba(129,140,248,0.25)]" 
+                    className="provider-logo-upload-container md:col-span-1 aspect-square w-full max-w-[190px] mx-auto flex flex-col items-center justify-center p-2 border-2 border-dashed border-indigo-300 dark:border-indigo-400 hover:border-indigo-600 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50/60 transition-all cursor-pointer relative group overflow-hidden shadow-xs" 
                     onClick={() => {
                       document.getElementById('wizard-logo-file-input')?.click();
                     }}
@@ -1248,8 +1309,7 @@ export function ProviderDashboard({
                       className="hidden"
                     />
                     {profileLogo ? (
-                      <div className="relative w-full h-full p-1.5 flex items-center justify-center animate-in fade-in duration-200">
-                        {/* Floating Remove Button in top corner */}
+                      <div className="relative w-full h-full p-1 flex items-center justify-center animate-in fade-in duration-200">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1259,15 +1319,14 @@ export function ProviderDashboard({
                             if (input) input.value = '';
                             showNotification('info', 'تمت إزالة شعار المنشأة.');
                           }}
-                          className="absolute top-2 left-2 z-20 text-[10px] font-black text-white bg-rose-600 hover:bg-rose-700 px-2 py-0.5 rounded-lg border border-rose-400/80 shadow-md transition-all flex items-center gap-1 cursor-pointer hover:scale-105"
+                          className="absolute top-1.5 left-1.5 z-20 text-[9px] font-black text-white bg-rose-600 hover:bg-rose-700 px-2 py-0.5 rounded-lg border border-rose-400 shadow-md transition-all flex items-center gap-1 cursor-pointer"
                           title="إزالة الشعار"
                         >
                           <Trash className="w-3 h-3" />
                           <span>إزالة</span>
                         </button>
 
-                        {/* Centered preview image */}
-                        <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center border-2 border-indigo-500/80 shadow-sm group/img">
+                        <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center border border-indigo-300 shadow-xs group/img">
                           <img 
                             src={profileLogo} 
                             alt="معاينة شعار المزود" 
@@ -1275,83 +1334,126 @@ export function ProviderDashboard({
                             referrerPolicy="no-referrer" 
                           />
                           <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <span className="text-[10px] font-black text-white bg-indigo-600/90 backdrop-blur-xs px-2.5 py-1 rounded-lg shadow">تغيير الصورة</span>
+                            <span className="text-[9px] font-black text-white bg-indigo-600/90 px-2 py-0.5 rounded-lg shadow">تغيير الشعار</span>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center space-y-1.5 p-2 flex flex-col items-center justify-center">
-                        <UploadCloud className="w-8 h-8 text-indigo-500 dark:text-indigo-400 mx-auto group-hover:scale-110 transition-transform" />
-                        <span className="text-[10px] font-black text-indigo-950 dark:text-indigo-200 block">رفع شعار المنشأة *</span>
-                        <span className="text-[8px] text-slate-500 dark:text-slate-300 block leading-tight font-sans">
-                          JPEG, PNG, WebP<br/>حجم أقصى 500KB (960x960)
+                      <div className="text-center space-y-1 p-2 flex flex-col items-center justify-center">
+                        <UploadCloud className="w-8 h-8 text-indigo-500 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-black text-indigo-950 block">رفع الشعار الرسمي *</span>
+                        <span className="text-[8px] text-slate-500 block font-sans">
+                          JPEG, PNG, WebP<br/>أقصى 500KB (960x960)
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Form Inputs */}
+                  <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 block">نوع الكيان القانوني *</label>
-                      <select value={profileEntityType} onChange={(e) => setProfileEntityType(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none focus:border-indigo-500">
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>نوع الكيان القانوني</span>
+                        <span className="text-rose-500 font-bold">*</span>
+                      </label>
+                      <select value={profileEntityType} onChange={(e) => setProfileEntityType(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none focus:border-indigo-500">
                         <option value="شركة">شركة ذات مسؤولية محدودة (LLC)</option>
                         <option value="مؤسسة">مؤسسة فردية تجارية</option>
-                        <option value="عمل حر">رائد أعمال / وثيقة العمل الحر</option>
+                        <option value="عمل حر">وثيقة عمل حر / رائد أعمال</option>
                       </select>
                     </div>
+
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 block">اسم المنشأة التجاري الرسمي *</label>
-                      <input type="text" value={profileBusinessName} onChange={(e) => setProfileBusinessName(e.target.value)} placeholder="اسم الشركة أو القاعة الرئيسي" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-black outline-none focus:border-indigo-500" />
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>اسم المنشأة التجاري الرسمي</span>
+                        <span className="text-rose-500 font-bold">* إجباري</span>
+                      </label>
+                      <input type="text" value={profileBusinessName} onChange={(e) => setProfileBusinessName(e.target.value)} placeholder="مثال: شركة ليالينا للاحتفالات" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-black outline-none focus:border-indigo-500" />
                     </div>
+
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 block">رقم السجل التجاري / الهوية *</label>
-                      <input type="text" value={profileBusinessCR} onChange={(e) => setProfileBusinessCR(e.target.value)} placeholder="رقم السجل التجاري المكون من 10 أرقام" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono outline-none focus:border-indigo-500" />
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>رقم السجل التجاري / وثيقة العمل الحر</span>
+                        <span className="text-rose-500 font-bold">* إجباري</span>
+                      </label>
+                      <input type="text" value={profileBusinessCR} onChange={(e) => setProfileBusinessCR(e.target.value)} placeholder="1010xxxxxx" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none focus:border-indigo-500" />
                     </div>
+
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 block">رقم جوال الممثل المعتمد *</label>
-                      <input type="text" value={profileRepresentativePhone} onChange={(e) => setProfileRepresentativePhone(e.target.value)} placeholder="05xxxxxxxx" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono outline-none focus:border-indigo-500" />
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>اسم الممثل / المدير المسؤول المعتمد</span>
+                        <span className="text-rose-500 font-bold">* إجباري</span>
+                      </label>
+                      <input type="text" value={profileRepresentativeName} onChange={(e) => setProfileRepresentativeName(e.target.value)} placeholder="الاسم الثلاثي للمدير المسؤول" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none focus:border-indigo-500" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>رقم جوال الممثل المعتمد (05xxxxxxxx)</span>
+                        <span className="text-rose-500 font-bold">* إجباري</span>
+                      </label>
+                      <input type="text" value={profileRepresentativePhone} onChange={(e) => setProfileRepresentativePhone(e.target.value)} placeholder="0551234567" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none focus:border-indigo-500" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-700 flex items-center justify-between">
+                        <span>البريد الإلكتروني الرسمي للمخاطبات</span>
+                        <span className="text-rose-500 font-bold">* إجباري</span>
+                      </label>
+                      <input type="email" value={profileRepresentativeEmail} onChange={(e) => setProfileRepresentativeEmail(e.target.value)} placeholder="contact@brand.com" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none focus:border-indigo-500" />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 block">البريد الإلكتروني الرسمي للتواصل والمخاطبات القانونية *</label>
-                  <input type="email" value={profileRepresentativeEmail} onChange={(e) => setProfileRepresentativeEmail(e.target.value)} placeholder="example@brand.com" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono outline-none focus:border-indigo-500" />
-                </div>
-
                 {/* Privacy & Username Controls Section */}
-                <div className="bg-indigo-50/60 p-3 rounded-2xl border border-indigo-100 space-y-2.5">
+                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                      <span className="text-xs font-black text-indigo-950 block">خيار إظهار اسم المزود للعملاء في واجهة المنصة</span>
-                      <span className="text-[9px] text-slate-500 block">عند التعطيل، يختفي الاسم التجاري الرسمي نهائياً من صفحات العملاء لحماية الخصوصية.</span>
+                      <span className="text-xs font-black text-slate-900 block">إعدادات إظهار اسم المنشأة للعملاء بالواجهة</span>
+                      <span className="text-[9px] text-slate-500 block">يمكنك تفعيل العرض باسم المنشأة التجاري أو تخصيص اسم مستعار لحماية الخصوصية.</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                       <input
                         type="checkbox"
                         checked={showProviderToCustomers}
-                        onChange={(e) => setShowProviderToCustomers(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setShowProviderToCustomers(checked);
+                          if (checked) {
+                            setProfileUsername(profileBusinessName);
+                          }
+                        }}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-indigo-100/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-indigo-900 block">اسم المستخدم / الاسم المستعار للعملاء (اختياري)</label>
+                      <label className="text-[9px] font-black text-slate-700 block">اسم المستخدم / الاسم المستعار للعملاء (اختياري)</label>
                       <input
                         type="text"
-                        value={profileUsername}
+                        disabled={showProviderToCustomers}
+                        value={showProviderToCustomers ? (profileBusinessName || 'اسم المزود المعتمد') : profileUsername}
                         onChange={(e) => setProfileUsername(e.target.value)}
-                        placeholder="مثال: شريك ليلة المميز"
-                        className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none focus:border-indigo-500"
+                        placeholder={showProviderToCustomers ? (profileBusinessName || 'اسم المزود المعتمد') : 'أدخل الاسم المستعار للعملاء (اختياري)...'}
+                        className={`w-full p-2 border rounded-xl text-xs text-right font-bold outline-none transition-all ${
+                          showProviderToCustomers 
+                            ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed' 
+                            : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500'
+                        }`}
                       />
+                      {showProviderToCustomers ? (
+                        <p className="text-[8px] text-indigo-600 font-bold">✓ عند تحديد الخيار، يكون المعروض آلياً نفس اسم المزود المعتمد.</p>
+                      ) : (
+                        <p className="text-[8px] text-slate-500 font-bold">✎ عند عدم تحديد الخيار، يُسمح بكتابة اسم مستخدم / اسم مستعار للعملاء (اختياري).</p>
+                      )}
                     </div>
-                    <div className="bg-white/80 p-2 rounded-xl text-[9px] text-indigo-950 flex flex-col justify-center border border-indigo-100">
-                      <span className="font-bold block">معاينة ظهور اسم المزود في صفحات العملاء:</span>
-                      <span className="font-extrabold text-indigo-600 text-xs mt-0.5">
-                        {showProviderToCustomers ? profileBusinessName : (profileUsername.trim() ? profileUsername : 'مزود خدمة معتمد')}
+                    <div className="bg-white p-2 rounded-xl text-[9px] text-slate-800 flex flex-col justify-center border border-slate-200">
+                      <span className="font-bold block text-slate-500">معاينة اسم المزود المعروض للعملاء:</span>
+                      <span className="font-black text-indigo-700 text-xs mt-0.5">
+                        {showProviderToCustomers ? (profileBusinessName || 'اسم المزود التجاري') : (profileUsername.trim() ? profileUsername : 'مزود خدمة معتمد')}
                       </span>
                     </div>
                   </div>
@@ -1361,89 +1463,104 @@ export function ProviderDashboard({
 
             {/* Step 2: Address, Coordinates & Google Maps Integration */}
             {onboardingStep === 2 && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-[11px] text-slate-500">العنوان الوطني المعتمد وموقع الإدارة التشغيلية، مع ربط واستخراج إحداثيات خطوط الطول والعرض لخرائط Google.</p>
+              <div className="space-y-3.5 animate-in fade-in duration-200">
+                <div className="bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-2xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black text-indigo-950 block">٢. العنوان الوطني المعتمد والتوطين الخرائطي (Google Maps GPS)</span>
+                    <p className="text-[10px] text-indigo-800">تحديد موقع المقر الإداري ورسم الإحداثيات الجغرافية بدقة عالية للخدمات والتسهيلات.</p>
+                  </div>
+                  <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+                    * الحقول المحددة بالنجمة إجبارية
+                  </span>
+                </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">المنطقة الجغرافية *</label>
-                    <select value={profileRegion} onChange={(e) => setProfileRegion(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none">
+                    <label className="text-[10px] font-black text-slate-700 block">المنطقة الجغرافية *</label>
+                    <select value={profileRegion} onChange={(e) => setProfileRegion(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
                       <option value="منطقة الرياض">منطقة الرياض</option>
                       <option value="منطقة مكة المكرمة">منطقة مكة المكرمة</option>
                       <option value="المنطقة الشرقية">المنطقة الشرقية</option>
                       <option value="منطقة المدينة المنورة">منطقة المدينة المنورة</option>
+                      <option value="منطقة عسير">منطقة عسير</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">المدينة *</label>
-                    <select value={profileCity} onChange={(e) => setProfileCity(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none">
+                    <label className="text-[10px] font-black text-slate-700 block">المدينة *</label>
+                    <select value={profileCity} onChange={(e) => setProfileCity(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
                       <option value="الرياض">الرياض</option>
                       <option value="جدة">جدة</option>
+                      <option value="مكة المكرمة">مكة المكرمة</option>
                       <option value="الدمام">الدمام</option>
                       <option value="الخبر">الخبر</option>
+                      <option value="المدينة المنورة">المدينة المنورة</option>
                     </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">الحي / الشارع الرئيسي *</label>
+                    <input type="text" value={profileDistrict} onChange={(e) => setProfileDistrict(e.target.value)} placeholder="مثال: حي الملقا" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 block">تفاصيل العنوان الوطني للمنشأة *</label>
-                  <input type="text" value={profileNationalAddress} onChange={(e) => setProfileNationalAddress(e.target.value)} placeholder="مثال: 1234 الملقا - الرياض، المملكة العربية السعودية" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 outline-none" />
+                  <label className="text-[10px] font-black text-slate-700 block">تفاصيل العنوان الوطني المعتمد للمنشأة *</label>
+                  <input type="text" value={profileNationalAddress} onChange={(e) => setProfileNationalAddress(e.target.value)} placeholder="مثال: 4567 طريق انس بن مالك، الملقا، الرياض 13521" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 outline-none" />
                 </div>
 
                 {/* Coordinates & Google Maps Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">إحداثيات خط العرض (Latitude) *</label>
+                    <label className="text-[10px] font-black text-slate-700 block">إحداثيات خط العرض (Latitude) *</label>
                     <input type="text" value={profileLat} onChange={(e) => setProfileLat(e.target.value)} placeholder="24.761800" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-mono text-slate-800 outline-none" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">إحداثيات خط الطول (Longitude) *</label>
+                    <label className="text-[10px] font-black text-slate-700 block">إحداثيات خط الطول (Longitude) *</label>
                     <input type="text" value={profileLng} onChange={(e) => setProfileLng(e.target.value)} placeholder="46.626400" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-mono text-slate-800 outline-none" />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 block">رابط خرائط Google للموقع الفعلي *</label>
+                  <label className="text-[10px] font-black text-slate-700 block">رابط موقع خرائط Google المباشر *</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={handleAutoLocation}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black cursor-pointer transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black cursor-pointer transition-all flex items-center gap-1.5 shrink-0 shadow-xs"
                     >
                       <MapPin className="w-3.5 h-3.5 text-amber-300" />
-                      تحديد تلقائي للموقع (Google Maps GPS)
+                      تحديد تلقائي للموقع (GPS)
                     </button>
-                    <input type="text" value={profileMapLink} onChange={(e) => setProfileMapLink(e.target.value)} placeholder="https://maps.google.com/?q=..." className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono outline-none flex-1" />
+                    <input type="text" value={profileMapLink} onChange={(e) => setProfileMapLink(e.target.value)} placeholder="https://maps.google.com/?q=24.7618,46.6264" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none flex-1" />
                   </div>
                 </div>
 
-                {/* Interactive Map Card Preview & Modal Launcher */}
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl space-y-2">
+                {/* Interactive Map Card Preview */}
+                <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-indigo-950 flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-indigo-600" />
-                      معاينة موضع التوطين الجغرافي على الخريطة
+                      معاينة التوطين الجغرافي التفاعلي للمقر الإداري
                     </span>
                     <button
                       type="button"
                       onClick={() => setIsLocationModalOpen(true)}
                       className="text-[9px] font-black text-indigo-600 hover:underline cursor-pointer"
                     >
-                      فتح الخريطة المباشرة ↗
+                      فتح الخريطة الكاملة ↗
                     </button>
                   </div>
-                  <div className="bg-slate-200 rounded-xl h-20 w-full relative overflow-hidden flex items-center justify-center border border-slate-300 shadow-inner">
+                  <div className="bg-slate-200 rounded-xl h-24 w-full relative overflow-hidden flex items-center justify-center border border-slate-300 shadow-inner">
                     <iframe
                       title="Google Map Preview"
                       width="100%"
                       height="100%"
                       src={`https://maps.google.com/maps?q=${profileLat || '24.7618'},${profileLng || '46.6264'}&z=14&output=embed`}
-                      className="absolute inset-0 w-full h-full border-0 pointer-events-none opacity-80"
+                      className="absolute inset-0 w-full h-full border-0 pointer-events-none opacity-85"
                     />
-                    <div className="z-10 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md border border-indigo-200 flex items-center gap-1.5">
+                    <div className="z-10 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-full shadow-md border border-indigo-200 flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-rose-600 animate-bounce" />
-                      <span className="text-[10px] font-black text-indigo-950 font-mono">
-                        {profileLat}, {profileLng} ({profileCity})
+                      <span className="text-[10px] font-black text-slate-900 font-mono">
+                        {profileLat}, {profileLng} ({profileCity} - {profileDistrict})
                       </span>
                     </div>
                   </div>
@@ -1451,45 +1568,61 @@ export function ProviderDashboard({
               </div>
             )}
 
-            {/* Step 3: Merged Tax, Bank & Legal Documents Checklist */}
+            {/* Step 3: Banking, Tax & Required Legal Documents */}
             {onboardingStep === 3 && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-[11px] text-slate-500">إعدادات التسجيل الضريبي، الحساب البنكي المعتمد، وقائمة التراخيص والوثائق الرسمية المدمجة لضمان التسويات الفورية.</p>
+              <div className="space-y-3.5 animate-in fade-in duration-200">
+                <div className="bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-2xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black text-indigo-950 block">٣. الحساب البنكي، الضرائب، وحزمة التراخيص الرسمية</span>
+                    <p className="text-[10px] text-indigo-800">ضبط البيانات المالية للتسويات التلقائية للطلبات وتوثيق المستندات الرسمية للمنشأة.</p>
+                  </div>
+                  <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+                    * الحقول المحددة بالنجمة إجبارية
+                  </span>
+                </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">الحالة الضريبية للمنشأة *</label>
-                    <select value={wizVatStatus} onChange={(e) => setWizVatStatus(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none">
-                      <option value="مسجل">مسجل في ضريبة القيمة المضافة (خاضع للضريبة)</option>
-                      <option value="غير مسجل">غير مسجل / معفى ضريبياً بموجب القانون</option>
+                    <label className="text-[10px] font-black text-slate-700 block">الحالة الضريبية للمنشأة *</label>
+                    <select value={wizVatStatus} onChange={(e) => setWizVatStatus(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
+                      <option value="مسجل">مسجل في ضريبة القيمة المضافة (15% VAT)</option>
+                      <option value="غير مسجل">غير مسجل / معفى ضريبياً بموجب النظام</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">الرقم الضريبي الموحد (15 خانة) *</label>
-                    <input type="text" value={wizTaxId} onChange={(e) => setWizTaxId(e.target.value)} disabled={wizVatStatus === 'غير مسجل'} placeholder="300000000000003" className="w-full p-2 border border-slate-200 bg-white disabled:bg-slate-50 disabled:text-slate-400 rounded-xl text-xs text-right text-slate-700 font-mono outline-none" />
+                    <label className="text-[10px] font-black text-slate-700 block">الرقم الضريبي الموحد (15 خانة) *</label>
+                    <input type="text" value={wizTaxId} onChange={(e) => setWizTaxId(e.target.value)} disabled={wizVatStatus === 'غير مسجل'} placeholder="300000000000003" className="w-full p-2 border border-slate-200 bg-white disabled:bg-slate-50 disabled:text-slate-400 rounded-xl text-xs text-right text-slate-800 font-mono outline-none" />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1 md:col-span-1">
-                    <label className="text-[9px] font-black text-slate-400 block">البنك الشريك المعتمد *</label>
-                    <select value={wizBankName} onChange={(e) => setWizBankName(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">البنك الشريك المعتمد *</label>
+                    <select value={wizBankName} onChange={(e) => setWizBankName(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
                       <option value="البنك الأهلي السعودي">البنك الأهلي السعودي (SNB)</option>
                       <option value="مصرف الراجحي">مصرف الراجحي (Al Rajhi)</option>
                       <option value="بنك الرياض">بنك الرياض (Riyadh Bank)</option>
                       <option value="مصرف الإنماء">مصرف الإنماء (Alinma Bank)</option>
+                      <option value="البنك السعودي الأول">البنك السعودي الأول (SAB)</option>
                     </select>
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-[9px] font-black text-slate-400 block">رقم الحساب الدولي للآيبان (IBAN) *</label>
-                    <input type="text" value={wizIban} onChange={(e) => setWizIban(e.target.value)} placeholder="SA0000000000000000000000" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono font-black uppercase outline-none" />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">اسم صاحب الحساب البنكي المطابق *</label>
+                    <input type="text" value={wizBankAccountHolder} onChange={(e) => setWizBankAccountHolder(e.target.value)} placeholder="اسم صاحب الحساب كما في البنك" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">رقم الحساب الدولي للآيبان (IBAN) *</label>
+                    <input type="text" value={wizIban} onChange={(e) => setWizIban(e.target.value)} placeholder="SA0000000000000000000000" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono font-black uppercase outline-none" />
                   </div>
                 </div>
 
-                {/* Merged Checklist of Legal Documents & Licenses */}
+                {/* Official Documents Checklist */}
                 <div className="border border-slate-200 p-3 rounded-2xl bg-slate-50 space-y-2">
-                  <span className="text-[10px] font-black text-indigo-950 block">قائمة تحقق الوثائق والتراخيص الرسمية المعتمدة (Legal Checklist)</span>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-indigo-950 block">حزمة التراخيص والوثائق الرسمية المعتمدة (Legal Checklist)</span>
+                    <span className="text-[9px] text-slate-500 font-bold">تحديد وإرفاق الملفات للتدقيق الفوري</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                     {[
                       {
                         key: 'cr',
@@ -1498,7 +1631,7 @@ export function ProviderDashboard({
                         setChecked: setWizDocCRChecked,
                         file: wizDocCR,
                         setFile: setWizDocCR,
-                        docName: 'cr_document_verified.pdf'
+                        docName: 'cr_document_signed.pdf'
                       },
                       {
                         key: 'vat',
@@ -1507,32 +1640,41 @@ export function ProviderDashboard({
                         setChecked: setWizDocVATChecked,
                         file: wizDocVAT,
                         setFile: setWizDocVAT,
-                        docName: 'vat_cert_verified.pdf'
+                        docName: 'vat_cert_approved.pdf'
                       },
                       {
                         key: 'chamber',
-                        label: 'شهادة الغرفة التجارية / التصنيف',
+                        label: 'الغرفة التجارية / البلدية',
                         checked: wizDocChamberChecked,
                         setChecked: setWizDocChamberChecked,
                         file: wizDocChamber,
                         setFile: setWizDocChamber,
-                        docName: 'chamber_membership.pdf'
+                        docName: 'municipal_license.pdf'
+                      },
+                      {
+                        key: 'manager_id',
+                        label: 'هوية المدير المسؤول المعتمد',
+                        checked: wizDocManagerIDChecked,
+                        setChecked: setWizDocManagerIDChecked,
+                        file: wizDocManagerID,
+                        setFile: setWizDocManagerID,
+                        docName: 'manager_national_id.pdf'
                       }
                     ].map((item) => (
-                      <div key={item.key} className="bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between space-y-1.5">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                      <div key={item.key} className="bg-white p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between space-y-1.5 shadow-xs">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={item.checked}
                             onChange={(e) => item.setChecked(e.target.checked)}
                             className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                           />
-                          <span className="text-[10px] font-black text-slate-800">{item.label}</span>
+                          <span className="text-[9px] font-black text-slate-800 truncate">{item.label}</span>
                         </label>
                         {item.file ? (
-                          <div className="flex items-center justify-between text-[8px] bg-emerald-50 text-emerald-800 p-1.5 rounded-lg border border-emerald-100">
+                          <div className="flex items-center justify-between text-[8px] bg-emerald-50 text-emerald-800 p-1 rounded-lg border border-emerald-100">
                             <span className="truncate font-mono">✓ {item.file}</span>
-                            <button type="button" onClick={() => item.setFile(null)} className="text-red-500 hover:underline shrink-0">حذف</button>
+                            <button type="button" onClick={() => item.setFile(null)} className="text-rose-600 font-bold hover:underline shrink-0 mr-1">إزالة</button>
                           </div>
                         ) : (
                           <button
@@ -1553,242 +1695,382 @@ export function ProviderDashboard({
               </div>
             )}
 
-            {/* Step 4 (Company) / Skipped for Freelancer/Individual: First Branch Setup */}
-            {onboardingStep === 4 && (profileEntityType !== 'عمل حر' && profileEntityType !== 'فرد') && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-[11px] text-slate-500">قم بتهيئة وتأسيس فرعك التشغيلي الأول كـ (Mini Business Unit) لإتاحة توطين الكوادر والبدء بالتشغيل.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Step 4: First Operational Branch Setup (Mini Business Unit) */}
+            {onboardingStep === 4 && (
+              <div className="space-y-3.5 animate-in fade-in duration-200">
+                <div className="bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-2xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black text-indigo-950 block">٤. بيانات وتأسيس الفرع التشغيلي الأول (Mini Business Unit)</span>
+                    <p className="text-[10px] text-indigo-800">تأسيس الفرع الأول المباشر لعلامتكم لتمكين توطين الموظفين، إسناد المهام، وعرض الخدمات على العملاء.</p>
+                  </div>
+                  <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+                    * الحقول المحددة بالنجمة إجبارية
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">اسم الفرع الأول لعلامتك *</label>
-                    <input type="text" value={wizBranchName} onChange={(e) => setWizBranchName(e.target.value)} placeholder="مثال: فرع الرياض الرئيسي" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-bold outline-none" />
+                    <label className="text-[10px] font-black text-slate-700 block">اسم الفرع الأول لعلامتكم *</label>
+                    <input type="text" value={wizBranchName} onChange={(e) => setWizBranchName(e.target.value)} placeholder="مثال: فرع الرياض الرئيسي - الملقا" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none focus:border-indigo-500" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">مدينة الفرع الرئيسي *</label>
-                    <select value={wizBranchCity} onChange={(e) => setWizBranchCity(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-700 outline-none">
+                    <label className="text-[10px] font-black text-slate-700 block">مدينة الفرع الأول *</label>
+                    <select value={wizBranchCity} onChange={(e) => setWizBranchCity(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
                       <option value="الرياض">الرياض</option>
                       <option value="جدة">جدة</option>
+                      <option value="مكة المكرمة">مكة المكرمة</option>
                       <option value="الدمام">الدمام</option>
+                      <option value="الخبر">الخبر</option>
+                      <option value="المدينة المنورة">المدينة المنورة</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">هاتف وتواصل الفرع المباشر *</label>
-                    <input type="text" value={wizBranchPhone} onChange={(e) => setWizBranchPhone(e.target.value)} placeholder="رقم الهاتف للفرع" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 font-mono outline-none" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 block">العنوان الميداني التفصيلي للفرع *</label>
-                    <input type="text" value={wizBranchAddress} onChange={(e) => setWizBranchAddress(e.target.value)} placeholder="اسم الشارع أو المنطقة للوصول الميداني" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 outline-none" />
+                    <label className="text-[10px] font-black text-slate-700 block">الحي / المنطقة *</label>
+                    <input type="text" value={wizBranchDistrict} onChange={(e) => setWizBranchDistrict(e.target.value)} placeholder="مثال: حي الملقا" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 outline-none" />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 block">ساعات العمل الرسمية للفرع *</label>
-                  <input type="text" value={wizWorkingHours} onChange={(e) => setWizWorkingHours(e.target.value)} placeholder="مثال: 02:00 م - 02:00 ص" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-700 outline-none" />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">العنوان الميداني التفصيلي للفرع *</label>
+                    <input type="text" value={wizBranchAddress} onChange={(e) => setWizBranchAddress(e.target.value)} placeholder="اسم الشارع أو المجمع الميداني للفرع" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 outline-none focus:border-indigo-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">رقم هاتف التواصل المباشر للفرع *</label>
+                    <input type="text" value={wizBranchPhone} onChange={(e) => setWizBranchPhone(e.target.value)} placeholder="0112345678 أو 0551234567" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">اسم مدير / مشرف الفرع الأول *</label>
+                    <input type="text" value={wizBranchManagerName} onChange={(e) => setWizBranchManagerName(e.target.value)} placeholder="اسم مشرف العمليات الميدانية للفرع" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-bold outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">رقم جوال مدير الفرع الأول *</label>
+                    <input type="text" value={wizBranchManagerPhone} onChange={(e) => setWizBranchManagerPhone(e.target.value)} placeholder="0551234567" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 font-mono outline-none" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">نوع نشاط الفرع *</label>
+                    <select value={wizBranchType} onChange={(e) => setWizBranchType(e.target.value)} className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right font-bold text-slate-800 outline-none">
+                      <option value="قاعة مناسبات وأفراح متكاملة">قاعة مناسبات وأفراح متكاملة</option>
+                      <option value="خدمات ضيافة وتجهيزات مساندة">خدمات ضيافة وتجهيزات مساندة</option>
+                      <option value="مركز خدمات شامل">مركز خدمات شامل</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">ساعات وأيام العمل الرسمية *</label>
+                    <input type="text" value={wizWorkingHours} onChange={(e) => setWizWorkingHours(e.target.value)} placeholder="مثال: 02:00 م - 02:00 ص (يومياً)" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-700 block">الطاقة الاستيعابية التشغيلية *</label>
+                    <input type="text" value={wizCapacityLimit} onChange={(e) => setWizCapacityLimit(e.target.value)} placeholder="مثال: 500 ضيف / 10 طلبات يومية" className="w-full p-2 border border-slate-200 bg-white rounded-xl text-xs text-right text-slate-800 outline-none" />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Declaration & Terms Step (Step 5 for Companies / Step 4 for Individuals) */}
-            {((onboardingStep === 5 && (profileEntityType !== 'عمل حر' && profileEntityType !== 'فرد')) ||
-              (onboardingStep === 4 && (profileEntityType === 'عمل حر' || profileEntityType === 'فرد'))) && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-[11px] text-slate-500">يرجى قراءة والموافقة التامة على التعهد القانوني وشروط تفعيل واجهة نظام تشغيل ليلة لضمان جودة الخدمة وحماية الموارد.</p>
-                <div className="border border-slate-200 p-3 rounded-xl bg-slate-50 text-[10px] text-slate-600 leading-relaxed max-h-44 overflow-y-auto text-right font-sans font-medium space-y-1.5">
-                  <p><strong>١. دقة ومطابقة البيانات:</strong> يتعهد مزود الخدمة المسجل بأن كافة البيانات المدخلة في نظام تشغيل الأعمال صحيحة ومطابقة للواقع ومملوكة للمنشأة بموجب التراخيص الصالحة.</p>
-                  <p><strong>٢. حظر تسريب وتداخل البيانات:</strong> يوافق المزود على الالتزام بالقوانين الصارمة لحماية بيانات العملاء والمستفيدين والخصوصية المعتمدة بالمنصة، وعدم استغلالها خارج أغراض الفوترة والخدمة.</p>
-                  <p><strong>٣. المراقبة والجودة المسبقة:</strong> يقر المزود بأن جميع القاعات أو الخدمات الجديدة المدخلة مستقبلاً ستخضع للموافقة المسبقة والتدقيق من الإدارة قبل إتاحتها للعرض للجمهور لضمان أعلى مستويات الالتزام وموثوقية المعروض.</p>
+            {/* Step 5: Legal Declaration & Platform Policies */}
+            {onboardingStep === 5 && (
+              <div className="space-y-3.5 animate-in fade-in duration-200">
+                <div className="bg-indigo-50/70 border border-indigo-100 p-2.5 rounded-2xl flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-black text-indigo-950 block">٥. التعهد القانوني وشروط تفعيل مساحة العمل</span>
+                    <p className="text-[10px] text-indigo-800">مراجعة والالتزام بالأنظمة السيادية للحفاظ على جودة المعروض، سرية البيانات، وموثوقية المعاملات.</p>
+                  </div>
+                  <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-full">
+                    * موافقة إجبارية للتفعيل
+                  </span>
                 </div>
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs font-bold text-slate-800 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                  <input type="checkbox" checked={wizDeclarationAccepted} onChange={(e) => setWizDeclarationAccepted(e.target.checked)} className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4.5 h-4.5 mt-0.5" />
+
+                <div className="border border-slate-200 p-3 rounded-2xl bg-slate-50 text-[10px] text-slate-700 leading-relaxed max-h-48 overflow-y-auto text-right font-sans space-y-2">
+                  <p className="p-2 bg-white rounded-xl border border-slate-200">
+                    <strong className="text-indigo-950 block mb-0.5">١. دقة ومطابقة البيانات الرسمية:</strong> يتعهد مزود الخدمة المسجل بأن كافة البيانات والوثائق المدخلة في مساحة العمل صحيحة ومطابقة للسجلات الرسمية والتراخيص الصادرة من الجهات المعنية.
+                  </p>
+                  <p className="p-2 bg-white rounded-xl border border-slate-200">
+                    <strong className="text-indigo-950 block mb-0.5">٢. العزل الصارم لحماية بيانات الشركاء والعملاء:</strong> يوافق المزود على تطبيق شروط حظر تسريب أي بيانات أو حجوزات أو عقود أو فواتير تخص عملاء أو شركاء آخرين، والالتزام بضوابط السرية المطلوبة.
+                  </p>
+                  <p className="p-2 bg-white rounded-xl border border-slate-200">
+                    <strong className="text-indigo-950 block mb-0.5">٣. الاعتماد المسبق للمنشآت والخدمات:</strong> يقر المزود بأن جميع القاعات أو الخدمات الجديدة المدخلة مستقبلاً ستخضع للموافقة المسبقة والتدقيق من الإدارة قبل إتاحتها للعرض للجمهور لضمان موثوقية المعروض.
+                  </p>
+                  <p className="p-2 bg-white rounded-xl border border-slate-200">
+                    <strong className="text-indigo-950 block mb-0.5">٤. اقتطاع عمولة المنصة المعتمدة:</strong> يقر المزود باقتطاع عمولة المنصة المعتمدة تلقائياً بحسب باقة الاشتراك المحددة من الحجوزات والخدمات الناجحة.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer text-xs font-bold text-slate-900 bg-indigo-50/60 p-3 rounded-2xl border border-indigo-200 hover:bg-indigo-50 transition-all">
+                  <input type="checkbox" checked={wizDeclarationAccepted} onChange={(e) => {
+                    setWizDeclarationAccepted(e.target.checked);
+                    if (e.target.checked) setStepValidationAlerts([]);
+                  }} className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-5 h-5 mt-0.5" />
                   <div>
-                    <span className="block font-black text-indigo-950">أقر وأوافق وأتعهد بصفتي المفوض القانوني عن المنشأة بكافة الشروط المذكورة أعلاه *</span>
-                    <span className="text-[9px] text-slate-400 block mt-0.5">يتعين عليك تفعيل هذا الخيار لتمكين الانتقال لخطوة الإطلاق الأخيرة.</span>
+                    <span className="block font-black text-indigo-950">أقر وأوافق وأتعهد بصفتي المفوض القانوني عن المنشأة بكافة الشروط والتعهدات المذكورة أعلاه *</span>
+                    <span className="text-[9px] text-slate-500 block mt-0.5">يتعين عليك تفعيل هذا الخيار للانتقال للبطاقة التعريفية وإطلاق مساحة العمل.</span>
                   </div>
                 </label>
               </div>
             )}
 
-            {/* Launch & Completion Step (Step 6 for Companies / Step 5 for Individuals) */}
-            {((onboardingStep === 6 && (profileEntityType !== 'عمل حر' && profileEntityType !== 'فرد')) ||
-              (onboardingStep === 5 && (profileEntityType === 'عمل حر' || profileEntityType === 'فرد'))) && (
-              <div className="text-center space-y-4 py-2 animate-in fade-in duration-200">
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            {/* Step 6: Readiness Verification, Summary Receipt & Launch */}
+            {onboardingStep === 6 && (
+              <div className="text-center space-y-3.5 py-1 animate-in fade-in duration-200">
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
                   <Check className="w-6 h-6 stroke-[3]" />
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black text-emerald-800">اكتمل تأسيس وتهيئة ملف المنشأة بنجاح!</h3>
-                  <p className="text-[11px] text-slate-400">تم إعداد الملف القانوني الفوري وتأسيس الجاهزية لاستقبال المهام والحجوزات.</p>
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-black text-emerald-900">اكتمل تأسيس وتهيئة ملف المزود والفرع الأول بنجاح (100%)!</h3>
+                  <p className="text-[11px] text-slate-500">بطاقة التوثيق القانوني والتشغيلي لعلامتكم جاهزة لبدء الاستخدام المباشر.</p>
                 </div>
                 
                 {/* Visual Summary Receipt */}
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl text-right text-xs max-w-md mx-auto space-y-1.5 font-sans">
-                  <span className="text-[9px] font-black text-indigo-900 block border-b pb-1">ملخص بطاقة تعريف المزود (BOS Profile Card)</span>
-                  <div className="flex justify-between"><span className="font-bold text-slate-800">{profileBusinessName}</span><span className="text-slate-400">اسم المنشأة التجاري:</span></div>
-                  <div className="flex justify-between">
-                    <span className="font-bold text-indigo-600">
-                      {showProviderToCustomers ? 'مرئي للعملاء' : (profileUsername ? `مخفي (الاسم المستعار: ${profileUsername})` : 'مخفي (مزود خدمة معتمد)')}
-                    </span>
-                    <span className="text-slate-400">حالة إظهار الاسم للعملاء:</span>
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl text-right text-xs max-w-lg mx-auto space-y-2 font-sans shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-1.5 border-slate-200">
+                    <span className="text-[10px] font-black text-indigo-950">بطاقة ملخص المزود والفرع (Provider Profile Receipt)</span>
+                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">✓ مكتمل ومعتمد</span>
                   </div>
-                  <div className="flex justify-between"><span className="font-mono text-slate-700">{profileBusinessCR}</span><span className="text-slate-400">السجل/رقم الكيان:</span></div>
-                  <div className="flex justify-between"><span className="font-mono text-slate-800 font-bold">{profileLat}, {profileLng}</span><span className="text-slate-400">إحداثيات الموقع:</span></div>
-                  <div className="flex justify-between"><span className="font-mono text-indigo-600 font-bold">{wizIban}</span><span className="text-slate-400">رقم الآيبان البنكي:</span></div>
-                  {(profileEntityType !== 'عمل حر' && profileEntityType !== 'فرد') && (
-                    <div className="flex justify-between"><span className="font-bold text-slate-800">فرع {wizBranchCity} - {wizBranchName || 'الرئيسي'}</span><span className="text-slate-400">الفرع النشط الأول:</span></div>
-                  )}
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                    <div className="flex justify-between"><span className="font-bold text-slate-900">{profileBusinessName}</span><span className="text-slate-500">اسم المنشأة:</span></div>
+                    <div className="flex justify-between"><span className="font-bold text-slate-900">{profileRepresentativeName}</span><span className="text-slate-500">الممثل المعتمد:</span></div>
+                    <div className="flex justify-between"><span className="font-mono text-slate-800">{profileBusinessCR}</span><span className="text-slate-500">رقم السجل:</span></div>
+                    <div className="flex justify-between"><span className="font-mono text-slate-800">{profileRepresentativePhone}</span><span className="text-slate-500">جوال التواصل:</span></div>
+                    <div className="flex justify-between"><span className="font-bold text-indigo-700">{wizBankName}</span><span className="text-slate-500">البنك الشريك:</span></div>
+                    <div className="flex justify-between"><span className="font-mono text-indigo-700 font-bold">{wizIban.slice(0, 8)}...{wizIban.slice(-4)}</span><span className="text-slate-500">الآيبان:</span></div>
+                    <div className="flex justify-between col-span-2 border-t pt-1 border-slate-200"><span className="font-bold text-slate-900">فرع {wizBranchCity} - {wizBranchName || 'الرئيسي'} ({wizBranchDistrict})</span><span className="text-slate-500">الفرع التشغيلي الأول:</span></div>
+                    <div className="flex justify-between col-span-2"><span className="font-bold text-slate-900">{wizBranchManagerName} ({wizBranchManagerPhone})</span><span className="text-slate-500">مشرف الفرع الأول:</span></div>
+                    <div className="flex justify-between col-span-2"><span className="font-mono text-indigo-600 font-bold">{profileLat}, {profileLng}</span><span className="text-slate-500">إحداثيات المقر:</span></div>
+                  </div>
                 </div>
                 
-                <p className="text-[10px] text-slate-500 max-w-sm mx-auto">عند النقر على زر الإطلاق، سيتم تفعيل شاشة التشغيل الكاملة وحفظ البيانات في الوقت الحقيقي بموجب قواعد العزل التام.</p>
+                <p className="text-[10px] text-slate-500 max-w-sm mx-auto">عند النقر على زر الإطلاق، سيتم تفعيل مساحة العمل الموحدة وحفظ كافة البيانات في الجلسة الحالية والذاكرة المحلية.</p>
               </div>
             )}
 
           </div>
 
-          {/* Wizard Footer */}
+          {/* Wizard Footer Controls */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">
             <button
               type="button"
               disabled={onboardingStep === 1}
-              onClick={() => setOnboardingStep(onboardingStep - 1)}
-              className="px-4 py-2 border border-slate-200 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1"
+              onClick={() => {
+                setStepValidationAlerts([]);
+                setOnboardingStep(onboardingStep - 1);
+              }}
+              className="px-4 py-2 border border-slate-200 disabled:opacity-40 disabled:pointer-events-none hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1"
             >
               <ChevronRight className="w-4 h-4" />
               <span>السابق</span>
             </button>
 
-            {(() => {
-              const isIndividual = profileEntityType === 'عمل حر' || profileEntityType === 'فرد';
-              const lastStep = isIndividual ? 5 : 6;
-              const isAtLastStep = onboardingStep === lastStep;
+            {onboardingStep < 6 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  // Perform strict validation for active step
+                  const validation = (() => {
+                    const errors: string[] = [];
+                    if (onboardingStep === 1) {
+                      if (!profileBusinessName.trim()) errors.push('اسم المنشأة التجاري الرسمي مطلوب.');
+                      if (!profileBusinessCR.trim()) errors.push('رقم السجل التجاري / وثيقة العمل الحر مطلوب.');
+                      if (!profileRepresentativeName.trim()) errors.push('اسم الممثل / المدير المسؤول المعتمد مطلوب.');
+                      if (!profileRepresentativePhone.trim() || profileRepresentativePhone.trim().length < 10) {
+                        errors.push('رقم جوال الممثل المعتمد (10 أرقام تبدأ بـ 05) مطلوب.');
+                      }
+                      if (!profileRepresentativeEmail.trim() || !profileRepresentativeEmail.includes('@')) {
+                        errors.push('البريد الإلكتروني الرسمي للمخاطبات مطلوب.');
+                      }
+                      if (!profileLogo) {
+                        errors.push('رفع شعار المنشأة الرسمي مطلوب لتوثيق الهوية البصرية.');
+                      }
+                    } else if (onboardingStep === 2) {
+                      if (!profileNationalAddress.trim()) errors.push('تفاصيل العنوان الوطني المعتمد مطلوبة.');
+                      if (!profileMapLink.trim()) errors.push('رابط موقع خرائط Google المباشر مطلوب.');
+                      if (!profileLat.trim() || !profileLng.trim()) errors.push('إحداثيات خطوط الطول والعرض مطلوبة.');
+                    } else if (onboardingStep === 3) {
+                      if (wizVatStatus === 'مسجل' && (!wizTaxId.trim() || wizTaxId.trim().length < 15)) {
+                        errors.push('الرقم الضريبي الموحد (15 خانة) مطلوب للمنشآت المسجلة ضريبياً.');
+                      }
+                      if (!wizBankName.trim()) errors.push('اختيار البنك الشريك المعتمد مطلوب.');
+                      if (!wizBankAccountHolder.trim()) errors.push('اسم صاحب الحساب البنكي المطابق للمنشأة مطلوب.');
+                      if (!wizIban.trim() || !wizIban.trim().toUpperCase().startsWith('SA') || wizIban.trim().length < 24) {
+                        errors.push('رقم الآيبان الدولي (IBAN) بصيغة SA المعتمدة مطلوب (24 حرفاً ورقماً).');
+                      }
+                    } else if (onboardingStep === 4) {
+                      if (!wizBranchName.trim()) errors.push('اسم الفرع الأول لعلامتكم مطلوب.');
+                      if (!wizBranchAddress.trim()) errors.push('العنوان الميداني للفرع مطلوب للوصول الميداني.');
+                      if (!wizBranchPhone.trim()) errors.push('رقم هاتف التواصل المباشر للفرع الأول مطلوب.');
+                      if (!wizBranchManagerName.trim()) errors.push('اسم مدير/مشرف الفرع الأول مطلوب.');
+                      if (!wizBranchManagerPhone.trim()) errors.push('رقم جوال مدير الفرع الأول مطلوب.');
+                      if (!wizWorkingHours.trim()) errors.push('ساعات وأيام العمل الرسمية للفرع مطلوبة.');
+                    } else if (onboardingStep === 5) {
+                      if (!wizDeclarationAccepted) errors.push('يرجى قراءة التعهد والموافقة عليه بصفة المفوض القانوني للاستمرار.');
+                    }
+                    return { valid: errors.length === 0, errors };
+                  })();
 
-              if (!isAtLastStep) {
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onboardingStep === 1) {
-                        if (!profileBusinessName || !profileBusinessCR) {
-                          showNotification('warning', 'يرجى إدخال اسم المنشأة التجاري ورقم السجل التجاري/الهوية للمتابعة.');
-                          return;
-                        }
-                      }
-                      if (onboardingStep === 2) {
-                        if (!profileNationalAddress || !profileMapLink) {
-                          showNotification('warning', 'يرجى إدخال تفاصيل العنوان ورابط خرائط Google للفرع.');
-                          return;
-                        }
-                      }
-                      if (onboardingStep === 3) {
-                        if (!wizIban || !wizBankName) {
-                          showNotification('warning', 'يرجى إدخال بيانات البنك ورقم الآيبان بشكل صحيح.');
-                          return;
-                        }
-                      }
-                      if (onboardingStep === 4 && !isIndividual) {
-                        if (!wizBranchName || !wizBranchAddress) {
-                          showNotification('warning', 'يرجى تحديد اسم للفرع وعنوانه الميداني لتأسيسه بنجاح.');
-                          return;
-                        }
-                        const newBrId = `BR-26-${String(profileBranches.length + 1).padStart(8, '0')}`;
-                        const customBranch = {
-                          id: newBrId,
-                          name: wizBranchName,
-                          city: wizBranchCity,
-                          phone: wizBranchPhone || '0551234567',
-                          address: wizBranchAddress
-                        };
-                        if (!profileBranches.some(b => b.name === wizBranchName)) {
-                          const updated = [...profileBranches, customBranch];
-                          setProfileBranches(updated);
-                          localStorage.setItem(`provider_branches_${currentProviderName}`, JSON.stringify(updated));
-                          showNotification('success', `تم تأسيس وتسجيل الفرع الجديد "${customBranch.name}" في المجموعة بالرقم ${newBrId}`);
-                        }
-                      }
-                      if ((onboardingStep === 5 && !isIndividual) || (onboardingStep === 4 && isIndividual)) {
-                        if (!wizDeclarationAccepted) {
-                          showNotification('warning', 'يرجى قراءة التعهد والموافقة عليه للاستمرار.');
-                          return;
-                        }
-                      }
-                      setOnboardingStep(onboardingStep + 1);
-                    }}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 shadow-sm"
-                  >
-                    <span>حفظ ومتابعة</span>
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                );
-              } else {
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsOnboarded(true);
-                      setIsWizardForceOpen(false);
-                      setOnboardingStep(1);
-                      // Save profile data & update providersData in localStorage
-                      const settingsObj = {
-                        ...providerSettings,
-                        businessName: profileBusinessName,
-                        entityType: profileEntityType,
-                        crNumber: profileBusinessCR,
-                        phone: profileRepresentativePhone,
-                        email: profileRepresentativeEmail,
-                        logo: profileLogo,
-                        region: profileRegion,
-                        city: profileCity,
-                        nationalAddress: profileNationalAddress,
-                        mapLink: profileMapLink,
-                        latitude: profileLat,
-                        longitude: profileLng,
-                        showProviderToCustomers: showProviderToCustomers,
-                        username: profileUsername,
-                        vatStatus: wizVatStatus,
-                        vatNumber: wizTaxId,
-                        iban: wizIban,
-                        bankName: wizBankName,
-                      };
-                      setProviderSettings(settingsObj);
-                      localStorage.setItem(`provider_settings_${currentProviderName}`, JSON.stringify(settingsObj));
+                  if (!validation.valid) {
+                    setStepValidationAlerts(validation.errors);
+                    showNotification('warning', `تنبيه: يرجى استكمال الحقول الإجبارية للخطوة ${onboardingStep} للمتابعة.`);
+                    return;
+                  }
 
-                      try {
-                        const savedProvData = localStorage.getItem('providersData');
-                        let provList = savedProvData ? JSON.parse(savedProvData) : [];
-                        if (!Array.isArray(provList)) provList = [];
-                        const idx = provList.findIndex((p: any) => p.name === currentProviderName || p.id === currentProviderName);
-                        const updatedProv = {
-                          id: currentProviderName,
-                          name: profileBusinessName,
-                          providerName: profileBusinessName,
-                          showProviderToCustomers: showProviderToCustomers,
-                          username: profileUsername,
-                          logo: profileLogo,
-                          latitude: profileLat,
-                          longitude: profileLng,
-                          city: profileCity,
-                          region: profileRegion,
-                          crNumber: profileBusinessCR,
-                          phone: profileRepresentativePhone,
-                          email: profileRepresentativeEmail,
-                        };
-                        if (idx >= 0) {
-                          provList[idx] = { ...provList[idx], ...updatedProv };
-                        } else {
-                          provList.push(updatedProv);
-                        }
-                        safeSetLocalStorage('providersData', provList);
-                        window.dispatchEvent(new Event('storage'));
-                        window.dispatchEvent(new Event('settingsUpdated'));
-                      } catch (e) {}
+                  // Clear alerts
+                  setStepValidationAlerts([]);
 
-                      showNotification('success', 'مبروك! تم إطلاق وتفعيل مركز القيادة ونظام تشغيل الأعمال الكامل (Layla BOS) بنجاح!');
-                    }}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
-                  >
-                    <Sparkles className="w-4 h-4 text-yellow-300" />
-                    <span>تفعيل مركز العمليات الكامل ➔</span>
-                  </button>
-                );
-              }
-            })()}
+                  // Save first branch data if step 4
+                  if (onboardingStep === 4) {
+                    const firstBranchId = `BR-26-${String(profileBranches.length + 1).padStart(8, '0')}`;
+                    const firstBranchObj = {
+                      id: firstBranchId,
+                      name: wizBranchName.trim(),
+                      city: wizBranchCity,
+                      district: wizBranchDistrict,
+                      phone: wizBranchPhone || profileRepresentativePhone,
+                      address: wizBranchAddress,
+                      managerName: wizBranchManagerName,
+                      managerPhone: wizBranchManagerPhone,
+                      branchType: wizBranchType,
+                      workingHours: wizWorkingHours,
+                      mapLink: wizBranchMapLink || profileMapLink,
+                      isDefault: true
+                    };
+                    if (!profileBranches.some(b => b.name === wizBranchName.trim())) {
+                      const updated = [...profileBranches, firstBranchObj];
+                      setProfileBranches(updated);
+                      localStorage.setItem(`provider_branches_${currentProviderName}`, JSON.stringify(updated));
+                      showNotification('success', `تم تأسيس وتسجيل الفرع الأول "${firstBranchObj.name}" بنجاح!`);
+                    }
+                  }
+
+                  setOnboardingStep(onboardingStep + 1);
+                }}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+              >
+                <span>حفظ ومتابعة</span>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOnboarded(true);
+                  setIsWizardForceOpen(false);
+                  setOnboardingStep(1);
+                  setStepValidationAlerts([]);
+
+                  // Comprehensive settings object
+                  const settingsObj = {
+                    ...providerSettings,
+                    businessName: profileBusinessName,
+                    entityType: profileEntityType,
+                    crNumber: profileBusinessCR,
+                    representativeName: profileRepresentativeName,
+                    phone: profileRepresentativePhone,
+                    email: profileRepresentativeEmail,
+                    logo: profileLogo,
+                    region: profileRegion,
+                    city: profileCity,
+                    district: profileDistrict,
+                    nationalAddress: profileNationalAddress,
+                    mapLink: profileMapLink,
+                    latitude: profileLat,
+                    longitude: profileLng,
+                    showProviderToCustomers: showProviderToCustomers,
+                    username: profileUsername,
+                    vatStatus: wizVatStatus,
+                    vatNumber: wizTaxId,
+                    iban: wizIban,
+                    bankName: wizBankName,
+                    bankAccountHolder: wizBankAccountHolder,
+                    firstBranch: {
+                      name: wizBranchName,
+                      city: wizBranchCity,
+                      district: wizBranchDistrict,
+                      address: wizBranchAddress,
+                      phone: wizBranchPhone,
+                      managerName: wizBranchManagerName,
+                      managerPhone: wizBranchManagerPhone,
+                      branchType: wizBranchType,
+                      workingHours: wizWorkingHours,
+                    }
+                  };
+                  setProviderSettings(settingsObj);
+                  localStorage.setItem(`provider_settings_${currentProviderName}`, JSON.stringify(settingsObj));
+
+                  // Ensure First Branch is saved into profileBranches
+                  const firstBranchObj = {
+                    id: `BR-26-00000001`,
+                    name: wizBranchName || 'فرع الرياض الرئيسي',
+                    city: wizBranchCity || 'الرياض',
+                    district: wizBranchDistrict || 'حي الملقا',
+                    phone: wizBranchPhone || profileRepresentativePhone,
+                    address: wizBranchAddress || profileNationalAddress,
+                    managerName: wizBranchManagerName || profileRepresentativeName,
+                    managerPhone: wizBranchManagerPhone || profileRepresentativePhone,
+                    branchType: wizBranchType || 'قاعة مناسبات وأفراح متكاملة',
+                    workingHours: wizWorkingHours || '02:00 م - 02:00 ص',
+                    mapLink: wizBranchMapLink || profileMapLink,
+                    isDefault: true
+                  };
+                  if (!profileBranches.some(b => b.name === firstBranchObj.name)) {
+                    const updatedBr = [firstBranchObj, ...profileBranches];
+                    setProfileBranches(updatedBr);
+                    localStorage.setItem(`provider_branches_${currentProviderName}`, JSON.stringify(updatedBr));
+                  }
+
+                  try {
+                    const savedProvData = localStorage.getItem('providersData');
+                    let provList = savedProvData ? JSON.parse(savedProvData) : [];
+                    if (!Array.isArray(provList)) provList = [];
+                    const idx = provList.findIndex((p: any) => p.name === currentProviderName || p.id === currentProviderName);
+                    const updatedProv = {
+                      id: currentProviderName,
+                      name: profileBusinessName,
+                      providerName: profileBusinessName,
+                      showProviderToCustomers: showProviderToCustomers,
+                      username: showProviderToCustomers ? profileBusinessName : profileUsername,
+                      logo: profileLogo,
+                      latitude: profileLat,
+                      longitude: profileLng,
+                      city: profileCity,
+                      region: profileRegion,
+                      crNumber: profileBusinessCR,
+                      phone: profileRepresentativePhone,
+                      email: profileRepresentativeEmail,
+                    };
+                    if (idx >= 0) {
+                      provList[idx] = { ...provList[idx], ...updatedProv };
+                    } else {
+                      provList.push(updatedProv);
+                    }
+                    safeSetLocalStorage('providersData', provList);
+                    
+                    // Cloud Database Sync
+                    apiService.syncProfile({
+                      providerName: profileBusinessName,
+                      showProviderToCustomers: showProviderToCustomers,
+                      username: showProviderToCustomers ? profileBusinessName : profileUsername,
+                      settings: settingsObj
+                    }).catch((err) => console.error('Cloud sync error:', err));
+
+                    // Instant synchronization signals
+                    window.dispatchEvent(new Event('storage'));
+                    window.dispatchEvent(new Event('settingsUpdated'));
+                    window.dispatchEvent(new Event('providerDataSynced'));
+                  } catch (e) {}
+
+                  showNotification('success', 'مبروك! تم إطلاق وتفعيل مساحة عمل المزود الموحدة (Lailah Provider Workspace) بنجاح!');
+                }}
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
+              >
+                <Sparkles className="w-4 h-4 text-yellow-300" />
+                <span>إطلاق مساحة عمل المزود الموحدة 🚀</span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -1805,7 +2087,7 @@ export function ProviderDashboard({
                         {profileBusinessName || 'لوحة قيادة المزود'}
                       </div>
                       <div className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 mt-0.5">
-                        <span>Layla BOS Mobile</span>
+                        <span>Lailah Workspace Mobile</span>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
                       </div>
                     </div>
@@ -1861,9 +2143,9 @@ export function ProviderDashboard({
               
               {/* Sidebar Header */}
               <div className="pb-3 border-b border-slate-100">
-                <span className="text-[10px] font-black text-indigo-600 font-mono tracking-wider">BUSINESS OPERATING SYSTEM</span>
+                <span className="text-[10px] font-black text-indigo-600 font-mono tracking-wider">UNIFIED PROVIDER WORKSPACE</span>
                 <h4 className="text-sm font-black text-slate-800 mt-1 flex items-center gap-1.5 justify-end">
-                  <span>نظام تشغيل الأعمال BOS</span>
+                  <span>مساحة عمل المزود الموحدة</span>
                   <Sliders className="w-4 h-4 text-indigo-600" />
                 </h4>
               </div>
@@ -1918,7 +2200,7 @@ export function ProviderDashboard({
                     tabs: [
                       { id: 'catalog', name: 'كتالوج الخدمات والقاعات', desc: 'القاعات، الخدمات والباقات', icon: Package, color: 'text-purple-500 bg-purple-50' },
                       { id: 'hybrid', name: 'المناسبات والسياسات', desc: 'منع الازدواجية والتكامل', icon: Sparkles, color: 'text-violet-500 bg-violet-50' },
-                      { id: 'marketing', name: 'التسويق والكوبونات', desc: 'حملات ترويجية وأكواد خصم', icon: Megaphone, color: 'text-fuchsia-500 bg-fuchsia-50' }
+                      { id: 'marketing', name: 'مركز النمو والتسويق 📈', desc: 'تتبع الحملات بالأرقام، شريط التقدم، الإعلانات والكوبونات', icon: Megaphone, color: 'text-fuchsia-500 bg-fuchsia-50' }
                     ]
                   },
                   {
@@ -2068,10 +2350,10 @@ export function ProviderDashboard({
                     <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-radial from-white/10 to-transparent pointer-events-none"></div>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
                       <div className="space-y-2 flex-1">
-                        <span className="bg-indigo-500/80 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest font-mono">BOS OPERATING SYSTEM</span>
+                        <span className="bg-indigo-500/80 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest font-mono">UNIFIED PROVIDER WORKSPACE</span>
                         <h3 className="text-xl font-black">مركز قيادة عمليات المنشأة الموحد</h3>
                         <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                          مرحباً بك مجدداً في نظام تشغيل الأعمال <span className="text-amber-400 font-extrabold">Layla BOS v2.6</span> لشركة <span className="text-yellow-400 font-extrabold">{profileBusinessName}</span>. إليك تحليل حي ومؤشرات عمليات المنشأة والمهام العاجلة بانتظار اتخاذ إجراء الآن.
+                          مرحباً بك مجدداً في مساحة عمل المزود الموحدة والمتكيفة <span className="text-amber-400 font-extrabold">Lailah Workspace v2.6</span> لشركة <span className="text-yellow-400 font-extrabold">{profileBusinessName}</span>. إليك تحليل حي ومؤشرات عمليات المنشأة والمهام العاجلة بانتظار اتخاذ إجراء الآن.
                         </p>
                       </div>
                       <button 
@@ -2086,6 +2368,132 @@ export function ProviderDashboard({
                       </button>
                     </div>
                   </div>
+
+                  {/* Interactive Provider Onboarding Checklist Banner (Requirement 1) */}
+                  {(() => {
+                    const checkListItems = [
+                      {
+                        id: 'identity',
+                        title: 'هوية المنشأة والشعار والخصوصية',
+                        isDone: Boolean(profileBusinessName && profileLogo),
+                        actionText: 'تحديث الهوية',
+                        tabTarget: 'profile'
+                      },
+                      {
+                        id: 'iban',
+                        title: 'ربط الآيبان الحساب البنكي للسحوبات',
+                        isDone: Boolean((wizIban && wizIban.length >= 12) || (withdrawIban && withdrawIban.length >= 12)),
+                        actionText: 'إدخال IBAN',
+                        tabTarget: 'finance'
+                      },
+                      {
+                        id: 'catalog',
+                        title: 'إضافة قاعة أو منشأة أو خدمة مساندة',
+                        isDone: Boolean((halls && halls.length > 0) || (catalogServices && catalogServices.length > 0)),
+                        actionText: 'إضافة بالكتالوج',
+                        tabTarget: 'catalog'
+                      },
+                      {
+                        id: 'pricing',
+                        title: 'تحديد أسعار نهايات الأسابيع والمواسم',
+                        isDone: Boolean(wizWeekendPrice && Number(wizWeekendPrice) > 0),
+                        actionText: 'التسعير المتقدم',
+                        tabTarget: 'pricing'
+                      },
+                      {
+                        id: 'policy',
+                        title: 'شروط وسياسة الإلغاء والاسترداد',
+                        isDone: Boolean(wizWorkingHours),
+                        actionText: 'تعديل السياسات',
+                        tabTarget: 'profile'
+                      },
+                      {
+                        id: 'docs',
+                        title: 'رفع السجل التجاري والوثائق المعتمدة',
+                        isDone: (uploadedDocs || []).some((d: any) => d.status === 'success'),
+                        actionText: 'رفع المستندات',
+                        tabTarget: 'profile'
+                      }
+                    ];
+
+                    const completedCount = checkListItems.filter(i => i.isDone).length;
+                    const totalCount = checkListItems.length;
+                    const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+                    return (
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm text-right space-y-4 font-sans">
+                        <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl border border-amber-500/20">
+                              <CheckSquare className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>دليل البدء السريع وإكمال ملف المزود (Interactive Onboarding)</span>
+                                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${progressPercent === 100 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border border-amber-500/20'}`}>
+                                  {progressPercent === 100 ? 'جاهز ومكتمل 100% 🚀' : `${progressPercent}% مكتمل`}
+                                </span>
+                              </h4>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                أكمل الخطوات التشغيلية لتنشيط ظهور القاعات والخدمات وتفعيل استلام الحجوزات
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-xs font-black">
+                            <span className="text-slate-400">الإنجاز:</span>
+                            <span className="text-indigo-600 dark:text-indigo-400">{completedCount} من {totalCount} مهام</span>
+                          </div>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="space-y-1">
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all duration-500 rounded-full ${progressPercent === 100 ? 'bg-emerald-500' : 'bg-gradient-to-l from-amber-500 to-indigo-600'}`}
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Checklist Items Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                          {checkListItems.map((item) => (
+                            <div 
+                              key={item.id}
+                              className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+                                item.isDone 
+                                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-800/40 text-slate-800 dark:text-slate-200'
+                                  : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-700/50 hover:border-amber-300 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {item.isDone ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0" />
+                                )}
+                                <span className={`text-[11px] font-bold truncate ${item.isDone ? 'line-through opacity-70' : ''}`}>
+                                  {item.title}
+                                </span>
+                              </div>
+                              {!item.isDone && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOsTab(item.tabTarget as any);
+                                    showNotification('info', `تم التوجيه إلى قسم: ${item.actionText}`);
+                                  }}
+                                  className="text-[9px] font-black bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg shrink-0 transition-all cursor-pointer shadow-xs"
+                                >
+                                  {item.actionText}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Unified Dashboard Grid: Financial Hub & Health Indicators (Right) & Action Center (Left) */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
@@ -2735,7 +3143,7 @@ export function ProviderDashboard({
                   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-right space-y-6">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center gap-2">
-                        <span className="bg-indigo-50 text-indigo-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">BOS Identity Engine v2.6</span>
+                        <span className="bg-indigo-50 text-indigo-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">Lailah Identity Engine v2.6</span>
                         <span className="text-xs text-slate-400">الخطوة {identityWizStep} من 4</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -2995,7 +3403,7 @@ export function ProviderDashboard({
                           <div className="absolute top-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
                           <div className="flex justify-between items-start relative z-10">
                             <div className="text-left font-mono">
-                              <span className="text-[8px] tracking-widest text-slate-400 uppercase block font-sans">BOS ENROLLMENT ID</span>
+                              <span className="text-[8px] tracking-widest text-slate-400 uppercase block font-sans">PROVIDER ENROLLMENT ID</span>
                               <span className="text-xs font-black text-amber-300">CR-{identityWizData.crNumber}</span>
                             </div>
                             <div className="text-right space-y-1">
@@ -3056,6 +3464,25 @@ export function ProviderDashboard({
                               setProfileBusinessCR(identityWizData.crNumber);
                               setProfileBusinessDesc(identityWizData.description);
                               setProfileBusinessContact(identityWizData.contactPhone);
+                              
+                              // Sync to cloud database
+                              apiService.syncProfile({
+                                providerName: identityWizData.businessName || profileBusinessName,
+                                showProviderToCustomers: showProviderToCustomers,
+                                username: showProviderToCustomers ? (identityWizData.businessName || profileBusinessName) : profileUsername,
+                                settings: {
+                                  businessName: identityWizData.businessName,
+                                  crNumber: identityWizData.crNumber,
+                                  description: identityWizData.description,
+                                  contactPhone: identityWizData.contactPhone,
+                                  vatNumber: identityWizData.vatNumber
+                                }
+                              }).catch(err => console.error('Cloud identity sync error:', err));
+
+                              window.dispatchEvent(new Event('storage'));
+                              window.dispatchEvent(new Event('settingsUpdated'));
+                              window.dispatchEvent(new Event('providerDataSynced'));
+
                               setIdentityWizStep(1); // Reset
                               showNotification('success', 'تهانينا! تم تحديث واعتماد الهوية التجارية للمنشأة بالكامل في نظام تشغيل الأعمال ERP بنجاح.');
                             }}
@@ -3302,9 +3729,20 @@ export function ProviderDashboard({
                   {/* Halls view */}
                   {catalogActiveInnerTab === 'halls' && (
                     <div className="space-y-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                      <div className="flex justify-between items-center pb-3 border-b border-slate-50">
-                        <span className="text-[10px] font-black text-slate-400 font-mono">VENUES & HALLS CATALOG</span>
-                        <h3 className="text-sm font-black text-slate-800">قاعات المناسبات التابعة لمجموعة المنشأة</h3>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-50">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-400 font-mono block">VENUES & HALLS CATALOG</span>
+                          <h3 className="text-sm font-black text-slate-800">قاعات المناسبات التابعة لمجموعة المنشأة</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsMediaGuideOpen(true)}
+                          className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-950 text-emerald-300 font-extrabold text-xs flex items-center gap-2 border border-emerald-500/40 shadow-sm transition-all active:scale-95 cursor-pointer"
+                          title="فتح دليل واشتراطات تصوير ورفع الوسائط (الصور والفيديوهات)"
+                        >
+                          <Camera className="w-4 h-4 text-emerald-400" />
+                          <span>دليل تصوير ورفع الوسائط 📷</span>
+                        </button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3387,7 +3825,7 @@ export function ProviderDashboard({
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4 mt-4">
                         <div className="flex items-center justify-between pb-2 border-b border-slate-200">
                           <div className="flex items-center gap-2">
-                            <span className="bg-indigo-100 text-indigo-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase font-mono">BOS Venue Engine v2.6</span>
+                            <span className="bg-indigo-100 text-indigo-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase font-mono">Lailah Venue Engine v2.6</span>
                             <span className="text-xs text-slate-500">الخطوة {venueWizStep} من ٦</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-indigo-700">
@@ -3697,7 +4135,7 @@ export function ProviderDashboard({
                             {/* Weekend Pricing Feature (Dynamic Weekend Multipliers) */}
                             <div className="p-4 bg-purple-50/60 rounded-xl border border-purple-100 space-y-3">
                               <div className="flex items-center justify-between pb-1 border-b border-purple-100">
-                                <span className="bg-purple-100 text-purple-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase font-mono">BOS Advanced Plan Feature</span>
+                                <span className="bg-purple-100 text-purple-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase font-mono">Advanced Plan Feature</span>
                                 <label className="flex items-center gap-1.5 cursor-pointer text-xs font-black text-purple-950">
                                   <input
                                     type="checkbox"
@@ -3863,7 +4301,7 @@ export function ProviderDashboard({
                                 className="space-y-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100"
                               >
                                 <div className="flex items-center justify-between pb-2 border-b border-purple-100">
-                                  <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">BOS Package Inventory</span>
+                                  <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">Package Inventory</span>
                                   <h4 className="text-xs font-black text-purple-950 flex items-center gap-1.5 justify-end">
                                     <span>مستودع الباقات المغلقة والجاهزة (الشاملة)</span>
                                     <Package className="w-4 h-4 text-purple-600" />
@@ -4083,7 +4521,7 @@ export function ProviderDashboard({
                             {/* Complementary Addons (الخدمات الإضافية التكميلية للقاعة إن وجد) */}
                             <div className="space-y-4 bg-indigo-50/20 p-4 rounded-xl border border-indigo-100">
                               <div className="flex items-center justify-between pb-2 border-b border-indigo-100">
-                                <span className="bg-indigo-100 text-indigo-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">BOS Complementary Addons</span>
+                                <span className="bg-indigo-100 text-indigo-700 text-[9px] font-black px-2.5 py-1 rounded-full uppercase font-mono">Complementary Addons</span>
                                 <h4 className="text-xs font-black text-indigo-950 flex items-center gap-1.5 justify-end">
                                   <span>الخدمات الإضافية التكميلية والمساندة التابعة للقاعة (إن وجد)</span>
                                   <Sliders className="w-4 h-4 text-indigo-600" />
@@ -4233,7 +4671,7 @@ export function ProviderDashboard({
                             {/* Hall Photo Album (توليف وتدشين ألبوم الصور) */}
                             <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
                               <div className="flex items-center justify-between pb-1.5 border-b mb-2">
-                                <span className="bg-indigo-50 text-indigo-700 text-[8px] font-black px-2 py-0.5 rounded-full font-mono">BOS Media Synthesis Engine</span>
+                                <span className="bg-indigo-50 text-indigo-700 text-[8px] font-black px-2 py-0.5 rounded-full font-mono">Media Synthesis Engine</span>
                                 <h4 className="text-[11px] font-black text-slate-800 flex items-center gap-1 justify-end">
                                   <span>تدشين وتوليف ألبوم صور القاعة الشامل</span>
                                   <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
@@ -4727,9 +5165,20 @@ export function ProviderDashboard({
                           <span className="text-[10px] font-black text-indigo-600 tracking-wider font-mono block mb-1">SUPPORTIVE & INDEPENDENT SERVICES CATALOG</span>
                           <h3 className="text-base font-black text-slate-800">كتالوج وإدارة الخدمات المستقلة والمساندة</h3>
                         </div>
-                        <div className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-2xl flex items-center gap-2">
-                          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                          <span className="text-[11px] font-bold text-slate-600">منظومة الخدمات اللامركزية النشطة</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsMediaGuideOpen(true)}
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-950 text-emerald-300 font-extrabold text-xs flex items-center gap-2 border border-emerald-500/40 shadow-sm transition-all active:scale-95 cursor-pointer"
+                            title="فتح دليل واشتراطات تصوير ورفع الوسائط (الصور والفيديوهات)"
+                          >
+                            <Camera className="w-4 h-4 text-emerald-400" />
+                            <span>دليل تصوير ورفع الوسائط 📷</span>
+                          </button>
+                          <div className="bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-2xl flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            <span className="text-[11px] font-bold text-slate-600">منظومة الخدمات اللامركزية النشطة</span>
+                          </div>
                         </div>
                       </div>
 
@@ -4859,7 +5308,7 @@ export function ProviderDashboard({
                         {/* Interactive Role Switcher at the top of the wizard to demonstrate Admin vs Provider rules */}
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-indigo-50/60 p-3 rounded-2xl border border-indigo-100 gap-3">
                           <div className="space-y-0.5">
-                            <span className="text-indigo-900 font-black text-xs block">🛡️ محاكي التحكم والصلاحيات (BOS Access Switcher)</span>
+                            <span className="text-indigo-900 font-black text-xs block">🛡️ محاكي التحكم والصلاحيات (Access Switcher)</span>
                             <p className="text-[10px] text-indigo-700 leading-relaxed">
                               استخدم هذا الخيار للتبديل الفوري بين رتبة **مُزود الخدمة** و**الإدارة (Admin)** لمشاهدة ديناميكية وتأثير العزل والصلاحيات البرمجية على الحقول أدناه.
                             </p>
@@ -4888,7 +5337,7 @@ export function ProviderDashboard({
                         {/* Wizard Step Header */}
                         <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                           <div className="flex items-center gap-2">
-                            <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase font-mono tracking-wider shadow-sm">BOS supportive wizard v2.6</span>
+                            <span className="bg-purple-100 text-purple-700 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase font-mono tracking-wider shadow-sm">Supportive Wizard v2.6</span>
                             <span className="text-[11px] font-black text-slate-500">الخطوة {serviceWizStep} من ٥</span>
                           </div>
                           <div className="flex items-center gap-2 text-purple-700">
@@ -5170,7 +5619,7 @@ export function ProviderDashboard({
 
                                {/* Interactive Live Price Simulator */}
                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 space-y-2 pt-3">
-                                 <span className="text-[9px] font-black text-slate-400 block text-right uppercase tracking-wider">🔴 معالج المحاكاة الفورية للأسعار (BOS Real-time Simulator)</span>
+                                 <span className="text-[9px] font-black text-slate-400 block text-right uppercase tracking-wider">🔴 معالج المحاكاة الفورية للأسعار (Real-time Price Simulator)</span>
                                  <div className="grid grid-cols-3 gap-2 text-center">
                                    <div className="bg-white p-2 rounded-lg border border-slate-200">
                                      <span className="text-[9px] text-slate-400 block font-bold">السعر العادي (وسط الأسبوع)</span>
@@ -5588,7 +6037,7 @@ export function ProviderDashboard({
                             {/* Bento Summary Sheet */}
                             <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 text-xs font-bold text-slate-700">
                               <div className="flex justify-between items-center border-b pb-2">
-                                <span className="text-[9px] font-mono font-black text-slate-400">BOS INTEGRATED DATA SHEET</span>
+                                <span className="text-[9px] font-mono font-black text-slate-400">INTEGRATED PROVIDER DATA SHEET</span>
                                 <h5 className="text-sm font-black text-slate-800">بطاقة المراجعة الفنية الشاملة للخدمة</h5>
                               </div>
 
@@ -6512,7 +6961,7 @@ export function ProviderDashboard({
                         </>
                       ) : (
                         <>
-                          <h4 className="text-base font-black">الباقة المبتدئة (BOS Starter)</h4>
+                          <h4 className="text-base font-black">الباقة المبتدئة (Lailah Starter)</h4>
                           <p className="text-xs text-indigo-100 leading-relaxed max-w-2xl">
                             تمنحك الباقة المبتدئة صلاحيات تشغيل فرع واحد، و٣ موظفين، والكتالوج الأساسي. <strong className="text-yellow-300">لا تشتمل</strong> على نظام محرك الأسعار الديناميكي أو تجميع الباقات الجاهزة، مع عمولة تشغيلية قدرها <strong className="text-yellow-400">12%</strong> لكل حجز. يمكنك الترقية الآن أو شراء الميزة الإضافية بشكل منفصل.
                           </p>
@@ -6551,7 +7000,7 @@ export function ProviderDashboard({
                             type="button"
                             onClick={() => {
                               setProviderPlan('starter');
-                              showNotification('info', 'تم التبديل إلى الباقة المبتدئة BOS Starter بنجاح لتجربة واختبار الميزات المقفلة.');
+                              showNotification('info', 'تم التبديل إلى الباقة المبتدئة Lailah Starter بنجاح لتجربة واختبار الميزات المقفلة.');
                             }}
                             className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
                           >
@@ -6761,106 +7210,18 @@ export function ProviderDashboard({
                 </div>
               )}
 
-              {/* Domain 12: Marketing */}
+              {/* Domain 12: Marketing & Growth Center */}
               {osTab === 'marketing' && (
-                <div className="space-y-6">
-                  {/* Coupon management */}
-                  <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm text-right space-y-4">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-50">
-                      <span className="text-[10px] font-black text-slate-400 font-mono">COUPONS & CAMPAIGNS</span>
-                      <h3 className="text-sm font-black text-slate-800">إدارة الكوبونات وحملات الخصومات الترويجية</h3>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-right text-xs">
-                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
-                          <tr>
-                            <th className="p-3 font-black">كود الخصم</th>
-                            <th className="p-3 font-black">القيمة</th>
-                            <th className="p-3 font-black">النوع</th>
-                            <th className="p-3 font-black">مرات الاستخدام</th>
-                            <th className="p-3 font-black text-center">حالة الكوبون</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 font-sans">
-                          {marketingCoupons.map((c) => (
-                            <tr key={c.code} className="hover:bg-slate-50/50">
-                              <td className="p-3 font-mono font-black text-slate-800">{c.code}</td>
-                              <td className="p-3 font-mono text-slate-700 font-bold">{c.discount}</td>
-                              <td className="p-3 text-slate-600">{c.type === 'percentage' ? 'نسبة مئوية' : 'مبلغ مقطوع'}</td>
-                              <td className="p-3 font-mono text-slate-500">{c.usageCount} / {c.maxUsage} مرة</td>
-                              <td className="p-3 text-center">
-                                <button
-                                  onClick={() => {
-                                    const updated = marketingCoupons.map(item => item.code === c.code ? { ...item, status: item.status === 'نشط' ? 'غير نشط' : 'نشط' } : item);
-                                    setMarketingCoupons(updated);
-                                    showNotification('info', 'تم تعديل حالة الكوبون بنجاح بالنظام.');
-                                  }}
-                                  className={`px-2.5 py-1 rounded-full text-[10px] font-black cursor-pointer transition-all ${c.status === 'نشط' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}`}
-                                >
-                                  {c.status}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Add Coupon Form */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3 mt-2">
-                      <h4 className="text-xs font-black text-indigo-700">توليد كود ترويجي/كوبون جديد لحملات المنشأة</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <input
-                          type="text"
-                          placeholder="رمز الكود (مثل: WEDDING26)"
-                          value={newCouponCode}
-                          onChange={(e) => setNewCouponCode(e.target.value)}
-                          className="p-2 border border-slate-200 bg-white rounded-xl text-xs outline-none text-right font-mono font-black"
-                        />
-                        <input
-                          type="text"
-                          placeholder="قيمة الخصم (مثل: 15% أو 1000)"
-                          value={newCouponDiscount}
-                          onChange={(e) => setNewCouponDiscount(e.target.value)}
-                          className="p-2 border border-slate-200 bg-white rounded-xl text-xs outline-none text-right"
-                        />
-                        <select
-                          value={newCouponType}
-                          onChange={(e) => setNewCouponType(e.target.value as any)}
-                          className="p-2 border border-slate-200 bg-white rounded-xl text-xs outline-none text-right"
-                        >
-                          <option value="percentage">نسبة مئوية من قيمة الحجز</option>
-                          <option value="fixed">مبلغ مقطوع بالريال السعودي</option>
-                        </select>
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (!newCouponCode || !newCouponDiscount) {
-                            showNotification('warning', 'يرجى تعبئة رمز الكوبون وقيمته الترويجية.');
-                            return;
-                          }
-                          const newCoupon = {
-                            code: newCouponCode.toUpperCase(),
-                            discount: newCouponDiscount,
-                            type: newCouponType,
-                            usageCount: 0,
-                            maxUsage: 100,
-                            status: 'نشط'
-                          };
-                          setMarketingCoupons([...marketingCoupons, newCoupon]);
-                          setNewCouponCode('');
-                          setNewCouponDiscount('');
-                          showNotification('success', `تم توليد وحفظ الكود الترويجي ${newCoupon.code} بنجاح في نظام الكتالوجات!`);
-                        }}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-black transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Plus className="w-4 h-4" />
-                        حفظ ونشر الكوبون للعملاء
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ProviderGrowthCenter
+                  currentProviderName={currentProviderName}
+                  campaigns={campaigns}
+                  setCampaigns={setCampaigns}
+                  adRequests={adRequests}
+                  setAdRequests={setAdRequests}
+                  halls={halls}
+                  services={services}
+                  showNotification={showNotification}
+                />
               )}
 
               {/* Domain 13: Customer Management */}
@@ -7165,7 +7526,7 @@ export function ProviderDashboard({
                                 setShowAddInventoryForm(false);
                                 setInvWizName('');
                                 setInvWizTotal('50');
-                                showNotification('success', `تم حفظ الصنف الجديد ${invWizName} بنجاح ومزامنته بـ BOS!`);
+                                showNotification('success', `تم حفظ الصنف الجديد ${invWizName} بنجاح ومزامنته بمساق المنشأة!`);
                               }}
                               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 min-h-[38px]"
                             >
@@ -8858,6 +9219,12 @@ export function ProviderDashboard({
                 <span className="text-[9px]">الأقسام</span>
               </button>
             </div>
+
+            {/* Media Standards Guide Modal */}
+            <MediaStandardsGuideModal
+              isOpen={isMediaGuideOpen}
+              onClose={() => setIsMediaGuideOpen(false)}
+            />
           </div>
   );
 }

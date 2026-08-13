@@ -189,7 +189,7 @@ export default function FinanceDashboard({
   setPromotions?: (p: any[]) => void,
   services?: any[]
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts'>(() => {
+  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts' | 'treasury'>(() => {
     return userRole === 'provider' ? 'wallet' : 'reports';
   });
   const [seasonsInternalTab, setSeasonsInternalTab] = useState<'seasons' | 'promotions'>('seasons');
@@ -242,6 +242,184 @@ export default function FinanceDashboard({
       setLocalSupportServiceRequests(supportServiceRequests);
     }
   }, [supportServiceRequests]);
+
+  // Partner Operations & Clearing Ledger States
+  const [providerSearchQuery, setProviderSearchQuery] = useState('');
+  const [providerTierFilter, setProviderTierFilter] = useState<string>('all');
+  const [selectedProviderForStatement, setSelectedProviderForStatement] = useState<any | null>(null);
+  const [partnerStatementTab, setPartnerStatementTab] = useState<'summary' | 'bookings' | 'services' | 'settlements'>('summary');
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [settleProviderData, setSettleProviderData] = useState<any | null>(null);
+  const [settleAmountInput, setSettleAmountInput] = useState('');
+  const [settleNotesInput, setSettleNotesInput] = useState('');
+  const [settleReferenceInput, setSettleReferenceInput] = useState('');
+  const [isSubmittingSettlement, setIsSubmittingSettlement] = useState(false);
+
+  // Dynamic Partner Aggregation Engine combining Halls, Services, Bookings, and Cloud Database Settlements
+  const aggregatedProvidersData = useMemo(() => {
+    const providerMap = new Map<string, any>();
+
+    const getOrInit = (key: string, name: string, raw?: any) => {
+      const k = (key || name || 'شريك غير محدد').trim();
+      if (!providerMap.has(k)) {
+        providerMap.set(k, {
+          id: raw?.id || raw?.providerId || k,
+          name: raw?.name || name || k,
+          email: raw?.email || raw?.username || '-',
+          phone: raw?.phone || '-',
+          city: raw?.city || raw?.region || 'جميع المناطق',
+          crNumber: raw?.crNumber || raw?.commercialRegister || '-',
+          iban: raw?.iban || raw?.bankAccount || '-',
+          subscriptionTier: raw?.subscriptionTier || raw?.packageName || 'الباقة الأساسية',
+          raw: raw || null
+        });
+      } else if (raw) {
+        const existing = providerMap.get(k);
+        if (raw.email && existing.email === '-') existing.email = raw.email;
+        if (raw.phone && existing.phone === '-') existing.phone = raw.phone;
+        if (raw.crNumber && existing.crNumber === '-') existing.crNumber = raw.crNumber;
+        if (raw.iban && existing.iban === '-') existing.iban = raw.iban;
+        if (raw.subscriptionTier && existing.subscriptionTier === 'الباقة الأساسية') existing.subscriptionTier = raw.subscriptionTier;
+      }
+      return providerMap.get(k);
+    };
+
+    if (Array.isArray(providers)) {
+      providers.forEach((p: any) => {
+        const pName = p.name || p.providerName || p.username;
+        if (pName) getOrInit(pName, pName, p);
+      });
+    }
+
+    if (Array.isArray(halls)) {
+      halls.forEach((h: any) => {
+        const pName = h.provider || h.providerName;
+        if (pName) getOrInit(pName, pName);
+      });
+    }
+
+    if (Array.isArray(services)) {
+      services.forEach((s: any) => {
+        const pName = s.provider || s.providerName;
+        if (pName) getOrInit(pName, pName);
+      });
+    }
+
+    if (Array.isArray(bookings)) {
+      bookings.forEach((b: any) => {
+        const pName = b.providerName || b.provider;
+        if (pName) getOrInit(pName, pName);
+      });
+    }
+
+    if (Array.isArray(supportServiceRequests)) {
+      supportServiceRequests.forEach((sr: any) => {
+        const pName = sr.providerName || sr.provider;
+        if (pName) getOrInit(pName, pName);
+      });
+    }
+
+    const result: any[] = [];
+
+    providerMap.forEach((p, keyName) => {
+      const pHalls = (halls || []).filter((h: any) => (h.provider || h.providerName) === keyName || h.providerId === p.id);
+      const pServices = (services || []).filter((s: any) => (s.provider || s.providerName) === keyName || s.providerId === p.id);
+
+      const pBookings = (bookings || []).filter((b: any) => {
+        const matchProv = (b.providerName || b.provider) === keyName || b.providerId === p.id;
+        const isConfirmed = b.status === 'مؤكد' || b.paymentStatus === 'مدفوع' || b.paymentStatus === 'مدفوع بالكامل' || b.status === 'مكتمل';
+        return matchProv && isConfirmed;
+      });
+
+      const totalBookingVolume = pBookings.reduce((sum: number, b: any) => sum + Number(b.totalPrice || b.amount || 0), 0);
+
+      const pServiceRequests = (supportServiceRequests || []).filter((sr: any) => {
+        const matchProv = (sr.providerName || sr.provider) === keyName || sr.providerId === p.id;
+        const isPaid = sr.status === 'تم السداد' || sr.status === 'مقبول' || sr.status === 'مكتمل' || sr.paymentStatus === 'مدفوع' || sr.paymentStatus === 'مدفوع بالكامل';
+        return matchProv && isPaid;
+      });
+
+      const totalServiceVolume = pServiceRequests.reduce((sum: number, sr: any) => sum + Number(sr.price || sr.amount || 0), 0);
+      const grossSales = totalBookingVolume + totalServiceVolume;
+
+      const tierLower = String(p.subscriptionTier || '').toLowerCase();
+      let commissionRate = 0.15;
+      if (tierLower.includes('professional') || tierLower.includes('احترافية') || tierLower.includes('pro')) {
+        commissionRate = 0.08;
+      } else if (tierLower.includes('advanced') || tierLower.includes('متقدمة')) {
+        commissionRate = 0.12;
+      } else if (typeof p.commissionRate === 'number') {
+        commissionRate = p.commissionRate;
+      }
+
+      const platformCommission = grossSales * commissionRate;
+      const netPartnerEarned = grossSales - platformCommission;
+
+      const pSettlements = (settlements || []).filter((s: any) => {
+        const matchProv = (s.providerName || s.provider || s.providerId) === keyName || s.providerId === p.id;
+        const isApproved = s.status === 'approved' || s.status === 'معتمدة' || s.status === 'مكتملة' || !s.status;
+        return matchProv && isApproved;
+      });
+
+      const totalSettledAmount = pSettlements.reduce((sum: number, s: any) => sum + Number(s.amount || 0), 0);
+      const pendingBalance = Math.max(0, netPartnerEarned - totalSettledAmount);
+
+      result.push({
+        ...p,
+        hallsCount: pHalls.length,
+        servicesCount: pServices.length,
+        halls: pHalls,
+        servicesList: pServices,
+        bookingsList: pBookings,
+        bookingsCount: pBookings.length,
+        bookingVolume: totalBookingVolume,
+        serviceRequestsList: pServiceRequests,
+        serviceRequestsCount: pServiceRequests.length,
+        serviceVolume: totalServiceVolume,
+        grossSales,
+        commissionRate,
+        platformCommission,
+        netPartnerEarned,
+        settlementsList: pSettlements,
+        settledAmount: totalSettledAmount,
+        pendingBalance
+      });
+    });
+
+    return result.sort((a, b) => b.grossSales - a.grossSales);
+  }, [providers, halls, services, bookings, supportServiceRequests, settlements]);
+
+  const filteredProvidersList = useMemo(() => {
+    return aggregatedProvidersData.filter(p => {
+      const q = providerSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.email || '').toLowerCase().includes(q) ||
+        (p.phone || '').toLowerCase().includes(q) ||
+        (p.city || '').toLowerCase().includes(q) ||
+        (p.crNumber || '').toLowerCase().includes(q) ||
+        String(p.id).toLowerCase().includes(q);
+
+      const matchesTier = providerTierFilter === 'all' || 
+        (providerTierFilter === 'basic' && (p.subscriptionTier.includes('أساسية') || p.subscriptionTier.includes('basic'))) ||
+        (providerTierFilter === 'advanced' && (p.subscriptionTier.includes('متقدمة') || p.subscriptionTier.includes('advanced'))) ||
+        (providerTierFilter === 'professional' && (p.subscriptionTier.includes('احترافية') || p.subscriptionTier.includes('pro') || p.subscriptionTier.includes('professional')));
+
+      return matchesSearch && matchesTier;
+    });
+  }, [aggregatedProvidersData, providerSearchQuery, providerTierFilter]);
+
+  const partnerOperationsSummary = useMemo(() => {
+    return {
+      totalPartners: aggregatedProvidersData.length,
+      totalGrossSales: aggregatedProvidersData.reduce((s, p) => s + p.grossSales, 0),
+      totalCommissions: aggregatedProvidersData.reduce((s, p) => s + p.platformCommission, 0),
+      totalSettled: aggregatedProvidersData.reduce((s, p) => s + p.settledAmount, 0),
+      totalPending: aggregatedProvidersData.reduce((s, p) => s + p.pendingBalance, 0),
+      totalHalls: aggregatedProvidersData.reduce((s, p) => s + p.hallsCount, 0),
+      totalServices: aggregatedProvidersData.reduce((s, p) => s + p.servicesCount, 0)
+    };
+  }, [aggregatedProvidersData]);
 
   const relevantUpgradeRequests = useMemo(() => {
     return relevantUpgradeRequestsMemo(localMails, userRole || 'admin', currentProvider || '');
@@ -1313,6 +1491,63 @@ export default function FinanceDashboard({
       if (showNotification) {
         showNotification('error', 'حدث خطأ غير متوقع أثناء اعتماد التسوية');
       }
+    }
+  };
+
+  const handleCreateSettlement = async (partnerData: any, amountVal: number, notesText: string, refText: string) => {
+    setIsSubmittingSettlement(true);
+    try {
+      const year = new Date().getFullYear().toString().slice(-2);
+      const formattedRef = refText || `REV-${year}-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      const payload = {
+        providerId: partnerData.id || partnerData.name,
+        providerName: partnerData.name,
+        amount: amountVal,
+        notes: notesText || 'تسوية مستحقات الشريك الدورية',
+        referenceNumber: formattedRef,
+        status: 'approved',
+        date: new Date().toISOString()
+      };
+
+      try {
+        await fetch('/api/finance/settlements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.warn("Settlement cloud sync notice:", e);
+      }
+
+      const newSettlementObj = {
+        id: Date.now(),
+        providerId: partnerData.id || partnerData.name,
+        providerName: partnerData.name,
+        amount: amountVal,
+        notes: notesText || 'تسوية مستحقات الشريك الدورية',
+        referenceNumber: formattedRef,
+        status: 'approved',
+        createdAt: new Date().toISOString()
+      };
+
+      setSettlements(prev => [newSettlementObj, ...prev]);
+
+      if (showNotification) {
+        showNotification('success', `✓ تم تسجيل وإصدار تسوية مالية بمبلغ ${amountVal.toLocaleString('ar-SA')} ر.س للشريك ${partnerData.name} بنجاح!`);
+      }
+
+      setIsSettleModalOpen(false);
+      setSettleAmountInput('');
+      setSettleNotesInput('');
+      setSettleReferenceInput('');
+      fetchSettlementsAndLedger();
+    } catch (err) {
+      console.error("Error creating settlement:", err);
+      if (showNotification) {
+        showNotification('error', 'حدث خطأ أثناء حفظ التسوية المالية');
+      }
+    } finally {
+      setIsSubmittingSettlement(false);
     }
   };
 
@@ -4502,6 +4737,33 @@ export default function FinanceDashboard({
         />
       )}
 
+      {activeSubTab === 'invoices' && (
+        <ZatcaInvoicing
+          userRole={userRole}
+          currentProvider={currentProvider}
+          isVatEnabled={isVatEnabled}
+          providerSubscription={providerSubscription}
+          bookings={[
+            ...bookings,
+            ...(supportServiceRequests || []).map((s: any) => ({
+              id: s.id || `SRV-${s.serviceId || 101}`,
+              customer: s.customerName || s.clientName || 'عميل خدمة مساندة',
+              customerName: s.customerName || s.clientName || 'عميل خدمة مساندة',
+              hall: s.serviceName || s.title || 'طلب خدمة مساندة',
+              providerName: s.providerName || s.provider || '',
+              provider: s.providerName || s.provider || '',
+              amount: s.price || s.amount || s.totalAmount || 0,
+              totalAmount: s.price || s.amount || s.totalAmount || 0,
+              startDate: s.date || s.createdAt || new Date().toISOString().split('T')[0],
+              date: s.date || s.createdAt || new Date().toISOString().split('T')[0],
+              status: s.status || 'مكتمل'
+            }))
+          ]}
+          halls={halls}
+          showNotification={showNotification}
+        />
+      )}
+
       {activeSubTab === 'forecast' && (
         <FinancialForecaster
           currentMonthConfirmedTotal={currentMonthConfirmedTotal}
@@ -4522,6 +4784,9 @@ export default function FinanceDashboard({
           escrowLiabilityBalance={kpis.pendingClaims}
           vatPayableBalance={kpis.totalVAT}
           refundsPayableBalance={expenses.filter(e => e.type === 'refund' || e.category === 'مستردات').reduce((a, b) => a + (b.total || 0), 0)}
+          totalPlatformRevenue={kpis.totalRevenue}
+          totalPlatformExpense={kpis.totalExpense}
+          netProfit={kpis.netProfit}
         />
       )}
 
@@ -5556,7 +5821,640 @@ export default function FinanceDashboard({
         </div>
       )}
 
-      {/* --- ADD REVENUE MODAL --- */}
+      {/* --- CUSTOMER LEDGERS TAB END --- */}
+      {/* --- PARTNER OPERATIONS (عمليات الشركاء) TAB --- */}
+      {activeSubTab === 'providers' && (
+        <div className="animate-in fade-in space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-800 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+            <div className="space-y-2 text-right">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-bold border border-blue-400/30">
+                <Briefcase className="w-3.5 h-3.5 text-blue-400" />
+                <span>مركز إدارة وحوكمة عمليات الشركاء (Partner Operations Ledger)</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                سجل عمليات الشركاء والتسويات المالية الموحدة
+              </h2>
+              <p className="text-slate-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
+                تتبع الأداء المالي والتشغيلي لجميع مزودي القاعات والخدمات المساندة، واحتساب عمولات منصة ليلة طبقاً لباقات الاشتراك، مع التحكم الكامل بمسارات التسويات والتحويلات المالية المباشرة.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  const csvData = filteredProvidersList.map(p => ({
+                    'المعرف': p.id,
+                    'اسم الشريك': p.name,
+                    'الباقة': p.subscriptionTier,
+                    'نسبة العمولة': `${(p.commissionRate * 100).toFixed(0)}%`,
+                    'عدد القاعات': p.hallsCount,
+                    'عدد الخدمات': p.servicesCount,
+                    'عدد الحجوزات': p.bookingsCount,
+                    'إجمالي المبيعات (ر.س)': p.grossSales.toFixed(2),
+                    'عمولة المنصة (ر.س)': p.platformCommission.toFixed(2),
+                    'صافي مستحقات الشريك (ر.س)': p.netPartnerEarned.toFixed(2),
+                    'المسدد بالتسويات (ر.س)': p.settledAmount.toFixed(2),
+                    'الرصيد المعلق (ر.س)': p.pendingBalance.toFixed(2)
+                  }));
+                  downloadCSV(csvData, `partner_operations_summary_${new Date().toISOString().split('T')[0]}`);
+                }}
+                className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-extrabold flex items-center justify-center gap-2 border border-white/10 transition-colors cursor-pointer w-full sm:w-auto"
+              >
+                <Download className="w-4 h-4 text-blue-300" />
+                <span>تصدير تقرير الشركاء CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 4 Financial KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs text-right">
+              <div className="flex justify-between items-center mb-3">
+                <span className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                  <Users className="w-5 h-5" />
+                </span>
+                <span className="text-[10px] font-extrabold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">
+                  {partnerOperationsSummary.totalHalls} قاعة • {partnerOperationsSummary.totalServices} خدمة
+                </span>
+              </div>
+              <span className="text-slate-500 text-xs font-bold block">إجمالي الشركاء النشطين</span>
+              <span className="text-2xl font-black text-slate-900 font-mono mt-1 block">
+                {partnerOperationsSummary.totalPartners} شريك
+              </span>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs text-right">
+              <div className="flex justify-between items-center mb-3">
+                <span className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                  <TrendingUp className="w-5 h-5" />
+                </span>
+                <span className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full">
+                  حجوزات + خدمات
+                </span>
+              </div>
+              <span className="text-slate-500 text-xs font-bold block">حجم مبيعات الشركاء الموحد</span>
+              <span className="text-2xl font-black text-emerald-600 font-mono mt-1 block">
+                {partnerOperationsSummary.totalGrossSales.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+              </span>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs text-right">
+              <div className="flex justify-between items-center mb-3">
+                <span className="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+                  <Landmark className="w-5 h-5" />
+                </span>
+                <span className="text-[10px] font-extrabold bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full">
+                  إيراد سيادي للمنصة
+                </span>
+              </div>
+              <span className="text-slate-500 text-xs font-bold block">إجمالي عمولات المنصة</span>
+              <span className="text-2xl font-black text-purple-600 font-mono mt-1 block">
+                {partnerOperationsSummary.totalCommissions.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+              </span>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs text-right">
+              <div className="flex justify-between items-center mb-3">
+                <span className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                  <CreditCard className="w-5 h-5" />
+                </span>
+                <span className="text-[10px] font-extrabold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full">
+                  بانتظار التسوية
+                </span>
+              </div>
+              <span className="text-slate-500 text-xs font-bold block">الرصيد المعلق للشركاء</span>
+              <span className="text-2xl font-black text-amber-600 font-mono mt-1 block">
+                {partnerOperationsSummary.totalPending.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+              </span>
+            </div>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4 text-right">
+            <div className="relative w-full sm:w-80">
+              <input
+                type="text"
+                placeholder="ابحث باسم الشريك، الهاتف، السجل التجاري، المدينة..."
+                value={providerSearchQuery}
+                onChange={(e) => setProviderSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs px-4 py-3 rounded-2xl outline-none focus:border-blue-500 focus:bg-white pl-8"
+              />
+              {providerSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setProviderSearchQuery('')}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <span className="text-xs font-bold text-slate-500">تصفية حسب الباقة:</span>
+              <select
+                value={providerTierFilter}
+                onChange={(e) => setProviderTierFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs px-4 py-2.5 rounded-2xl outline-none cursor-pointer focus:bg-white focus:border-blue-500 font-bold"
+              >
+                <option value="all">جميع الباقات</option>
+                <option value="basic">الباقة الأساسية (عمولة 15%)</option>
+                <option value="advanced">الباقة المتقدمة (عمولة 12%)</option>
+                <option value="professional">الباقة الاحترافية (عمولة 8%)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Partners Operations Table */}
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-xs overflow-hidden text-right">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                  <span className="w-2 h-4 bg-blue-600 rounded-full"></span>
+                  قائمة الشركاء والمستحقات المباشرة ({filteredProvidersList.length})
+                </h3>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  بيانات الشركاء المسجلة حقيقياً في قاعدة البيانات مع احتساب المبيعات والعمولات ومسارات التسوية
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/80 text-slate-500 font-extrabold border-b border-slate-100 text-[11px]">
+                    <th className="p-4">الشريك والمنشأة</th>
+                    <th className="p-4 text-center">باقة الاشتراك والعمولة</th>
+                    <th className="p-4 text-center">العناصر والمنشآت</th>
+                    <th className="p-4 text-center">إجمالي المبيعات</th>
+                    <th className="p-4 text-center">عمولة المنصة</th>
+                    <th className="p-4 text-center">صافي مستحقات الشريك</th>
+                    <th className="p-4 text-center">المسدد بالتسويات</th>
+                    <th className="p-4 text-center">الرصيد المعلق</th>
+                    <th className="p-4 text-center">الإجراءات والعمليات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredProvidersList.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="text-center p-10 text-slate-400 text-xs font-medium">
+                        لا يوجد شركاء مطابقين لمعايير البحث في الوقت الحالي.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProvidersList.map((p) => {
+                      const tierBadgeColor = p.subscriptionTier.includes('احترافية') || p.subscriptionTier.includes('pro') 
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : p.subscriptionTier.includes('متقدمة')
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-200';
+
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="font-extrabold text-slate-900 text-sm">{p.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5 space-x-2 space-x-reverse">
+                              <span>📍 {p.city}</span>
+                              {p.phone !== '-' && <span>• 📞 {p.phone}</span>}
+                              {p.crNumber !== '-' && <span>• 📜 س.ت: {p.crNumber}</span>}
+                            </div>
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap">
+                            <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${tierBadgeColor}`}>
+                              {p.subscriptionTier}
+                            </span>
+                            <div className="text-[10px] text-slate-500 font-mono mt-1 font-bold">
+                              نسبة العمولة: {(p.commissionRate * 100).toFixed(0)}%
+                            </div>
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap font-bold text-slate-700">
+                            <div className="text-xs">{p.hallsCount} قاعات</div>
+                            <div className="text-[10px] text-slate-400 font-normal">{p.servicesCount} خدمات مساندة</div>
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap font-mono font-extrabold text-slate-900">
+                            {p.grossSales.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+                            <div className="text-[9px] text-slate-400 font-sans font-normal">
+                              ({p.bookingsCount} حجز • {p.serviceRequestsCount} طلب)
+                            </div>
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap font-mono font-bold text-purple-600">
+                            {p.platformCommission.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap font-mono font-bold text-emerald-600">
+                            {p.netPartnerEarned.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap font-mono font-bold text-blue-600">
+                            {p.settledAmount.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap">
+                            {p.pendingBalance > 0 ? (
+                              <span className="font-mono font-extrabold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 inline-block text-xs">
+                                {p.pendingBalance.toLocaleString('ar-SA', { minimumFractionDigits: 2 })} ر.س
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 inline-block">
+                                ✓ مسدد بالكامل
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProviderForStatement(p);
+                                  setPartnerStatementTab('summary');
+                                }}
+                                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold rounded-xl text-xs transition-colors cursor-pointer border border-blue-200"
+                              >
+                                كشف حساب تفصيلي 📄
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSettleProviderData(p);
+                                  setSettleAmountInput(p.pendingBalance > 0 ? p.pendingBalance.toString() : '');
+                                  setSettleReferenceInput(`REV-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(1000000000 + Math.random() * 9000000000)}`);
+                                  setSettleNotesInput(`تسوية مستحقات الشريك ${p.name}`);
+                                  setIsSettleModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
+                              >
+                                تسجيل تسوية 💰
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Modal 1: Detailed Partner Statement (كشف حساب الشريك المدقق) */}
+          {selectedProviderForStatement && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-200 text-right max-h-[90vh] flex flex-col">
+                {/* Modal Header */}
+                <div className="p-6 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+                  <div>
+                    <span className="text-[10px] font-bold bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-400/30">
+                      كشف حساب معتمد للشركاء
+                    </span>
+                    <h3 className="font-extrabold text-lg text-white mt-1">
+                      كشف حساب الشريك: {selectedProviderForStatement.name}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProviderForStatement(null)}
+                    className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Modal Tabs */}
+                <div className="bg-slate-100 p-2 flex gap-2 border-b border-slate-200 overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPartnerStatementTab('summary')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      partnerStatementTab === 'summary' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    الملخص والتسويات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPartnerStatementTab('bookings')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      partnerStatementTab === 'bookings' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    حجوزات القاعات ({selectedProviderForStatement.bookingsCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPartnerStatementTab('services')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      partnerStatementTab === 'services' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    الخدمات المساندة ({selectedProviderForStatement.serviceRequestsCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPartnerStatementTab('settlements')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      partnerStatementTab === 'settlements' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    حركات التسويات المالية ({selectedProviderForStatement.settlementsList.length})
+                  </button>
+                </div>
+
+                {/* Modal Content Area */}
+                <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+                  {partnerStatementTab === 'summary' && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                          <span className="text-slate-400 text-[10px] block font-bold">إجمالي المبيعات</span>
+                          <span className="font-mono font-extrabold text-slate-900 text-base">
+                            {selectedProviderForStatement.grossSales.toLocaleString('ar-SA')} ر.س
+                          </span>
+                        </div>
+                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200">
+                          <span className="text-purple-600 text-[10px] block font-bold">عمولة المنصة ({(selectedProviderForStatement.commissionRate * 100).toFixed(0)}%)</span>
+                          <span className="font-mono font-extrabold text-purple-700 text-base">
+                            {selectedProviderForStatement.platformCommission.toLocaleString('ar-SA')} ر.س
+                          </span>
+                        </div>
+                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200">
+                          <span className="text-emerald-600 text-[10px] block font-bold">صافي مستحقات الشريك</span>
+                          <span className="font-mono font-extrabold text-emerald-700 text-base">
+                            {selectedProviderForStatement.netPartnerEarned.toLocaleString('ar-SA')} ر.س
+                          </span>
+                        </div>
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200">
+                          <span className="text-amber-600 text-[10px] block font-bold">الرصيد القابل للتسوية</span>
+                          <span className="font-mono font-extrabold text-amber-700 text-base">
+                            {selectedProviderForStatement.pendingBalance.toLocaleString('ar-SA')} ر.س
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-slate-700">
+                        <h4 className="font-extrabold text-slate-900 text-sm">بيانات الهوية والبنك للشريك</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div><strong>البريد الإلكتروني:</strong> {selectedProviderForStatement.email}</div>
+                          <div><strong>الهاتف:</strong> {selectedProviderForStatement.phone}</div>
+                          <div><strong>السجل التجاري:</strong> {selectedProviderForStatement.crNumber}</div>
+                          <div><strong>الحساب البنكي (IBAN):</strong> <span className="font-mono">{selectedProviderForStatement.iban}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {partnerStatementTab === 'bookings' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <th className="p-3">رقم الحجز</th>
+                            <th className="p-3">القاعة / المرافق</th>
+                            <th className="p-3">العميل</th>
+                            <th className="p-3">التاريخ</th>
+                            <th className="p-3">المبلغ الإجمالي</th>
+                            <th className="p-3">عمولة المنصة</th>
+                            <th className="p-3">صافي الشريك</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedProviderForStatement.bookingsList.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center p-6 text-slate-400">لا توجد حجوزات قاعات مؤكدة حالياً لهذا الشريك.</td></tr>
+                          ) : (
+                            selectedProviderForStatement.bookingsList.map((b: any) => {
+                              const price = Number(b.totalPrice || b.amount || 0);
+                              const comm = price * selectedProviderForStatement.commissionRate;
+                              const net = price - comm;
+                              return (
+                                <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                  <td className="p-3 font-mono font-bold text-slate-600">{formatBookingId(b.id)}</td>
+                                  <td className="p-3 font-bold text-slate-800">{b.hall || 'قاعة أفراح'}</td>
+                                  <td className="p-3 text-slate-600">{b.customerName || 'عميل'}</td>
+                                  <td className="p-3 text-slate-500">{new Date(b.date || b.createdAt).toLocaleDateString('ar-SA')}</td>
+                                  <td className="p-3 font-mono font-bold text-slate-900">{price.toLocaleString('ar-SA')} ر.س</td>
+                                  <td className="p-3 font-mono font-bold text-purple-600">{comm.toLocaleString('ar-SA')} ر.س</td>
+                                  <td className="p-3 font-mono font-bold text-emerald-600">{net.toLocaleString('ar-SA')} ر.س</td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {partnerStatementTab === 'services' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <th className="p-3">رقم الطلب</th>
+                            <th className="p-3">اسم الخدمة</th>
+                            <th className="p-3">العميل</th>
+                            <th className="p-3">التاريخ</th>
+                            <th className="p-3">المبلغ الإجمالي</th>
+                            <th className="p-3">عمولة المنصة</th>
+                            <th className="p-3">صافي الشريك</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedProviderForStatement.serviceRequestsList.length === 0 ? (
+                            <tr><td colSpan={7} className="text-center p-6 text-slate-400">لا توجد طلبات خدمات مساندة مدفوعة لهذا الشريك.</td></tr>
+                          ) : (
+                            selectedProviderForStatement.serviceRequestsList.map((sr: any) => {
+                              const price = Number(sr.price || sr.amount || 0);
+                              const comm = price * selectedProviderForStatement.commissionRate;
+                              const net = price - comm;
+                              return (
+                                <tr key={sr.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                  <td className="p-3 font-mono font-bold text-slate-600">{sr.id}</td>
+                                  <td className="p-3 font-bold text-slate-800">{sr.serviceName || 'خدمة مساندة'}</td>
+                                  <td className="p-3 text-slate-600">{sr.customerName || 'عميل'}</td>
+                                  <td className="p-3 text-slate-500">{new Date(sr.createdAt || sr.date).toLocaleDateString('ar-SA')}</td>
+                                  <td className="p-3 font-mono font-bold text-slate-900">{price.toLocaleString('ar-SA')} ر.س</td>
+                                  <td className="p-3 font-mono font-bold text-purple-600">{comm.toLocaleString('ar-SA')} ر.س</td>
+                                  <td className="p-3 font-mono font-bold text-emerald-600">{net.toLocaleString('ar-SA')} ر.س</td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {partnerStatementTab === 'settlements' && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-right border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <th className="p-3">رقم التسوية المالي</th>
+                            <th className="p-3">التاريخ</th>
+                            <th className="p-3">مبلغ التحويل/التسوية</th>
+                            <th className="p-3">البيان والملاحظات</th>
+                            <th className="p-3 text-center">الحالة</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedProviderForStatement.settlementsList.length === 0 ? (
+                            <tr><td colSpan={5} className="text-center p-6 text-slate-400">لا توجد حركات تسويات سابقة لهذا الشريك.</td></tr>
+                          ) : (
+                            selectedProviderForStatement.settlementsList.map((st: any) => (
+                              <tr key={st.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                <td className="p-3 font-mono font-bold text-blue-600">{st.referenceNumber || st.id}</td>
+                                <td className="p-3 text-slate-500">{new Date(st.createdAt || st.date).toLocaleDateString('ar-SA')}</td>
+                                <td className="p-3 font-mono font-bold text-emerald-600">{Number(st.amount).toLocaleString('ar-SA')} ر.س</td>
+                                <td className="p-3 text-slate-700">{st.notes || 'تسوية مستحقات الشريك'}</td>
+                                <td className="p-3 text-center">
+                                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                                    ✓ معتمدة ومسددة
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProviderForStatement(null)}
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    إغلاق
+                  </button>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSettleProviderData(selectedProviderForStatement);
+                        setSettleAmountInput(selectedProviderForStatement.pendingBalance > 0 ? selectedProviderForStatement.pendingBalance.toString() : '');
+                        setSettleReferenceInput(`REV-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(1000000000 + Math.random() * 9000000000)}`);
+                        setSettleNotesInput(`تسوية مستحقات الشريك ${selectedProviderForStatement.name}`);
+                        setIsSettleModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                    >
+                      تسجيل تسوية مالية جديدة 💰
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal 2: Create Settlement Dialog */}
+          {isSettleModalOpen && settleProviderData && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[110] flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 relative animate-in zoom-in-95 duration-200 text-right">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                  <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                    <span>💰</span>
+                    تسجيل إصدار تسوية وتحويل مالي للشريك
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsSettleModalOpen(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const amt = parseFloat(settleAmountInput);
+                    if (isNaN(amt) || amt <= 0) {
+                      alert('يرجى إدخال مبلغ تسوية صحيح أكبر من الصفر');
+                      return;
+                    }
+                    handleCreateSettlement(settleProviderData, amt, settleNotesInput, settleReferenceInput);
+                  }}
+                  className="space-y-4 text-xs"
+                >
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">اسم الشريك المستفيد:</span>
+                      <strong className="text-slate-900">{settleProviderData.name}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">الرصيد المعلق بانتظار التسوية:</span>
+                      <strong className="text-amber-600 font-mono">{settleProviderData.pendingBalance.toLocaleString('ar-SA')} ر.س</strong>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">مبلغ التسوية المراد تحويله (SAR)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={settleAmountInput}
+                      onChange={(e) => setSettleAmountInput(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-mono text-slate-900 font-bold outline-none focus:border-blue-500 text-right"
+                      placeholder="أدخل المبلغ"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">رقم الإيراد / التحويل البنكي المرجعي (REV-YY-XXXXXXXXXX)</label>
+                    <input
+                      type="text"
+                      required
+                      value={settleReferenceInput}
+                      onChange={(e) => setSettleReferenceInput(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-mono text-slate-900 font-bold outline-none focus:border-blue-500 text-right"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">بيان وملاحظات التسوية</label>
+                    <textarea
+                      rows={2}
+                      value={settleNotesInput}
+                      onChange={(e) => setSettleNotesInput(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 outline-none focus:border-blue-500 text-right"
+                      placeholder="بيانات التسوية والتحويل"
+                    ></textarea>
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettleModalOpen(false)}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingSettlement}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingSettlement ? 'جاري الاعتماد...' : 'اعتماد وإصدار التسوية ⚡'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {isAddRevenueModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative">

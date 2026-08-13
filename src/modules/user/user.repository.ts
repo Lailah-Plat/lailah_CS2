@@ -1,8 +1,39 @@
 import { User, PendingRegistration, SystemSettings } from '../../models/UserModels.js';
 import { Op } from 'sequelize';
 
+function getPhoneVariants(phoneStr: string): string[] {
+  if (!phoneStr) return [];
+  const raw = phoneStr.trim();
+  const digits = raw.replace(/[^\d]/g, '');
+  const variants = new Set<string>();
+
+  if (raw) variants.add(raw);
+  if (digits) variants.add(digits);
+
+  // KSA phone variations
+  if (digits.length === 10 && digits.startsWith('05')) {
+    variants.add(digits); // 0551234567
+    variants.add(digits.substring(1)); // 551234567
+    variants.add('+966' + digits.substring(1)); // +966551234567
+    variants.add('966' + digits.substring(1)); // 966551234567
+  } else if (digits.length === 9 && digits.startsWith('5')) {
+    variants.add('0' + digits); // 0551234567
+    variants.add(digits); // 551234567
+    variants.add('+966' + digits); // +966551234567
+    variants.add('966' + digits); // 966551234567
+  } else if (digits.length === 12 && digits.startsWith('9665')) {
+    variants.add('0' + digits.substring(3)); // 0551234567
+    variants.add(digits.substring(3)); // 551234567
+    variants.add('+' + digits); // +966551234567
+    variants.add(digits); // 966551234567
+  }
+
+  return Array.from(variants);
+}
+
 export interface IUserRepository {
   findUserById(id: number): Promise<User | null>;
+  findUserByIdentifier(identifier: string): Promise<User | null>;
   findUserByEmail(email: string): Promise<User | null>;
   findUserByPhone(phone: string): Promise<User | null>;
   findAllUsers(): Promise<User[]>;
@@ -26,12 +57,57 @@ export class UserRepository implements IUserRepository {
     return User.findByPk(id);
   }
 
+  async findUserByIdentifier(identifier: string): Promise<User | null> {
+    if (!identifier) return null;
+    const raw = identifier.trim();
+    if (!raw) return null;
+
+    const cleanEmail = raw.toLowerCase();
+    const phoneVars = getPhoneVariants(raw);
+
+    const orConditions: any[] = [
+      { email: cleanEmail },
+      { email: raw }
+    ];
+
+    if (phoneVars.length > 0) {
+      phoneVars.forEach(p => {
+        orConditions.push({ phone: p });
+      });
+    }
+
+    let user = await User.findOne({
+      where: {
+        [Op.or]: orConditions
+      }
+    });
+
+    if (!user) {
+      // Robust fallback search for formatting, case, or phone variations
+      const allUsers = await User.findAll();
+      const rawDigits = raw.replace(/[^\d]/g, '');
+      user = allUsers.find(u => {
+        const uEmail = u.email ? u.email.trim().toLowerCase() : '';
+        const uPhone = u.phone ? u.phone.trim() : '';
+        const uPhoneDigits = uPhone.replace(/[^\d]/g, '');
+
+        if (uEmail && uEmail === cleanEmail) return true;
+        if (uPhone && phoneVars.includes(uPhone)) return true;
+        if (rawDigits && rawDigits.length >= 7 && uPhoneDigits && uPhoneDigits.endsWith(rawDigits)) return true;
+        if (rawDigits && rawDigits.length >= 7 && uPhoneDigits && rawDigits.endsWith(uPhoneDigits)) return true;
+        return false;
+      }) || null;
+    }
+
+    return user;
+  }
+
   async findUserByEmail(email: string): Promise<User | null> {
-    return User.findOne({ where: { email: email.trim().toLowerCase() } });
+    return this.findUserByIdentifier(email);
   }
 
   async findUserByPhone(phone: string): Promise<User | null> {
-    return User.findOne({ where: { phone } });
+    return this.findUserByIdentifier(phone);
   }
 
   async findAllUsers(): Promise<User[]> {
@@ -61,7 +137,17 @@ export class UserRepository implements IUserRepository {
   }
 
   async findPendingByEmail(email: string): Promise<PendingRegistration | null> {
-    return PendingRegistration.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (!email) return null;
+    const raw = email.trim();
+    const cleanEmail = raw.toLowerCase();
+    return PendingRegistration.findOne({
+      where: {
+        [Op.or]: [
+          { email: cleanEmail },
+          { email: raw }
+        ]
+      }
+    });
   }
 
   async findAllPending(): Promise<PendingRegistration[]> {
@@ -80,8 +166,16 @@ export class UserRepository implements IUserRepository {
   }
 
   async deletePendingByEmail(email: string): Promise<boolean> {
+    if (!email) return false;
+    const raw = email.trim();
+    const cleanEmail = raw.toLowerCase();
     const count = await PendingRegistration.destroy({
-      where: { email: email.trim().toLowerCase() }
+      where: {
+        [Op.or]: [
+          { email: cleanEmail },
+          { email: raw }
+        ]
+      }
     });
     return count > 0;
   }
@@ -94,3 +188,4 @@ export class UserRepository implements IUserRepository {
     return SystemSettings.create(data);
   }
 }
+

@@ -1,7 +1,7 @@
 import { MarketingCampaign, CampaignExpense, createMarketingCampaign, addCampaignExpense } from '../../models/MarketingModels.js';
 import { Wallet, WalletTransaction } from '../../models/Database.js';
 import { User } from '../../models/UserModels.js';
-import { Favorite } from '../../models/FavoriteModels.js';
+import { Favorite, syncFavorites } from '../../models/FavoriteModels.js';
 import { Hall } from '../../models/BookingModels.js';
 
 export interface IMarketingRepository {
@@ -44,7 +44,13 @@ export class SequelizeMarketingRepository implements IMarketingRepository {
   }
 
   async getFavoritesCount(hallId: number): Promise<number> {
-    return Favorite.count({ where: { hallId } });
+    try {
+      await syncFavorites();
+      return await Favorite.count({ where: { hallId } });
+    } catch (err) {
+      console.warn("getFavoritesCount error:", err);
+      return 0;
+    }
   }
 
   async findHallById(id: number): Promise<Hall | null> {
@@ -52,7 +58,13 @@ export class SequelizeMarketingRepository implements IMarketingRepository {
   }
 
   async findFavoritesByHallId(hallId: number): Promise<Favorite[]> {
-    return Favorite.findAll({ where: { hallId } });
+    try {
+      await syncFavorites();
+      return await Favorite.findAll({ where: { hallId } });
+    } catch (err) {
+      console.warn("findFavoritesByHallId error:", err);
+      return [];
+    }
   }
 
   async findUsersByIds(ids: number[]): Promise<User[]> {

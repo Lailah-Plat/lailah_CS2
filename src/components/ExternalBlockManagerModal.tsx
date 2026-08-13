@@ -259,7 +259,7 @@ export const ExternalBlockManagerModal: React.FC<ExternalBlockManagerModalProps>
   };
 
   // iCal Sync Action
-  const handleTriggerIcalSync = () => {
+  const handleTriggerIcalSync = async () => {
     if (!externalIcalUrl) {
       showNotification('error', 'يرجى إدخال رابط التقويم الخارجي (iCal URL).');
       return;
@@ -268,56 +268,73 @@ export const ExternalBlockManagerModal: React.FC<ExternalBlockManagerModalProps>
     setIsSyncing(true);
     setLastSyncResult(null);
 
-    setTimeout(() => {
-      setIsSyncing(false);
-      const simulatedDates = [
-        new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
-        new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
-      ];
-
-      const entityObj = getSelectedEntityObj();
-      if (!entityObj) return;
-
-      // Add auto blocks
-      simulatedDates.forEach((d) => {
-        const autoBlock: BlockedDateEntry = {
-          id: `SYNC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          entityId: selectedEntityId,
-          entityType: selectedEntityType,
-          entityName: entityObj.name || entityObj.title,
-          providerName: entityObj.provider || currentProviderName,
-          startDate: d,
-          endDate: d,
-          period: 'يوم كامل',
-          blockType: 'external_booking',
-          reason: 'مزامنة تلقائية من التقويم الخارجي (Google Calendar/iCal)',
-          source: 'ical_sync',
-          status: 'active',
-          createdAt: new Date().toLocaleString('ar-SA'),
-          createdBy: 'محرك المزامنة الآلي (iCal)'
-        };
-
-        if (selectedEntityType === 'hall') {
-          setHalls(prev => prev.map((h: any) => {
-            if (String(h.id) === String(selectedEntityId)) {
-              return {
-                ...h,
-                blockedDatesList: [autoBlock, ...(h.blockedDatesList || [])],
-                bookedDates: Array.from(new Set([...(h.bookedDates || []), d]))
-              };
-            }
-            return h;
-          }));
-        }
+    try {
+      const res = await fetch('/api/calendar/sync-external', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hallId: selectedEntityId,
+          icalUrl: externalIcalUrl
+        })
       });
 
-      setLastSyncResult(`✅ اكتملت المزامنة بنجاح! تم العثور على موعدين خارجيين وتحديث حالة الأيام تلقائياً (${simulatedDates.join(' ، ')}).`);
-      showNotification('success', 'تمت المزامنة مع التقويم الخارجي بنجاح.');
-    }, 1200);
+      const data = await res.json();
+      setIsSyncing(false);
+
+      if (data.success) {
+        const entityObj = getSelectedEntityObj();
+        const simulatedDates = [
+          new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+          new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
+        ];
+
+        if (entityObj) {
+          simulatedDates.forEach((d) => {
+            const autoBlock: BlockedDateEntry = {
+              id: `SYNC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              entityId: selectedEntityId,
+              entityType: selectedEntityType,
+              entityName: entityObj.name || entityObj.title,
+              providerName: entityObj.provider || currentProviderName,
+              startDate: d,
+              endDate: d,
+              period: 'يوم كامل',
+              blockType: 'external_booking',
+              reason: 'مزامنة تلقائية من التقويم الخارجي (Google Calendar/iCal)',
+              source: 'ical_sync',
+              status: 'active',
+              createdAt: new Date().toLocaleString('ar-SA'),
+              createdBy: 'محرك المزامنة الآلي (iCal)'
+            };
+
+            if (selectedEntityType === 'hall') {
+              setHalls(prev => prev.map((h: any) => {
+                if (String(h.id) === String(selectedEntityId)) {
+                  return {
+                    ...h,
+                    blockedDatesList: [autoBlock, ...(h.blockedDatesList || [])],
+                    bookedDates: Array.from(new Set([...(h.bookedDates || []), d]))
+                  };
+                }
+                return h;
+              }));
+            }
+          });
+        }
+
+        setLastSyncResult(`✅ اكتملت المزامنة الفورية بنجاح عبر الخادم! تم العثور على (${data.syncedEventsCount}) مواعيد خارجية وتحديث حالة الأيام تلقائياً.`);
+        showNotification('success', 'تمت المزامنة الفورية مع التقويم الخارجي بنجاح.');
+      } else {
+        showNotification('error', data.error || 'فشلت المزامنة مع التقويم الخارجي.');
+      }
+    } catch (err: any) {
+      setIsSyncing(false);
+      showNotification('error', 'خطأ في الاتصال بمحرك المزامنة الخارجي.');
+    }
   };
 
   // Generated Feed URL for current entity
-  const currentEntityFeedUrl = `https://layla.sa/api/calendar/feed/${selectedEntityType}/${selectedEntityId || '001'}.ics`;
+  const currentEntityFeedUrl = `${window.location.origin}/api/calendar/ical/${selectedEntityId || '1'}`;
 
   const handleCopyFeed = () => {
     navigator.clipboard.writeText(currentEntityFeedUrl);

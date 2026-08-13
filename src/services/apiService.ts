@@ -94,6 +94,15 @@ export const apiService = {
     });
   },
 
+  /** تزامن الملف الشخصي وإعدادات المزود/العميل مع قاعدة البيانات السحابية */
+  async syncProfile(profileData: any) {
+    return fetchWithRetry('/api/users/profile-sync', 3, 1000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileData)
+    });
+  },
+
   // --- خدمات إدارة الموظفين والموارد البشرية (HR) ---
   /** جلب قائمة الموظفين */
   async getEmployees() {

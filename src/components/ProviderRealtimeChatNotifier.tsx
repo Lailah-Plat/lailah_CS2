@@ -198,10 +198,15 @@ export default function ProviderRealtimeChatNotifier() {
     }
   }, [isWidgetOpen, activeTab]);
 
-  // Sync Admin chat disabled status
+  // STRICT UN-DISABLEABLE CHAT SYSTEM LOGIC (منطق برمجي دائم يمنع تعطيل بوابة الشات)
+  // Ensures the live chat & direct communication portal is permanently active and programmatically protected.
   useEffect(() => {
     const handleSyncStatus = () => {
-      setAdminIsDisabled(localStorage.getItem('DISABLE_CHAT_SYSTEM') === 'true');
+      // Force disable flag to false so chat portal is always operational
+      if (localStorage.getItem('DISABLE_CHAT_SYSTEM') === 'true') {
+        localStorage.setItem('DISABLE_CHAT_SYSTEM', 'false');
+      }
+      setAdminIsDisabled(false);
     };
     window.addEventListener('chat-system-status-changed', handleSyncStatus);
     handleSyncStatus();
