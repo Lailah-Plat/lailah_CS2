@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Megaphone, ExternalLink, Receipt, CheckCircle, Clock, XCircle, Play } from 'lucide-react';
+import { Megaphone, ExternalLink, Receipt, CheckCircle, Clock, XCircle, Play, Eye, X, Mail, Phone, MapPin, User, FileText, Target, CalendarDays, DollarSign } from 'lucide-react';
 
 export const AdRequestsTable = ({ 
   requests, 
@@ -11,6 +11,7 @@ export const AdRequestsTable = ({
   onStatusChange?: (id: number, status: 'نشطة' | 'ملغية' | 'قيد المراجعة', requestData: any) => void;
 }) => {
   const isAdmin = userRole === 'admin';
+  const [selectedAdForDetails, setSelectedAdForDetails] = useState<any | null>(null);
 
   return (
     <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mt-8">
@@ -29,19 +30,19 @@ export const AdRequestsTable = ({
           <thead className="bg-slate-100 text-slate-600 text-[11px] font-black uppercase tracking-wider border-b border-slate-200">
             <tr>
               <th className="p-4 font-bold">رقم الطلب</th>
-              <th className="p-4 font-bold">المُعلن</th>
+              <th className="p-4 font-bold">المُعلن (صاحب الطلب)</th>
               <th className="p-4 font-bold">الموقع المستهدف</th>
               <th className="p-4 font-bold">نوع الإعلان</th>
               <th className="p-4 font-bold">الميزانية المقترحة</th>
               <th className="p-4 font-bold">تاريخ البداية / النهاية</th>
               <th className="p-4 font-bold">الحالة</th>
-              {isAdmin && <th className="p-4 font-bold text-left pl-6">إجراءات التحكم</th>}
+              <th className="p-4 font-bold text-left pl-6">التفاصيل والتحكم</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {requests.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="p-12 text-center text-slate-400 font-medium">
+                <td colSpan={8} className="p-12 text-center text-slate-400 font-medium">
                   لا توجد طلبات إعلان حالياً
                 </td>
               </tr>
@@ -81,15 +82,25 @@ export const AdRequestsTable = ({
                 const isCancelledStatus = computedStatus === 'ملغية' || computedStatus === 'ملغى' || computedStatus === 'مرفوض';
                 const isCompletedStatus = computedStatus === 'مكتمل';
                 const isExpiredStatus = computedStatus === 'منتهي';
+
+                const ownerName = r.advertiserName || r.providerName || r.provider || 'مزود ليلة';
+                const ownerPhone = r.advertiserPhone || r.providerPhone || '0500000000';
+                const ownerEmail = r.advertiserEmail || r.providerEmail || 'provider@layla.sa';
+                const ownerAddress = r.advertiserAddress || r.providerCity || r.targetLocations || 'الرياض';
                 
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="p-4 text-slate-600 font-mono font-bold">#{r.id}</td>
                     <td className="p-4">
-                      <div className="font-bold text-slate-900">{r.providerName || r.advertiserName || 'غير محدد'}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{r.advertiserPhone || 'بريد المزود'}</div>
+                      <div className="font-bold text-slate-900">{ownerName}</div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5 dir-ltr flex items-center gap-1">
+                        <span>📞 {ownerPhone}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <span>✉️ {ownerEmail}</span> | <span>📍 {ownerAddress}</span>
+                      </div>
                     </td>
-                    <td className="p-4 text-slate-600">{r.adLocation || '-'}</td>
+                    <td className="p-4 text-slate-600 font-bold">{r.adLocation || '-'}</td>
                     <td className="p-4 text-slate-600">
                       <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-medium font-sans">
                         {r.adType || '-'}
@@ -109,7 +120,7 @@ export const AdRequestsTable = ({
                       {isCompletedStatus ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold border bg-teal-50 text-teal-800 border-teal-200">
                           <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>مكتمل</span>
+                          <span>مكتمل (انتهت فترة الظهور)</span>
                         </span>
                       ) : isExpiredStatus ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-500 border-slate-200">
@@ -119,56 +130,59 @@ export const AdRequestsTable = ({
                       ) : isApprovedStatus ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
                           <Play className="w-3 h-3 stroke-[2.5] fill-current" />
-                          <span>نشطة</span>
+                          <span>نشط ومباشر</span>
                         </span>
                       ) : isCancelledStatus ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-red-50 text-red-700 border-red-200">
                           <XCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>ملغية</span>
+                          <span>مرفوض / ملغى</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 animate-pulse">
-                          <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>{computedStatus || 'قيد المراجعة'}</span>
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 animate-pulse">
+                            <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>قيد المراجعة والسداد</span>
+                          </span>
+                        </div>
                       )}
                     </td>
                     
-                    {/* Admin management actions */}
-                    {isAdmin && (
-                      <td className="p-4 text-left">
-                        {isCompletedStatus ? (
-                          <span className="text-[10px] font-bold text-teal-600 px-2.5">
-                            ✅ مكتمل (انتهت المدة)
-                          </span>
-                        ) : isExpiredStatus ? (
-                          <span className="text-[10px] font-bold text-slate-400 px-2.5">
-                            ⚠️ منتهي (دون تفعيل)
-                          </span>
-                        ) : !isApprovedStatus && !isCancelledStatus ? (
-                          <div className="inline-flex gap-2">
-                            <button
-                              onClick={() => onStatusChange?.(r.id, 'نشطة', r)}
-                              className="bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] active:scale-95 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl transition-all shadow-sm shadow-emerald-100 flex items-center gap-1 cursor-pointer"
-                              title="تأكيد وتفعيل طلب الإعلان"
-                            >
-                              <span>تأكيد وتفعيل</span>
-                            </button>
-                            <button
-                              onClick={() => onStatusChange?.(r.id, 'ملغية', r)}
-                              className="bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 font-bold text-[10px] px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                              title="إلغاء / رفض طلب الإعلان"
-                            >
-                              <span>رفض</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] font-bold text-slate-400 px-2.5">
-                            {isApprovedStatus ? '✅ تم التفعيل والتشغيل' : '❌ ملغي'}
-                          </span>
+                    <td className="p-4 text-left">
+                      <div className="flex items-center gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAdForDetails(r)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-[10px] px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                          title="عرض كافة التفاصيل"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-blue-600" />
+                          <span>عرض</span>
+                        </button>
+
+                        {isAdmin && (
+                          <>
+                            {!isCompletedStatus && !isExpiredStatus && !isApprovedStatus && !isCancelledStatus ? (
+                              <div className="inline-flex gap-1.5">
+                                <button
+                                  onClick={() => onStatusChange?.(r.id, 'نشطة', r)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                                  title="تأكيد وتفعيل طلب الإعلان"
+                                >
+                                  <span>تأكيد</span>
+                                </button>
+                                <button
+                                  onClick={() => onStatusChange?.(r.id, 'ملغية', r)}
+                                  className="bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 font-bold text-[10px] px-2.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                                  title="إلغاء / رفض طلب الإعلان"
+                                >
+                                  <span>رفض</span>
+                                </button>
+                              </div>
+                            ) : null}
+                          </>
                         )}
-                      </td>
-                    )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })
@@ -176,6 +190,111 @@ export const AdRequestsTable = ({
           </tbody>
         </table>
       </div>
+
+      {/* Detail Modal for Ad Request */}
+      {selectedAdForDetails && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in-95 text-right font-sans" dir="rtl">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 text-blue-900 rounded-2xl flex items-center justify-center font-bold">
+                  <Megaphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">تفاصيل طلب الإعلان الداخلي #{selectedAdForDetails.id}</h3>
+                  <p className="text-xs text-slate-400">بيانات صاحب الطلب ومواصفات المحتوى والميزانية</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedAdForDetails(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-700 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Owner Details Card */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-2xl border border-blue-100 space-y-2">
+              <h4 className="text-xs font-black text-blue-900 flex items-center gap-1.5">
+                <User className="w-4 h-4 text-blue-700" />
+                بيانات صاحب الطلب (المزود)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">اسم المُعلن / المنشأة:</span>
+                  <strong className="text-slate-900">{selectedAdForDetails.advertiserName || selectedAdForDetails.providerName || 'غير محدد'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">رقم الجوال لتأكيد الدفع:</span>
+                  <strong className="text-slate-900 font-mono" dir="ltr">{selectedAdForDetails.advertiserPhone || selectedAdForDetails.providerPhone || 'غير محدد'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">البريد الإلكتروني:</span>
+                  <strong className="text-slate-900 font-mono">{selectedAdForDetails.advertiserEmail || selectedAdForDetails.providerEmail || 'غير محدد'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">العنوان / المدينة:</span>
+                  <strong className="text-slate-900">{selectedAdForDetails.advertiserAddress || selectedAdForDetails.providerCity || selectedAdForDetails.targetLocations || 'الرياض'}</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Ad Specs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">نوع الإعلان:</span>
+                <strong className="text-slate-800">{selectedAdForDetails.adType || '-'}</strong>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">موقع الإعلان:</span>
+                <strong className="text-slate-800">{selectedAdForDetails.adLocation || '-'}</strong>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                <span className="text-slate-400 block text-[10px]">الرابط الوجهة (Destination URL):</span>
+                <a href={selectedAdForDetails.destinationUrl || '#'} target="_blank" rel="noreferrer" className="text-blue-600 font-mono font-bold hover:underline flex items-center gap-1 mt-0.5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {selectedAdForDetails.destinationUrl || 'لا يوجد رابط'}
+                </a>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                <span className="text-slate-400 block text-[10px]">محتوى الإعلان (نص / وصف / رابط تصاميم):</span>
+                <p className="text-slate-800 font-medium mt-1 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-200">
+                  {selectedAdForDetails.adContent || selectedAdForDetails.content || 'لا يوجد نص'}
+                </p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">اهتمامات الفئة المستهدفة:</span>
+                <strong className="text-slate-800">{selectedAdForDetails.targetInterests || 'عام'}</strong>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">الاستهداف الجغرافي:</span>
+                <strong className="text-slate-800">{selectedAdForDetails.targetLocations || 'كافة المناطق'}</strong>
+              </div>
+              {selectedAdForDetails.legalAttachments && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
+                  <span className="text-slate-400 block text-[10px]">التراخيص / معلومات قانونية:</span>
+                  <strong className="text-slate-800">{selectedAdForDetails.legalAttachments}</strong>
+                </div>
+              )}
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <span className="text-amber-700 block text-[10px] font-bold">التواريخ:</span>
+                <strong className="text-slate-900 font-mono">{selectedAdForDetails.startDate || '-'} ➔ {selectedAdForDetails.endDate || '-'}</strong>
+              </div>
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                <span className="text-emerald-700 block text-[10px] font-bold">الميزانية الإجمالية:</span>
+                <strong className="text-emerald-900 font-mono text-base">{selectedAdForDetails.adBudget || selectedAdForDetails.budget || 0} ر.س</strong>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedAdForDetails(null)}
+                className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl text-xs hover:bg-slate-800 transition-colors"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -187,6 +306,7 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
     advertiserName: currentUserData?.name || currentUserData?.fullName || '',
     advertiserPhone: currentUserData?.phone || '',
     advertiserEmail: currentUserData?.email || '',
+    advertiserAddress: currentUserData?.address || currentUserData?.city || '',
     adType: 'صورة (بنر)', // 'نصي', 'صورة', 'فيديو'
     adLocation: 'أعلى الصفحة الرئيسية',
     destinationUrl: '',
@@ -206,6 +326,10 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
     e.preventDefault();
     onSubmit({
       ...formData,
+      providerName: formData.advertiserName,
+      providerPhone: formData.advertiserPhone,
+      providerEmail: formData.advertiserEmail,
+      providerCity: formData.advertiserAddress,
       status: 'مسودة', // Wait for payment
       type: 'طلب إعلان داخلي',
       spent: 0
@@ -233,7 +357,7 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
       <form onSubmit={step === 3 ? submitForm : (e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <h4 className="font-bold text-lg text-slate-800 mb-4">معلومات المُعلن ومواصفات الإعلان</h4>
+            <h4 className="font-bold text-lg text-slate-800 mb-4">1. معلومات المُعلن ومواصفات الإعلان</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">اسم المُعلن</label>
@@ -242,6 +366,14 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">رقم الجوال لتأكيد الدفع</label>
                 <input required type="tel" value={formData.advertiserPhone} onChange={e => setFormData({...formData, advertiserPhone: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-left" dir="ltr" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">البريد الإلكتروني للمُعلن</label>
+                <input required type="email" value={formData.advertiserEmail} onChange={e => setFormData({...formData, advertiserEmail: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-left" dir="ltr" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">عنوان / مدينة المُعلن</label>
+                <input required type="text" placeholder="مثال: الرياض - حي النرجس" value={formData.advertiserAddress} onChange={e => setFormData({...formData, advertiserAddress: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50" />
               </div>
             </div>
             
@@ -308,7 +440,7 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
 
         {step === 2 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <h4 className="font-bold text-lg text-slate-800 mb-4">محتوى الإعلان والجمهور</h4>
+            <h4 className="font-bold text-lg text-slate-800 mb-4">2. محتوى الإعلان والجمهور</h4>
             
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">الرابط الوجهة (عنوان URL)</label>
@@ -343,7 +475,7 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
 
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <h4 className="font-bold text-lg text-slate-800 mb-4">الميزانية والتأكيد</h4>
+            <h4 className="font-bold text-lg text-slate-800 mb-4">3. الميزانية والتأكيد</h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
@@ -366,7 +498,7 @@ export const AdRequestProviderWizard = ({ onSubmit, currentUserData }: any) => {
               <Receipt className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div className="text-sm text-amber-800">
                 <p className="font-bold mb-1">تأكيد طلب الإعلان</p>
-                <p>بعد إرسال الطلب، ستقوم إدارة المنصة بمراجعته. وسيتم التواصل معك على الجوال المسجل <strong>{formData.advertiserPhone || 'المدخل أعلاه'}</strong> لتأكيد عملية الدفع وتحويل قيمة الإعلان، ثم سيتم تفعيل الإعلان وعرضه.</p>
+                <p>بعد إرسال الطلب، ستقوم إدارة المنصة بمراجعته. وسيتم التواصل معك على الجوال المسجل <strong>{formData.advertiserPhone || 'المدخل أعلاه'}</strong> والبريد <strong>{formData.advertiserEmail}</strong> لتأكيد عملية الدفع وتحويل قيمة الإعلان، ثم سيتم تفعيل الإعلان وعرضه.</p>
               </div>
             </div>
           </div>

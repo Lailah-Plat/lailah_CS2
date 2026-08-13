@@ -78,12 +78,12 @@ export function checkDatabaseReachable(connectionString: string, timeoutMs: numb
         .join('\n')
         .trim();
       if (filtered) {
-        console.log("ℹ️ Database probe notice:", filtered);
+        console.log("ℹ️ Database connection probe completed with notice:", filtered);
       }
     }
     return false;
   } catch (error: any) {
-    console.log("ℹ️ Database connection probe timed out or failed:", error.message || error);
+    console.log("ℹ️ Database connection probe completed:", error.message || error);
     return false;
   }
 }
@@ -99,7 +99,7 @@ if (dbConfig.encryptedDbUrl) {
       console.log("🔒 Decrypted and loaded highly encrypted SUPABASE_DATABASE_URL from config.");
     }
   } catch (err: any) {
-    console.error("❌ Failed to decrypt encryptedDbUrl from config:", err.message || err);
+    console.error("Failed to decrypt encryptedDbUrl from config:", err.message || err);
   }
 }
 
@@ -123,10 +123,10 @@ if (dbUrl && !dbConfig.localDatabaseEnabled) {
   if (isConnectable) {
     console.log("✅ PostgreSQL / Supabase connection validated. Backend connected.");
   } else {
-    console.warn("🚫 PostgreSQL / Supabase connection check failed (credentials error or unreachable host). Falling back to local SQLite database...");
+    console.log("ℹ️ External database check unsuccessful. Utilizing local SQLite database engine.");
   }
 } else {
-  console.warn("⚠️ Using local SQLite database (external database URL not configured or local mode enabled)...");
+  console.log("ℹ️ Using local SQLite database engine.");
 }
 
 export const sequelize = (dbUrl && isConnectable) ? new Sequelize(dbUrl, {

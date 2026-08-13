@@ -297,18 +297,6 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
           </button>
 
           <button
-            onClick={() => setSubTab('diagnostics')}
-            className={`flex-1 min-w-[140px] py-2.5 px-3 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              subTab === 'diagnostics'
-                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <Cpu className="w-4 h-4" />
-            <span>الفحص والاختبارات الذاتية</span>
-          </button>
-
-          <button
             onClick={() => setSubTab('unified_invoice')}
             className={`flex-1 min-w-[140px] py-2.5 px-3 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               subTab === 'unified_invoice'
@@ -1220,12 +1208,7 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
           </div>
         )}
 
-        {/* 7. الفحص والاختبارات الذاتية */}
-        {subTab === 'diagnostics' && (
-          <DiagnosticsDashboard {...props} />
-        )}
-
-        {/* 8. الفاتورة الضريبية الموحدة */}
+        {/* الفاتورة الضريبية الموحدة */}
         {subTab === 'unified_invoice' && (
           <UnifiedInvoiceTab
             bookings={props.bookings || []}

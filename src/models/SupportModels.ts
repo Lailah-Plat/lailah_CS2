@@ -78,11 +78,7 @@ TicketMessage.init({
   },
   ticketId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Ticket,
-      key: 'id'
-    }
+    allowNull: false
   },
   senderId: {
     type: DataTypes.INTEGER,

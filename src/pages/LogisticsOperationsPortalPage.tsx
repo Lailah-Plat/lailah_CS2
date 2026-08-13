@@ -54,6 +54,11 @@ export default function LogisticsOperationsPortalPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  useEffect(() => {
+    // Graceful forwarding to Unified Provider Dashboard
+    navigate('/provider-dashboard?tab=inventory', { replace: true });
+  }, [navigate]);
   
   // Authorization & subscription state
   const [user, setUser] = useState<any>(null);
@@ -824,6 +829,13 @@ export default function LogisticsOperationsPortalPage() {
             
             {/* Quick action controllers */}
             <div className="flex flex-wrap items-center gap-3">
+              <Link
+                to="/provider-dashboard?tab=bookings"
+                className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg transition-all"
+              >
+                <Cpu className="w-4 h-4" />
+                <span>لوحة التحكم الموحدة 👑</span>
+              </Link>
               <button 
                 onClick={fetchData} 
                 title="إعادة مزامنة المعطيات المباشرة"

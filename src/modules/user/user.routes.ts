@@ -5,6 +5,7 @@ import {
   updateUser, 
   deleteUser, 
   completeProfile, 
+  profileSync,
   migrateProviders,
   getRedisStats,
   flushRedis
@@ -30,6 +31,7 @@ router.delete('/profile-history/cleanup', (req, res) => profileUpdateController.
 router.get('/', getAllUsers);
 router.post('/', createUser);
 router.post('/complete-profile', completeProfile);
+router.post('/profile-sync', profileSync);
 router.post('/migrate-providers', migrateProviders);
 router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);

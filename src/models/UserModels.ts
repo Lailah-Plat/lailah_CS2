@@ -19,6 +19,8 @@ export class User extends Model {
   declare avatarUrl?: string;
   declare image?: string;
   declare points: number;
+  declare username?: string;
+  declare showProviderToCustomers?: boolean;
 }
 
 User.init({
@@ -53,7 +55,9 @@ User.init({
   status: { type: DataTypes.STRING, defaultValue: 'نشط' },
   avatarUrl: { type: DataTypes.STRING, allowNull: true },
   image: { type: DataTypes.STRING, allowNull: true },
-  points: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false }
+  points: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
+  username: { type: DataTypes.STRING, allowNull: true },
+  showProviderToCustomers: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: true }
 }, {
   sequelize,
   modelName: 'User',
@@ -225,6 +229,23 @@ export async function syncUserModels() {
       });
       console.log(`Column points added successfully to ${User.tableName}.`);
     }
+    if (!tableInfo.username) {
+      console.log(`Adding username column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'username', {
+        type: DataTypes.STRING,
+        allowNull: true
+      });
+      console.log(`Column username added successfully to ${User.tableName}.`);
+    }
+    if (!tableInfo.showProviderToCustomers) {
+      console.log(`Adding showProviderToCustomers column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'showProviderToCustomers', {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+        allowNull: true
+      });
+      console.log(`Column showProviderToCustomers added successfully to ${User.tableName}.`);
+    }
   } catch (err: any) {
     console.log("Could not check/add columns dynamically before sync (this is normal if table does not exist yet):", err.message || err);
   }
@@ -240,13 +261,15 @@ export async function syncUserModels() {
   // Pre-seed some default users if none exist (specifically kaab_b)
   try {
     const userCount = await User.count();
+    const defaultPasswordHash = bcrypt.hashSync('123456', 10);
     if (userCount === 0) {
       await User.bulkCreate([
         {
           name: 'كعب العرابي',
           email: 'kaab909@gmail.com',
           role: 'مزود',
-          phone: '0551234567',
+          phone: '+966551234567',
+          password_hash: defaultPasswordHash,
           region: 'الرياض',
           city: 'الرياض',
           status: 'نشط'
@@ -255,7 +278,8 @@ export async function syncUserModels() {
           name: 'سارة الأحمد',
           email: 'sara@example.com',
           role: 'عميل',
-          phone: '0543210987',
+          phone: '+966543210987',
+          password_hash: defaultPasswordHash,
           region: 'مكة المكرمة',
           city: 'جدة',
           status: 'نشط'
@@ -264,7 +288,8 @@ export async function syncUserModels() {
           name: 'شركة ليلة للأفراح',
           email: 'provider@lylah.com',
           role: 'مزود',
-          phone: '0567891234',
+          phone: '+966567891234',
+          password_hash: defaultPasswordHash,
           region: 'الشرقية',
           city: 'الدمام',
           status: 'نشط'
@@ -272,14 +297,15 @@ export async function syncUserModels() {
       ]);
       console.log("✅ Seeded default users successfully.");
     } else {
-      // If users already exist but kaab_b is missing, ensure kaab_b is inserted
+      // If users already exist, ensure kaab_b has password_hash and phone set
       const kaabUser = await User.findOne({ where: { email: 'kaab909@gmail.com' } });
       if (!kaabUser) {
         await User.create({
           name: 'كعب العرابي',
           email: 'kaab909@gmail.com',
           role: 'مزود',
-          phone: '0551234567',
+          phone: '+966551234567',
+          password_hash: defaultPasswordHash,
           region: 'الرياض',
           city: 'الرياض',
           status: 'نشط'
@@ -295,9 +321,17 @@ export async function syncUserModels() {
           kaabUser.name = 'كعب العرابي';
           changed = true;
         }
+        if (!kaabUser.password_hash) {
+          kaabUser.password_hash = defaultPasswordHash;
+          changed = true;
+        }
+        if (!kaabUser.phone) {
+          kaabUser.phone = '+966551234567';
+          changed = true;
+        }
         if (changed) {
           await kaabUser.save();
-          console.log("✅ Updated user kaab_b role to 'مزود' and name to 'كعب العرابي'.");
+          console.log("✅ Updated user kaab_b role, password_hash, and phone.");
         }
       }
     }

@@ -75,3 +75,53 @@ export const formatExpenseId = (id: number | string) => {
   return convertDigits(`EXP-${yy}-${paddedId}`);
 };
 
+/**
+ * صياغة رقم الحملة التسويقية النشطة (CMP-YY-XXXXXXXXXX).
+ */
+export const formatCampaignId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`CMP-${yy}-${paddedId}`);
+};
+
+/**
+ * صياغة رقم عرض الوكالة التسويقية (MPR-YY-XXXXXXXXXX).
+ */
+export const formatProposalId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`MPR-${yy}-${paddedId}`);
+};
+
+/**
+ * صياغة رقم الإعلان المباشر/دورة النشر (ADF-YY-XXXXXXXXXX).
+ */
+export const formatAdFlightId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`ADF-${yy}-${paddedId}`);
+};
+
+/**
+ * صياغة رقم العرض الترويجي/الكوبون المعتمد (PRM-YY-XXXXXXXXXX).
+ */
+export const formatPromotionId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`PRM-${yy}-${paddedId}`);
+};
+
+/**
+ * صياغة رقم المنحة التسويقية الإدارية (GRT-YY-XXXXXXXXXX).
+ */
+export const formatGrantId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`GRT-${yy}-${paddedId}`);
+};
+

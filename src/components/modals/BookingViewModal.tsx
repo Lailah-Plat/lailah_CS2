@@ -124,14 +124,73 @@ export const BookingViewModal: React.FC<BookingViewModalProps> = ({
                 </div>
               )}
 
+              {/* Applied Promotion Snapshot details if present */}
+              {booking.appliedPromotionSnapshot && (
+                <div className="bg-emerald-50/80 dark:bg-emerald-950/30 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                    <span className="flex items-center gap-1.5 font-sans">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      الكوبون والعرض الترويجي المطبق (عقد مجمد في الحجز)
+                    </span>
+                    <span className="font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-emerald-300 font-black text-emerald-700">
+                      {booking.appliedPromotionSnapshot.couponCode || 'PROMO'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-1 border-t border-emerald-200/60 dark:border-emerald-900/60 font-sans">
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">قيمة الخصم المقتطعة للعميل</span>
+                      <span className="font-black text-emerald-700 dark:text-emerald-300">
+                        -{formatCurrency(booking.appliedPromotionSnapshot.calculatedDiscountAmount)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">سياسة عمولة المنصة المعتمدة</span>
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                        booking.appliedPromotionSnapshot.commissionPolicy === 'CommissionOnDiscountedPrice'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-amber-100 text-amber-800 border border-amber-300'
+                      }`}>
+                        {booking.appliedPromotionSnapshot.commissionPolicy === 'CommissionOnDiscountedPrice'
+                          ? 'العمولة بعد الخصم (مشاركة المنصة)'
+                          : 'العمولة قبل الخصم (تحمل المزود)'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">عمولة المنصة المحسوبة</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                        {formatCurrency(booking.appliedPromotionSnapshot.platformCommissionAmount)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">صافي مستحق المزود بعد السياسة</span>
+                      <span className="font-mono font-black text-emerald-800 dark:text-emerald-200">
+                        {formatCurrency(booking.appliedPromotionSnapshot.providerEntitlementAmount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="pt-3 border-t border-indigo-100 dark:border-indigo-900/50 flex justify-between items-center bg-white/50 dark:bg-slate-900/50 p-3 rounded-xl border border-white dark:border-slate-800">
                 <div>
                   <span className="text-[10px] text-slate-500 block">صافي استحقاق المزود</span>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{formatCurrency(booking.amount * 0.9)}</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                    {booking.appliedPromotionSnapshot 
+                      ? formatCurrency(booking.appliedPromotionSnapshot.providerEntitlementAmount)
+                      : formatCurrency(booking.amount * 0.9)}
+                  </span>
                 </div>
                 <div className="text-left">
                   <span className="text-[10px] text-slate-500 block text-right">عمولة المنصة (شاملة الضريبة)</span>
-                  <span className="font-bold text-blue-600 dark:text-indigo-400">{formatCurrency(booking.amount * 0.1)}</span>
+                  <span className="font-bold text-blue-600 dark:text-indigo-400">
+                    {booking.appliedPromotionSnapshot
+                      ? formatCurrency(booking.appliedPromotionSnapshot.platformCommissionAmount)
+                      : formatCurrency(booking.amount * 0.1)}
+                  </span>
                 </div>
               </div>
             </div>

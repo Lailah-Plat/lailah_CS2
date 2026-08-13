@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
-  Megaphone, Target, Wallet, FileText, Percent 
+  Megaphone, Target, Wallet, FileText, Percent, Share2, ShieldCheck, Plus, Check, CheckCircle2, X 
 } from 'lucide-react';
 import { 
   AgencyMarketingView, 
@@ -10,6 +10,9 @@ import {
   AdRequestsTable 
 } from './MarketingComponents';
 import { InternalAdsManagement } from './InternalAdsManagement';
+import { AffiliateMarketingTab } from './AffiliateMarketingTab';
+import { AffiliateReferralDashboard } from './AffiliateReferralDashboard';
+import { LPASManager } from './lpas/LPASManager';
 
 interface MarketingManagementProps {
   userRole: string;
@@ -33,27 +36,31 @@ interface MarketingManagementProps {
   setAdminUsersSection: (v: string) => void;
 }
 
-export function MarketingManagement({
-  userRole,
-  canSwitchToAgency,
-  currentProviderName,
-  campaigns,
-  setCampaigns,
-  adRequests,
-  setAdRequests,
-  internalAds,
-  setInternalAds,
-  promotions,
-  setPromotions,
-  halls,
-  services,
-  providers,
-  currentUser,
-  activeMarketingSubTab,
-  setActiveMarketingSubTab,
-  showNotification,
-  setAdminUsersSection
-}: MarketingManagementProps) {
+export function MarketingManagement(props: MarketingManagementProps & { marketingCommissionPercentage?: number }) {
+  const {
+    userRole,
+    canSwitchToAgency,
+    currentProviderName,
+    campaigns,
+    setCampaigns,
+    adRequests,
+    setAdRequests,
+    internalAds,
+    setInternalAds,
+    promotions,
+    setPromotions,
+    halls,
+    services,
+    providers,
+    currentUser,
+    activeMarketingSubTab,
+    setActiveMarketingSubTab,
+    showNotification,
+    setAdminUsersSection,
+    marketingCommissionPercentage = 20
+  } = props;
+
+  const commissionPct = marketingCommissionPercentage || 20;
 
   const tabsForMarketing = [
     { id: 'request_campaign', label: 'طلب حملة جديدة', icon: Megaphone, color: 'hover:text-amber-600 hover:border-amber-500' },
@@ -65,6 +72,11 @@ export function MarketingManagement({
       { id: 'manage_ads', label: 'إدارة الإعلانات', icon: FileText, color: 'hover:text-rose-600 hover:border-rose-500' }
     ] : []),
     { id: 'promotions_tab', label: 'طلبات العروض والخصومات', icon: Percent, color: 'hover:text-emerald-600 hover:border-emerald-555' },
+    ...(userRole === 'admin' ? [
+      { id: 'admin_grants', label: 'الحملات المجانية والمنح الإدارية (Grants)', icon: ShieldCheck, color: 'hover:text-amber-600 hover:border-amber-500' }
+    ] : []),
+    { id: 'affiliate_codes', label: 'أكواد التسويق بالإحالة والعمولات', icon: Share2, color: 'hover:text-amber-600 hover:border-amber-500' },
+    { id: 'lpas_pages', label: 'محرك صفحات الهبوط (LPAS) 🎯', icon: Target, color: 'hover:text-amber-600 hover:border-amber-500' },
     ...(userRole === 'provider' ? [
       { id: 'my_requests', label: 'متابعة طلباتي', icon: FileText, color: 'hover:text-emerald-600 hover:border-emerald-500' }
     ] : [])
@@ -72,9 +84,99 @@ export function MarketingManagement({
 
   return (
     <div id="marketing-management-wrapper" className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-black text-slate-800">التسويق والإعلانات</h1>
-        <p className="text-slate-500 text-sm">إدارة الحملات التسويقية، العروض الترويجية، والإعلانات الداخلية للمنشآت.</p>
+      <div className="flex flex-col gap-2 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-32 bg-amber-500/10 blur-2xl pointer-events-none"></div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/30">
+                مركز النمو والتسويق الرقمي (Growth & Marketing Center)
+              </span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/30">
+                عزل محاسبي ووظيفي كامل ✅
+              </span>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">مركز النمو والتسويق (Growth & Marketing Center)</h1>
+            <p className="text-slate-300 text-xs mt-1 max-w-3xl leading-relaxed">
+              منظومة متكاملة لزيادة مبيعات المنشآت وحجوزات القاعات والخدمات عبر ثلاثة منتجات مستقلة وظيفياً ومحاسبياً: الحملات التسويقية المُدارة من الوكالات، العروض الترويجية والكوبونات، والإعلانات المباشرة داخل صفحات منصة ليلة.
+            </p>
+          </div>
+        </div>
+
+        {/* 3 Product Pillars Metric Highlights */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+          {/* Pillar 1: Agency Campaigns */}
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-2">
+            <div className="flex justify-between items-center text-xs text-slate-300">
+              <span className="font-extrabold flex items-center gap-1.5 text-amber-400">
+                <Megaphone className="w-4 h-4" /> 1. الحملات التسويقية المُدارة
+              </span>
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                عمولة {commissionPct}% على الأتعاب فقط ({commissionPct * 100} BPS)
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline pt-1">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">الحملات النشطة / المجهزة:</p>
+                <p className="text-xl font-black text-white font-mono">{campaigns.filter((c: any) => c.status === 'نشطة' || c.status === 'نشط').length} حملة</p>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-slate-400 font-bold">عمولة المنصة الصافية:</p>
+                <p className="text-sm font-extrabold text-amber-300 font-mono">
+                  {(campaigns.reduce((sum: number, c: any) => sum + ((c.agencyFee || 0) * (commissionPct / 100)), 0)).toLocaleString()} ر.س
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pillar 2: Promotions & Coupons */}
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-2">
+            <div className="flex justify-between items-center text-xs text-slate-300">
+              <span className="font-extrabold flex items-center gap-1.5 text-emerald-400">
+                <Percent className="w-4 h-4" /> 2. العروض الترويجية والكوبونات
+              </span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                قواعد خصم + سياسات عمولة
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline pt-1">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">العروض والكوبونات المفعلة:</p>
+                <p className="text-xl font-black text-white font-mono">{promotions.filter((p: any) => p.status === 'active' || p.status === 'نشط').length} عرض</p>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-slate-400 font-bold">احتساب العمولة:</p>
+                <p className="text-xs font-bold text-emerald-300 font-sans">
+                  بعد الخصم / قبل الخصم
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pillar 3: Internal Paid Ads */}
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-2">
+            <div className="flex justify-between items-center text-xs text-slate-300">
+              <span className="font-extrabold flex items-center gap-1.5 text-blue-400">
+                <Wallet className="w-4 h-4" /> 3. الإعلانات الداخلية المباشرة
+              </span>
+              <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                4 مواقف + 4 مراحل اعتماد
+              </span>
+            </div>
+            <div className="flex justify-between items-baseline pt-1">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold">البانرات والظهور النشط:</p>
+                <p className="text-xl font-black text-white font-mono">{internalAds.filter((a: any) => a.status === 'نشط').length} إعلان</p>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] text-slate-400 font-bold">إجمالي الإنطباعات:</p>
+                <p className="text-sm font-extrabold text-blue-300 font-mono">
+                  {(internalAds.reduce((sum: number, a: any) => sum + (a.views || 0), 0)).toLocaleString()} مشاهدة
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tab switcher */}
@@ -269,6 +371,47 @@ export function MarketingManagement({
           />
         )}
 
+        {activeMarketingSubTab === 'admin_grants' && userRole === 'admin' && (
+          <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-sm space-y-6 text-right font-sans" dir="rtl">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div>
+                <span className="bg-amber-500/20 text-amber-800 text-[10px] font-black px-3 py-1 rounded-full border border-amber-400/30">
+                  مسار مستقل: AdministrativeMarketingGrant 🛡️
+                </span>
+                <h3 className="text-lg font-black text-slate-800 mt-2 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-amber-600" />
+                  إدارة الحملات والمنح التسويقية المجانية للمزودين (Dual Approval Grants)
+                </h3>
+                <p className="text-xs text-slate-500 font-bold mt-1">
+                  مسار سيادي لمنح المزودين المتميزين أو الجدد حملات تسويقية مجانية برقم سجل موثق (GRT-26-XXXXXXXXXX) وتكفل منصة ليلة بتغطية ميزانية البث وأتعاب الوكالة.
+                </p>
+              </div>
+            </div>
+
+            {/* Grants List & Form */}
+            <AdministrativeGrantsManager 
+              providers={providers}
+              campaigns={campaigns}
+              setCampaigns={setCampaigns}
+              showNotification={showNotification}
+            />
+          </div>
+        )}
+
+        {activeMarketingSubTab === 'affiliate_codes' && (
+          <AffiliateReferralDashboard
+            showNotification={showNotification}
+          />
+        )}
+
+        {activeMarketingSubTab === 'lpas_pages' && (
+          <LPASManager
+            onSelectPageToRegister={(context) => {
+              showNotification('info', `تم اختيار القالب بسياق تسجيل: ${context?.providerType || 'عام'}`);
+            }}
+          />
+        )}
+
         {activeMarketingSubTab === 'my_requests' && userRole === 'provider' && (() => {
           const myCampaigns = campaigns.filter((c: any) => c.providerName === currentProviderName);
           const myAdRequests = adRequests.filter((r: any) => r.providerName === currentProviderName);
@@ -418,6 +561,340 @@ export function MarketingManagement({
           );
         })()}
       </div>
+    </div>
+  );
+}
+
+function AdministrativeGrantsManager({ providers = [], campaigns = [], setCampaigns, showNotification }: any) {
+  const [grants, setGrants] = useState<any[]>([
+    {
+      id: 1,
+      grantNumber: 'GRT-26-0000000001',
+      srvNumber: 'SRV-26-0000000088',
+      providerName: 'قاعة ليلة الشرق',
+      grantReason: 'منحة تشجيعية بمناسبة الانضمام للمنصة والتميز الميداني',
+      grantedBudget: 5000,
+      agencyFeeCovered: 1000,
+      budgetSource: 'ميزانية المنح التسويقية والنمو - منصة ليلة',
+      costCenter: 'مركز كلفة النمو السيادي',
+      financialImpact: 'تتكفل ليلة بـ 100% من المصروفات',
+      creatorEmployeeName: 'أحمد علي (أخصائي التسويق)',
+      approvingManagerName: 'سارة خالد (مدير النمو والتسويق)',
+      status: 'Approved',
+      startDate: '2026-08-01',
+      endDate: '2026-08-31',
+      auditLog: '2026-08-01: تم إنشاء المنحة بواسطة أحمد علي\n2026-08-01: تم اعتماد المنحة بواسطة سارة خالد وتوليد حملة CMP-26-0000000088'
+    }
+  ]);
+
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [grantReason, setGrantReason] = useState('');
+  const [grantedBudget, setGrantedBudget] = useState(3000);
+  const [agencyFeeCovered, setAgencyFeeCovered] = useState(600);
+  const [budgetSource, setBudgetSource] = useState('ميزانية المنح التسويقية والنمو - منصة ليلة');
+  const [costCenter, setCostCenter] = useState('مركز كلفة التسويق والنمو السيادي');
+  const [financialImpact, setFinancialImpact] = useState('تحمل منصة ليلة 100% من الميزانية وأتعاب الوكالة');
+  const [creatorEmployeeName, setCreatorEmployeeName] = useState('موظف النمو والتسويق');
+  const [approvingManagerName, setApprovingManagerName] = useState('مدير قطاع النمو والعمليات');
+
+  // Handle Create Grant
+  const handleCreateGrant = () => {
+    if (!selectedProvider || !grantReason) {
+      showNotification('warning', 'يرجى تحديد المزود المستفيد وسبب المنحة التسويقية.');
+      return;
+    }
+
+    const year = '26';
+    const randSeq = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const grantNumber = `GRT-${year}-${randSeq}`;
+    const srvNumber = `SRV-${year}-${randSeq}`;
+
+    const newGrant = {
+      id: Date.now(),
+      grantNumber,
+      srvNumber,
+      providerName: selectedProvider,
+      grantReason,
+      grantedBudget: Number(grantedBudget) || 0,
+      agencyFeeCovered: Number(agencyFeeCovered) || 0,
+      budgetSource,
+      costCenter,
+      financialImpact,
+      creatorEmployeeName,
+      approvingManagerName,
+      status: 'PendingManagerApproval',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: '',
+      auditLog: `${new Date().toISOString().split('T')[0]}: تم تسجيل طلب المنحة بواسطة ${creatorEmployeeName} وفي انتظار اعتماد المدير (${approvingManagerName}).`
+    };
+
+    setGrants([newGrant, ...grants]);
+    setShowGrantModal(false);
+    setSelectedProvider('');
+    setGrantReason('');
+    showNotification('success', `تم تسجيل طلب المنحة الإدارية (${grantNumber}) بنجاح وتحويله للمدير المخول بالاعتماد.`);
+  };
+
+  // Handle Approve Grant by Manager
+  const handleApproveGrant = (grant: any) => {
+    const year = '26';
+    const randSeq = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const campaignId = `CMP-${year}-${randSeq}`;
+
+    const updatedGrants = grants.map(g => {
+      if (g.id === grant.id) {
+        return {
+          ...g,
+          status: 'Approved',
+          campaignId,
+          auditLog: `${g.auditLog}\n${new Date().toISOString().split('T')[0]}: تم اعتماد المنحة رسمياً بواسطة ${g.approvingManagerName} وإطلاق الحملة (${campaignId}).`
+        };
+      }
+      return g;
+    });
+
+    setGrants(updatedGrants);
+
+    // Automatically create an active campaign
+    const newCamp = {
+      id: campaignId,
+      srvNumber: grant.srvNumber,
+      grantNumber: grant.grantNumber,
+      isAdministrativeGrant: true,
+      title: `[منحة مجانية] ${grant.grantReason.slice(0, 30)}... - ${grant.providerName}`,
+      providerName: grant.providerName,
+      provider: grant.providerName,
+      adBudget: grant.grantedBudget,
+      agencyFee: grant.agencyFeeCovered,
+      agencyNetProfit: grant.agencyFeeCovered * 0.85,
+      budget: grant.grantedBudget + grant.agencyFeeCovered,
+      spent: 0,
+      status: 'نشطة',
+      paymentStatus: 'منحة مجانية (مغطاة بالكامل من ليلة)',
+      createdAt: new Date().toISOString().split('T')[0],
+      workflowStatus: 'جاهز للبث'
+    };
+
+    if (setCampaigns) {
+      setCampaigns((prev: any[]) => [newCamp, ...prev]);
+    }
+
+    showNotification('success', `تمت الموافقة المزدوجة واعتماد المنحة (${grant.grantNumber}) وإطلاق الحملة الممنوحة (${campaignId}) للمزود!`);
+  };
+
+  return (
+    <div className="space-y-6 text-right font-sans" dir="rtl">
+      {/* Metric summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+          <p className="text-xs font-bold text-amber-800">إجمالي المنح الإدارية المسجلة</p>
+          <p className="text-2xl font-black text-amber-950 font-mono mt-1">{grants.length} منحة</p>
+        </div>
+        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+          <p className="text-xs font-bold text-emerald-800">الميزانيات الممنوحة المعتمدة</p>
+          <p className="text-2xl font-black text-emerald-950 font-mono mt-1">
+            {grants.filter(g => g.status === 'Approved').reduce((s, g) => s + g.grantedBudget + g.agencyFeeCovered, 0).toLocaleString()} ر.س
+          </p>
+        </div>
+        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-200">
+          <p className="text-xs font-bold text-indigo-800">طلبات قيد اعتماد المدير (Dual Approval)</p>
+          <p className="text-2xl font-black text-indigo-950 font-mono mt-1">
+            {grants.filter(g => g.status === 'PendingManagerApproval').length} طلب معلق
+          </p>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <h4 className="text-sm font-black text-slate-800">سجل المنح الإدارية والحملات الممنوحة:</h4>
+        <button
+          onClick={() => setShowGrantModal(true)}
+          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black rounded-xl text-xs cursor-pointer shadow-md hover:from-amber-600 hover:to-amber-700 flex items-center gap-1.5"
+        >
+          <Plus className="w-4 h-4" />
+          إنشاء منحة تسويقية جديدة للمزود (AdministrativeGrant)
+        </button>
+      </div>
+
+      {/* Grants Table */}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200">
+        <table className="w-full text-right text-xs">
+          <thead className="bg-slate-100/80 text-slate-700 font-black border-b border-slate-200">
+            <tr>
+              <th className="p-3">رقم المنحة والخدمة</th>
+              <th className="p-3">المزود المستفيد</th>
+              <th className="p-3">سبب المنحة</th>
+              <th className="p-3">الميزانية والأتعاب</th>
+              <th className="p-3">مصدر الميزانية ومركز التكلفة</th>
+              <th className="p-3">المُنشئ والمدير المعتمد</th>
+              <th className="p-3 text-center">الحالة والإجراء</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-sans">
+            {grants.map(grant => (
+              <tr key={grant.id} className="hover:bg-slate-50 transition-colors">
+                <td className="p-3">
+                  <p className="font-mono font-bold text-amber-800">{grant.grantNumber}</p>
+                  <p className="text-[10px] font-mono text-slate-400">{grant.srvNumber}</p>
+                </td>
+                <td className="p-3 font-bold text-slate-800">{grant.providerName}</td>
+                <td className="p-3 text-slate-600 max-w-xs">{grant.grantReason}</td>
+                <td className="p-3">
+                  <p className="font-bold text-emerald-700 font-mono">بث: {grant.grantedBudget?.toLocaleString()} ر.س</p>
+                  <p className="text-[10px] text-purple-700 font-mono">أتعاب: {grant.agencyFeeCovered?.toLocaleString()} ر.س</p>
+                </td>
+                <td className="p-3 text-[11px]">
+                  <p className="font-medium text-slate-700">{grant.budgetSource}</p>
+                  <p className="text-slate-400 font-mono">{grant.costCenter}</p>
+                </td>
+                <td className="p-3 text-[11px]">
+                  <p className="text-slate-600">منشئ: <span className="font-bold">{grant.creatorEmployeeName}</span></p>
+                  <p className="text-slate-600">اعتماد: <span className="font-bold text-amber-800">{grant.approvingManagerName}</span></p>
+                </td>
+                <td className="p-3 text-center">
+                  {grant.status === 'PendingManagerApproval' ? (
+                    <button
+                      onClick={() => handleApproveGrant(grant)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg text-[10px] cursor-pointer shadow-sm transition-all flex items-center gap-1 mx-auto"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      اعتماد المدير وإطلاق الحملة
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-full text-[10px] font-black">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      معتمدة ومُطلقة ({grant.campaignId || 'CMP'})
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Grant Creation Modal */}
+      {showGrantModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl border border-slate-100 text-right font-sans" dir="rtl">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-amber-600" />
+                نموذج منحة تسويقية إدارية مجانية (AdministrativeMarketingGrant)
+              </h3>
+              <button onClick={() => setShowGrantModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">المزود المستفيد</label>
+                <select
+                  value={selectedProvider}
+                  onChange={e => setSelectedProvider(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                >
+                  <option value="">اختر المزود المستفيد...</option>
+                  {providers.map((p: any) => (
+                    <option key={p.id || p.name} value={p.name || p.providerName}>{p.name || p.providerName}</option>
+                  ))}
+                  <option value="قاعة ليلة الشرق">قاعة ليلة الشرق</option>
+                  <option value="قاعة ليلة الرياض">قاعة ليلة الرياض</option>
+                  <option value="مزود الخدمة المتميز">مزود الخدمة المتميز</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">سبب المنحة والمناسبة</label>
+                <input
+                  type="text"
+                  placeholder="مثال: منحة تشجيعية للتميز في عدد الحجوزات"
+                  value={grantReason}
+                  onChange={e => setGrantReason(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">ميزانية البث الممنوحة (ر.س)</label>
+                <input
+                  type="number"
+                  value={grantedBudget}
+                  onChange={e => setGrantedBudget(Number(e.target.value))}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">أتعاب الوكالة المغطاة بواسطة ليلة (ر.س)</label>
+                <input
+                  type="number"
+                  value={agencyFeeCovered}
+                  onChange={e => setAgencyFeeCovered(Number(e.target.value))}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">مصدر ميزانية المنحة</label>
+                <input
+                  type="text"
+                  value={budgetSource}
+                  onChange={e => setBudgetSource(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">مركز التكلفة المحاسبي</label>
+                <input
+                  type="text"
+                  value={costCenter}
+                  onChange={e => setCostCenter(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">الموظف المنشئ للطلب</label>
+                <input
+                  type="text"
+                  value={creatorEmployeeName}
+                  onChange={e => setCreatorEmployeeName(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">المدير المخول بالاعتماد (Dual Approver)</label>
+                <input
+                  type="text"
+                  value={approvingManagerName}
+                  onChange={e => setApprovingManagerName(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl bg-slate-50 text-xs outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setShowGrantModal(false)}
+                className="px-4 py-2 border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleCreateGrant}
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs cursor-pointer transition-all flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                حفظ ورفع المنحة لاعتماد المدير
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

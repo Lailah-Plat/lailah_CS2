@@ -58,6 +58,8 @@ import {
   Hash,
   Link,
   Lock,
+  Video,
+  Camera,
   BookOpen,
   Copy,
   ExternalLink,
@@ -82,6 +84,13 @@ import FinancialSettingsSection from './admin/FinancialSettingsSection';
 import ProviderPayoutAndSubscriptionPanel from './payment/ProviderPayoutAndSubscriptionPanel';
 import CustomerSavedCardsModal from './payment/CustomerSavedCardsModal';
 import { CrNumberInput, TaxNumberInput } from './common/ValidationInputs';
+import { MediaPoliciesManagementSection } from './admin/MediaPoliciesManagementSection';
+import { 
+  IMAGE_RESOLUTION_PRESETS, 
+  VIDEO_RESOLUTION_PRESETS, 
+  getMediaSettingsConfig, 
+  getPresetDimensions 
+} from '../utils/uploadValidator.js';
 
 // Helper setting inputs defined locally for self-containment
 const SettingToggle = ({ 
@@ -640,7 +649,55 @@ export const SettingsManagement = ({
     return localStorage.getItem('sub_grid_align_center') !== 'false';
   });
 
-  const [interfaceSubTab, setInterfaceSubTab] = useState<'featured' | 'subscriptions' | 'reliability'>('featured');
+  const [interfaceSubTab, setInterfaceSubTab] = useState<'featured' | 'subscriptions' | 'media_upload' | 'reliability'>('featured');
+  const [enableProviderVideoUpload, setEnableProviderVideoUpload] = useState<boolean>(() => {
+    return localStorage.getItem('enable_provider_video_upload') === 'true';
+  });
+
+  // إعدادات وسياسات رفع الوسائط (أحجام وأبعاد الصور والفيديوهات)
+  const [mediaImageMaxSizeKB, setMediaImageMaxSizeKB] = useState<number>(() => {
+    return getMediaSettingsConfig().imageMaxSizeKB;
+  });
+  const [mediaVideoMaxSizeMB, setMediaVideoMaxSizeMB] = useState<number>(() => {
+    return getMediaSettingsConfig().videoMaxSizeMB;
+  });
+  const [mediaImageMinDimId, setMediaImageMinDimId] = useState<string>(() => {
+    return getMediaSettingsConfig().imageMinDimId;
+  });
+  const [mediaImageMaxDimId, setMediaImageMaxDimId] = useState<string>(() => {
+    return getMediaSettingsConfig().imageMaxDimId;
+  });
+  const [mediaVideoMaxDimId, setMediaVideoMaxDimId] = useState<string>(() => {
+    return getMediaSettingsConfig().videoMaxDimId;
+  });
+
+  const handleSaveMediaSettings = async (
+    imgKB: number,
+    vidMB: number,
+    imgMinId: string,
+    imgMaxId: string,
+    vidMaxId: string
+  ) => {
+    setMediaImageMaxSizeKB(imgKB);
+    setMediaVideoMaxSizeMB(vidMB);
+    setMediaImageMinDimId(imgMinId);
+    setMediaImageMaxDimId(imgMaxId);
+    setMediaVideoMaxDimId(vidMaxId);
+
+    localStorage.setItem('media_image_max_size_kb', String(imgKB));
+    localStorage.setItem('media_video_max_size_mb', String(vidMB));
+    localStorage.setItem('media_image_min_dim_id', imgMinId);
+    localStorage.setItem('media_image_max_dim_id', imgMaxId);
+    localStorage.setItem('media_video_max_dim_id', vidMaxId);
+
+    await saveConfigToServer('media_image_max_size_kb', imgKB);
+    await saveConfigToServer('media_video_max_size_mb', vidMB);
+    await saveConfigToServer('media_image_min_dim_id', imgMinId);
+    await saveConfigToServer('media_image_max_dim_id', imgMaxId);
+    await saveConfigToServer('media_video_max_dim_id', vidMaxId);
+
+    window.dispatchEvent(new Event('settingsUpdated'));
+  };
 
   const updatePlatformSetting = (key: string, value: any) => {
     const val = { ...platformData, [key]: value };
@@ -743,6 +800,9 @@ export const SettingsManagement = ({
     const fetchServerConfigs = async () => {
       try {
         const res = await fetch('/api/system/configs');
+        if (!res.ok) return;
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) return;
         const data = await res.json();
         if (data.success && data.configs) {
           const c = data.configs;
@@ -1145,6 +1205,18 @@ export const SettingsManagement = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setInterfaceSubTab('media_upload')}
+                  className={`flex-1 min-w-[150px] py-3 px-4 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
+                    interfaceSubTab === 'media_upload'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+                >
+                  <Video className={`w-4 h-4 ${interfaceSubTab === 'media_upload' ? 'text-purple-500' : 'text-slate-400'}`} />
+                  سياسات وإعدادات رفع الوسائط
+                </button>
+                <button
+                  type="button"
                   onClick={() => setInterfaceSubTab('reliability')}
                   className={`flex-1 min-w-[150px] py-3 px-4 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer text-center flex items-center justify-center gap-2 ${
                     interfaceSubTab === 'reliability'
@@ -1415,6 +1487,17 @@ export const SettingsManagement = ({
                   </div>
                 </div>
               )}
+
+              {/* تبويب الوسائط: سياسات وإعدادات رفع الوسائط، الضغط الذكي، وشريط التخزين وفحص الذكاء الاصطناعي */}
+              {interfaceSubTab === 'media_upload' && (
+                <MediaPoliciesManagementSection
+                  onShowNotification={showNotification}
+                  enableProviderVideoUpload={enableProviderVideoUpload}
+                  setEnableProviderVideoUpload={setEnableProviderVideoUpload}
+                  saveConfigToServer={saveConfigToServer}
+                />
+              )}
+
 
               {/* تبويب 3: شارات التوثيق والموثوقية الرسمية */}
               {interfaceSubTab === 'reliability' && (

@@ -272,7 +272,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) {
-      setError('يرجى إدخال البريد الإلكتروني أولاً');
+      setError('يرجى إدخال البريد الإلكتروني أو رقم الجوال أولاً');
       return;
     }
 
@@ -308,10 +308,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
       }
     } catch (err) {
       console.warn("ForgotPassword API failed, using simulation", err);
-      const emailLower = forgotEmail.trim().toLowerCase();
+      const inputClean = forgotEmail.trim().toLowerCase();
 
-      // Fallback fallback simulated lists
-      let activeProviders = providers;
+      // Fallback simulated lists
+      let activeProviders: any[] = providers || [];
       try {
         const stored = localStorage.getItem('providersData');
         if (stored) {
@@ -319,9 +319,12 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
         }
       } catch {}
 
-      const foundProvider = activeProviders.find(p => p.email && p.email.toLowerCase().trim() === emailLower);
+      const foundProvider = activeProviders.find(p => 
+        (p.email && p.email.toLowerCase().trim() === inputClean) ||
+        (p.phone && p.phone.trim() === inputClean)
+      );
 
-      if (emailLower === 'admin@system.local' || foundProvider || emailLower.includes('@')) {
+      if (inputClean === 'admin@system.local' || foundProvider || inputClean.length >= 3) {
         const mockOtp = '123456';
         setReceivedOtp(mockOtp);
         setSuccessMsg('تم توليد رمز تحقق تجريبي بنجاح!');
@@ -634,16 +637,16 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginMod
             <form onSubmit={handleRequestOtp} className="space-y-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">البريد الإلكتروني المسجل</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">البريد الإلكتروني أو رقم الجوال المسجل</label>
                   <div className="relative">
                     <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       required 
-                      type="email" 
+                      type="text" 
                       value={forgotEmail}
                       onChange={e => setForgotEmail(e.target.value)}
                       className="w-full pl-3 pr-10 py-3 rounded-xl border border-slate-200 focus:border-amber-500 outline-none transition-all"
-                      placeholder="example@mail.com"
+                      placeholder="example@mail.com أو 0551234567"
                       dir="ltr"
                     />
                   </div>

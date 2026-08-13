@@ -8,7 +8,7 @@
  * واجهة قدرات وصلاحيات الشريك/المزود
  */
 export interface ProviderCapabilities {
-  /** إمكانية الوصول للوحة التشغيل والأعمال المتقدمة */
+  /** إمكانية الوصول للوحة التشغيل والأعمال المتقدمة في مساحة عمل المزود الموحدة */
   hasAdvancedPortal: boolean;        
   /** إمكانية إدارة الموظفين والمقرات والصلاحيات */
   hasEmployeeManagement: boolean;    
@@ -26,6 +26,22 @@ export interface ProviderCapabilities {
   hasSuppliers: boolean;             
   /** إمكانية تشغيل العمليات اللوجستية المتقدمة وإدارة السيولة */
   hasOperationsDashboard: boolean;   
+  /** ميزة استعراض وتصدير الفواتير */
+  hasInvoices: boolean;
+  /** ميزة الدعم الفني المباشر */
+  hasSupport: boolean;
+  /** ميزة الرسومات التفاعلية والنمو */
+  hasGrowthCharts: boolean;
+  /** ميزة ميزانية التوقعات المالية الذكية */
+  hasSmartFinancialForecast: boolean;
+  /** ميزة نظام الدفع الجزئي (العربون) */
+  hasDepositSystem: boolean;
+  /** ميزة لوحة الإحصائيات المتقدمة */
+  hasAdvancedAnalytics: boolean;
+  /** ميزة الإدارة الشاملة للحجوزات والخدمات */
+  hasComprehensiveManagement: boolean;
+  /** ميزة مساحة تشغيل الأعمال المتقدمة في مساحة عمل المزود الموحدة */
+  hasBOSWorkspace: boolean;
   /** الحد الأقصى للقاعات والمنشآت المسموح بإضافتها */
   hallsLimit: number | 'unlimited';   
   /** الحد الأقصى للخدمات المساندة المسموح بإضافتها */
@@ -44,59 +60,7 @@ export interface ProviderCapabilities {
 export function getPlanCapabilities(planNameOrId: string): ProviderCapabilities {
   const norm = (planNameOrId || '').toLowerCase().trim();
   
-  // المستوى الأول: الباقة الأساسية (Basic Provider)
-  if (
-    norm === 'basic' ||
-    norm === 'الباقة الأساسية' ||
-    norm === 'الباقةالأساسية' ||
-    norm === 'الباقة الاساسية' ||
-    (norm.includes('أساسية') && !norm.includes('متقدمة') && !norm.includes('أعمال') && !norm.includes('احترافية')) || 
-    (norm.includes('اساسيه') && !norm.includes('متقدمة') && !norm.includes('أعمال') && !norm.includes('احترافية'))
-  ) {
-    return {
-      hasAdvancedPortal: false,
-      hasEmployeeManagement: false,
-      hasBranchManagement: false,
-      hasAdvancedReports: false,
-      hasMarketing: false,
-      hasAnalytics: false,
-      hasInventory: false,
-      hasSuppliers: false,
-      hasOperationsDashboard: false,
-      hallsLimit: 1,
-      servicesLimit: 5,
-      staffSeatsLimit: 0,
-      showProviderToCustomers: false,
-    };
-  }
-  
-  // المستوى الثاني: باقة الأعمال / المتقدمة (Business / Advanced Provider)
-  if (
-    norm.includes('business') || 
-    norm.includes('الأعمال') || 
-    norm.includes('الاعمال') || 
-    norm === 'business' ||
-    norm.includes('المتقدمة') ||
-    norm.includes('المتقدمه')
-  ) {
-    return {
-      hasAdvancedPortal: true,
-      hasEmployeeManagement: true,
-      hasBranchManagement: true,
-      hasAdvancedReports: true,
-      hasMarketing: true,
-      hasAnalytics: false,
-      hasInventory: true,
-      hasSuppliers: true,
-      hasOperationsDashboard: false,
-      hallsLimit: 3,
-      servicesLimit: 15,
-      staffSeatsLimit: 5,
-      showProviderToCustomers: true,
-    };
-  }
-
-  // المستوى الثالث: الباقة الاحترافية الشاملة (Pro / VIP / Unlimited)
+  // توفير جميع إمكانيات ومميزات BOS Workspace في لوحة المزود الموحدة لجميع الباقات
   return {
     hasAdvancedPortal: true,
     hasEmployeeManagement: true,
@@ -107,6 +71,14 @@ export function getPlanCapabilities(planNameOrId: string): ProviderCapabilities 
     hasInventory: true,
     hasSuppliers: true,
     hasOperationsDashboard: true,
+    hasInvoices: true,
+    hasSupport: true,
+    hasGrowthCharts: true,
+    hasSmartFinancialForecast: true,
+    hasDepositSystem: true,
+    hasAdvancedAnalytics: true,
+    hasComprehensiveManagement: true,
+    hasBOSWorkspace: true,
     hallsLimit: 'unlimited',
     servicesLimit: 'unlimited',
     staffSeatsLimit: 'unlimited',
@@ -156,9 +128,23 @@ export function getActiveProviderCapabilities(): ProviderCapabilities {
     if (storedSub) {
       const parsed = JSON.parse(storedSub);
       const pkg = parsed.packageName || parsed.packageName_display || parsed.planName || parsed.id;
-      if (pkg) {
-        return getPlanCapabilities(pkg);
-      }
+      const baseCaps = getPlanCapabilities(pkg || 'basic');
+      
+      // دمج الميزات الفردية المستقلة المشتراة كإضافات مع قدرات الباقة الأساسية
+      return {
+        ...baseCaps,
+        hasInventory: parsed.hasInventory !== undefined ? !!parsed.hasInventory : (parsed.includesInventory !== undefined ? !!parsed.includesInventory : baseCaps.hasInventory),
+        hasSuppliers: parsed.hasSuppliers !== undefined ? !!parsed.hasSuppliers : (parsed.includesSuppliers !== undefined ? !!parsed.includesSuppliers : baseCaps.hasSuppliers),
+        hasInvoices: parsed.hasInvoices !== undefined ? !!parsed.hasInvoices : baseCaps.hasInvoices,
+        hasSupport: parsed.hasSupport !== undefined ? !!parsed.hasSupport : baseCaps.hasSupport,
+        hasGrowthCharts: parsed.hasGrowthCharts !== undefined ? !!parsed.hasGrowthCharts : baseCaps.hasGrowthCharts,
+        hasSmartFinancialForecast: parsed.hasSmartFinancialForecast !== undefined ? !!parsed.hasSmartFinancialForecast : baseCaps.hasSmartFinancialForecast,
+        hasDepositSystem: parsed.hasDepositSystem !== undefined ? !!parsed.hasDepositSystem : baseCaps.hasDepositSystem,
+        hasAdvancedAnalytics: parsed.hasAdvancedAnalytics !== undefined ? !!parsed.hasAdvancedAnalytics : baseCaps.hasAdvancedAnalytics,
+        hasComprehensiveManagement: parsed.hasComprehensiveManagement !== undefined ? !!parsed.hasComprehensiveManagement : baseCaps.hasComprehensiveManagement,
+        hasBOSWorkspace: parsed.hasBOSWorkspace !== undefined ? !!parsed.hasBOSWorkspace : (parsed.hasOperationsDashboard !== undefined ? !!parsed.hasOperationsDashboard : baseCaps.hasBOSWorkspace),
+        hasAdvancedPortal: parsed.hasBOSWorkspace || parsed.hasAdvancedPortal !== undefined ? (!!parsed.hasBOSWorkspace || !!parsed.hasAdvancedPortal) : baseCaps.hasAdvancedPortal,
+      };
     }
 
     // الفحص المباشر في كائن المستخدم

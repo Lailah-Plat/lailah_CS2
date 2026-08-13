@@ -23,5 +23,9 @@ Favorite.init({
 });
 
 export async function syncFavorites() {
-  await Favorite.sync({ alter: true });
+  try {
+    await Favorite.sync();
+  } catch (e: any) {
+    console.warn("Favorite.sync warning:", e.message || e);
+  }
 }

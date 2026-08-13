@@ -2484,10 +2484,8 @@ export function useAppState() {
   const [bookingFilterDateTo, setBookingFilterDateTo] = useState('');
   const [bookingSortBy, setBookingSortBy] = useState('newest');
 
-  // Support States
-  const [disableChatSystem, setDisableChatSystem] = useState<boolean>(() => {
-    return localStorage.getItem('DISABLE_CHAT_SYSTEM') === 'true';
-  });
+  // Support States - Live Chat & Messaging Portal is permanently enforced active and protected against programmatic disabling
+  const [disableChatSystem, setDisableChatSystem] = useState<boolean>(false);
 
   const [ticketRetentionDays, setTicketRetentionDays] = useState(() => {
     const stored = localStorage.getItem('TICKET_RETENTION_DAYS');
@@ -4034,7 +4032,7 @@ export function useAppState() {
           if (dbConfigs['SYSTEM_LOYALTY_SETTINGS'] !== undefined) setLoyaltyCustomSettings(dbConfigs['SYSTEM_LOYALTY_SETTINGS']);
           if (dbConfigs['ENABLE_PROVIDER_LEVELS'] !== undefined) setEnableProviderLevels(dbConfigs['ENABLE_PROVIDER_LEVELS'] !== false);
           if (dbConfigs['ENABLE_LOYALTY_PROGRAM'] !== undefined) setEnableLoyaltyProgram(dbConfigs['ENABLE_LOYALTY_PROGRAM'] !== false);
-          if (dbConfigs['DISABLE_CHAT_SYSTEM'] !== undefined) setDisableChatSystem(dbConfigs['DISABLE_CHAT_SYSTEM'] === true);
+          if (dbConfigs['DISABLE_CHAT_SYSTEM'] !== undefined) setDisableChatSystem(false);
           if (dbConfigs['TICKET_RETENTION_DAYS'] !== undefined) setTicketRetentionDays(dbConfigs['TICKET_RETENTION_DAYS']);
           if (dbConfigs['MARKETING_COMMISSION_PERCENTAGE'] !== undefined) setMarketingCommissionPercentage(dbConfigs['MARKETING_COMMISSION_PERCENTAGE']);
           if (dbConfigs['ALLOW_ACCOUNT_DELETION'] !== undefined) setAllowAccountDeletion(dbConfigs['ALLOW_ACCOUNT_DELETION'] === true);
@@ -4135,7 +4133,7 @@ export function useAppState() {
       case 'SYSTEM_LOYALTY_SETTINGS': setLoyaltyCustomSettings(value); break;
       case 'ENABLE_PROVIDER_LEVELS': setEnableProviderLevels(value !== false); break;
       case 'ENABLE_LOYALTY_PROGRAM': setEnableLoyaltyProgram(value !== false); break;
-      case 'DISABLE_CHAT_SYSTEM': setDisableChatSystem(value === true); break;
+      case 'DISABLE_CHAT_SYSTEM': setDisableChatSystem(false); break;
       case 'TICKET_RETENTION_DAYS': setTicketRetentionDays(value); break;
       case 'MARKETING_COMMISSION_PERCENTAGE': setMarketingCommissionPercentage(value); break;
       case 'ALLOW_ACCOUNT_DELETION': setAllowAccountDeletion(value === true); break;

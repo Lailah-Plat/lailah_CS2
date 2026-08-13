@@ -186,6 +186,8 @@ export default function Header() {
           newAlerts.push({
             id: 'alert_pending_halls',
             type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
             message: `⚠️ إشعار إداري: هناك ${pendingHalls.length} طلب قاعة/مرفق جديد معلق بانتظار الموافقة والاعتماد المالي.`,
             actionLabel: 'انتقال للقرار',
             actionUrl: '/dashboard?tab=halls'
@@ -212,6 +214,8 @@ export default function Header() {
           newAlerts.push({
             id: 'alert_pending_services',
             type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
             message: `📢 تنبيه مركزي: تم تسجيل ${pendingServices.length} خدمة مساندة جديدة معلقة تتطلب التدقيق والمطابقة القياسية.`,
             actionLabel: 'مراجعة الخدمات المساندة',
             actionUrl: '/dashboard?tab=services'
@@ -244,9 +248,135 @@ export default function Header() {
           newAlerts.push({
             id: 'alert_unread_admin_mails',
             type: 'info',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
             message: `📬 بريد المنصة: هناك ${unreadAdminMails.length} رسالة جديدة من شركاء الخدمة بانتظار المتابعة والرد.`,
             actionLabel: 'صندوق الوارد',
             actionUrl: '/dashboard?tab=messages'
+          });
+        }
+
+        // Support Tickets & Disputes Alert for Admin
+        let rawTickets: any[] = [];
+        try {
+          const resTickets = await fetch('/api/support/tickets', { headers });
+          if (resTickets.ok) {
+            const data = await resTickets.json();
+            rawTickets = data.tickets || (Array.isArray(data) ? data : []);
+          } else {
+            rawTickets = JSON.parse(localStorage.getItem('SUPPORT_TICKETS_V2') || '[]');
+          }
+        } catch (e) {
+          rawTickets = JSON.parse(localStorage.getItem('SUPPORT_TICKETS_V2') || '[]');
+        }
+
+        const pendingTickets = rawTickets.filter((t: any) => 
+          t.status === 'open' || t.status === 'مفتوحة' || t.status === 'pending' || t.status === 'قيد الانتظار' || t.category === 'dispute'
+        );
+
+        if (pendingTickets.length > 0) {
+          newAlerts.push({
+            id: 'alert_pending_tickets',
+            type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `🎫 الدعم والنزاعات: هناك ${pendingTickets.length} تذكرة دعم أو شكوى نزاع مفتوحة بانتظار معالجة الإدارة.`,
+            actionLabel: 'إدارة التذاكر والنزاعات',
+            actionUrl: '/dashboard?tab=support'
+          });
+        }
+
+        // Pending Withdrawals & Financial Requests Alert for Admin
+        let pendingWithdrawalsCount = 0;
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('provider_withdrawals_') || key === 'PLATFORM_WITHDRAW_REQUESTS')) {
+              const items = JSON.parse(localStorage.getItem(key) || '[]');
+              if (Array.isArray(items)) {
+                pendingWithdrawalsCount += items.filter((w: any) => w.status === 'معلق' || w.status === 'pending').length;
+              }
+            }
+          }
+        } catch (e) {}
+
+        if (pendingWithdrawalsCount > 0) {
+          newAlerts.push({
+            id: 'alert_pending_withdrawals',
+            type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `💸 المالية والتسويات: يوجد ${pendingWithdrawalsCount} طلب سحب أرباح للمزودين معلق يتطلب التدقيق والتحويل البنكي.`,
+            actionLabel: 'إدارة التسويات المالية',
+            actionUrl: '/dashboard?tab=finance'
+          });
+        }
+
+        // Pending Compliance Documents & Provider Verification Alert for Admin
+        let pendingDocsCount = 0;
+        try {
+          const storedProviders = JSON.parse(localStorage.getItem('ais_providers_v2') || '[]');
+          if (Array.isArray(storedProviders)) {
+            pendingDocsCount = storedProviders.filter((p: any) => 
+              p.verificationStatus === 'pending' || p.status === 'قيد المراجعة' || p.documentsStatus === 'pending'
+            ).length;
+          }
+        } catch (e) {}
+
+        if (pendingDocsCount > 0) {
+          newAlerts.push({
+            id: 'alert_pending_provider_docs',
+            type: 'info',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `📋 امتثال الشركاء: هناك ${pendingDocsCount} شركاء جدد قاموا برفع السجل التجاري والوثائق بانتظار المطابقة.`,
+            actionLabel: 'مراجعة الشركاء',
+            actionUrl: '/dashboard?tab=partners'
+          });
+        }
+
+        // Force Majeure & Emergency Claims Alert for Admin
+        let pendingForceMajeureCount = 0;
+        try {
+          const forceMajeureList = JSON.parse(localStorage.getItem('force_majeure_requests') || '[]');
+          if (Array.isArray(forceMajeureList)) {
+            pendingForceMajeureCount = forceMajeureList.filter((f: any) => f.status === 'pending' || f.status === 'قيد الدراسة' || f.status === 'قيد المراجعة').length;
+          }
+        } catch (e) {}
+
+        if (pendingForceMajeureCount > 0) {
+          newAlerts.push({
+            id: 'alert_pending_force_majeure',
+            type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `🚨 القوة القاهرة والظروف الطارئة: هناك ${pendingForceMajeureCount} طلب إلغاء طارئ بحاجة للبت السيادي المالي من الإدارة.`,
+            actionLabel: 'معالجة القوة القاهرة',
+            actionUrl: '/dashboard?tab=bookings'
+          });
+        }
+
+        // High-Value Transactions Alert for Admin (> 50,000 SAR)
+        let highValuePendingBookings = 0;
+        try {
+          const storedBookings = JSON.parse(localStorage.getItem('ais_bookings_v2') || '[]');
+          if (Array.isArray(storedBookings)) {
+            highValuePendingBookings = storedBookings.filter((b: any) => 
+              ((b.totalAmount && b.totalAmount >= 50000) || (b.totalPrice && b.totalPrice >= 50000) || (b.amount && b.amount >= 50000)) &&
+              (b.status === 'pending' || b.status === 'مؤكد جزئياً' || b.paymentStatus === 'موقوف بالمحفظة')
+            ).length;
+          }
+        } catch (e) {}
+
+        if (highValuePendingBookings > 0) {
+          newAlerts.push({
+            id: 'alert_high_value_bookings',
+            type: 'info',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `💎 المعاملات الكبرى: تم رصد ${highValuePendingBookings} معاملات حجز كبرى (تتجاوز 50,000 ر.س) تحت الرقابة والتدقيق المالي المباشر.`,
+            actionLabel: 'المركز المالي والحسابات',
+            actionUrl: '/dashboard?tab=finance'
           });
         }
       } else if (userRole === 'provider') {
@@ -458,6 +588,11 @@ export default function Header() {
     window.addEventListener('settingsUpdated', triggerAllUpdates);
     window.addEventListener('hallsUpdated', triggerAllUpdates);
     window.addEventListener('servicesUpdated', triggerAllUpdates);
+    window.addEventListener('support-tickets-updated', triggerAllUpdates);
+    window.addEventListener('withdrawals-updated', triggerAllUpdates);
+    window.addEventListener('documents-updated', triggerAllUpdates);
+    window.addEventListener('bookingsUpdated', triggerAllUpdates);
+    window.addEventListener('finance-updated', triggerAllUpdates);
 
     triggerAllUpdates();
 
@@ -468,6 +603,11 @@ export default function Header() {
       window.removeEventListener('settingsUpdated', triggerAllUpdates);
       window.removeEventListener('hallsUpdated', triggerAllUpdates);
       window.removeEventListener('servicesUpdated', triggerAllUpdates);
+      window.removeEventListener('support-tickets-updated', triggerAllUpdates);
+      window.removeEventListener('withdrawals-updated', triggerAllUpdates);
+      window.removeEventListener('documents-updated', triggerAllUpdates);
+      window.removeEventListener('bookingsUpdated', triggerAllUpdates);
+      window.removeEventListener('finance-updated', triggerAllUpdates);
     };
   }, [userRole]);
 
@@ -1264,24 +1404,21 @@ export default function Header() {
                           {(userRole === "provider" ||
                             userRole === "admin") && (
                             <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
-                              {/* Show 'لوحة مزود الخدمة' ONLY if admin or if provider has the advanced dashboard */}
-                              {(userRole === "admin" ||
-                                checkHasAdvancedDashboard()) && (
-                                <Link
-                                  to="/provider-dashboard"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-amber-950 bg-amber-50 hover:bg-amber-100 rounded-xl transition-all border border-amber-200"
-                                >
-                                  <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center text-white shrink-0">
-                                    <LayoutDashboard className="w-4 h-4" />
-                                  </div>
-                                  <span>لوحة مزود الخدمة</span>
-                                </Link>
-                              )}
-
-                              {/* 'بوابة إدارة القاعات والخدمات المساندة' ALWAYS shows for providers and admins */}
+                              {/* Primary Unified Control Dashboard Link */}
                               <Link
-                                to="/halls-services-portal"
+                                to="/provider-dashboard"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all border border-amber-500 shadow-sm"
+                              >
+                                <div className="w-7 h-7 bg-amber-950 rounded-lg flex items-center justify-center text-amber-400 shrink-0">
+                                  <LayoutDashboard className="w-4 h-4" />
+                                </div>
+                                <span>لوحة تحكم المزود الموحدة</span>
+                              </Link>
+
+                              {/* Direct Tab Links inside Unified Dashboard */}
+                              <Link
+                                to="/provider-dashboard?tab=halls"
                                 onClick={() => setIsUserMenuOpen(false)}
                                 className="flex items-center gap-3 px-3 py-2 text-xs font-black text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-200"
                               >
@@ -1291,9 +1428,8 @@ export default function Header() {
                                 <span>إدارة القاعات والخدمات</span>
                               </Link>
 
-                              {/* 'إدارة الطلبات والعمليات اللوجيستية' ALWAYS shows for providers and admins */}
                               <Link
-                                to="/logistics-portal"
+                                to="/provider-dashboard?tab=bookings"
                                 onClick={() => setIsUserMenuOpen(false)}
                                 className="flex items-center gap-3 px-3 py-2 text-xs font-black text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all border border-slate-200"
                               >
@@ -1758,37 +1894,33 @@ export default function Header() {
                       <span>لوحة تحكم الإدارة</span>
                     </Link>
                   )}
-                  {(userRole === "admin" ||
-                    (userRole === "provider" &&
-                      checkHasAdvancedDashboard())) && (
-                    <Link
-                      to="/provider-dashboard"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-amber-950 bg-amber-400 border border-amber-500"
-                    >
-                      <LayoutDashboard className="w-5 h-5 text-amber-950" />
-                      <span>لوحة مزود الخدمة</span>
-                    </Link>
-                  )}
                   {(userRole === "provider" || userRole === "admin") && (
-                    <Link
-                      to="/halls-services-portal"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-500/30"
-                    >
-                      <Building2 className="w-5 h-5 text-indigo-400" />
-                      <span>إدارة القاعات والخدمات</span>
-                    </Link>
-                  )}
-                  {(userRole === "provider" || userRole === "admin") && (
-                    <Link
-                      to="/logistics-portal"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-100 bg-slate-850 border border-slate-700/60"
-                    >
-                      <ClipboardList className="w-5 h-5 text-slate-400" />
-                      <span>إدارة الحجوزات والطلبات</span>
-                    </Link>
+                    <>
+                      <Link
+                        to="/provider-dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-amber-950 bg-amber-400 border border-amber-500"
+                      >
+                        <LayoutDashboard className="w-5 h-5 text-amber-950" />
+                        <span>لوحة تحكم المزود الموحدة</span>
+                      </Link>
+                      <Link
+                        to="/provider-dashboard?tab=halls"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-500/30"
+                      >
+                        <Building2 className="w-5 h-5 text-indigo-400" />
+                        <span>إدارة القاعات والخدمات</span>
+                      </Link>
+                      <Link
+                        to="/provider-dashboard?tab=bookings"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-100 bg-slate-850 border border-slate-700/60"
+                      >
+                        <ClipboardList className="w-5 h-5 text-slate-400" />
+                        <span>إدارة الحجوزات والطلبات</span>
+                      </Link>
+                    </>
                   )}
                   {(userRole === "provider" || userRole === "admin") && (
                     <Link

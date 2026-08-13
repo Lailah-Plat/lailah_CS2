@@ -4,6 +4,7 @@ import {
   Users2, ChevronDown, Clock, Coins, Layers, Box, Activity, Globe, MapPin, UploadCloud, Info, Video
 } from 'lucide-react';
 import { validateHallOrServiceImage, validateHallOrServiceVideo } from '../../utils/mediaValidator';
+import { MediaDimensionsHelperModal } from '../common/MediaDimensionsHelperModal';
 
 interface ServiceModalFormProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
   showNotification
 }) => {
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [showMediaGuideModal, setShowMediaGuideModal] = useState(false);
 
   // Check if selected provider has dynamic pricing active
   const providerHasDynamicPricing = React.useMemo(() => {
@@ -613,14 +615,23 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
               {/* Left Column: Drag & Drop Album, Video & Previews */}
               <div className="md:col-span-6 flex flex-col gap-3 min-h-[230px]">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                     <label className="block text-xs font-bold text-slate-700 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
                       ألبوم صور الخدمة <span className="text-slate-400 font-normal">(حد أقصى 5 صور)</span>
                     </label>
-                    <span className="text-[9px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full font-semibold border border-purple-200/60">
-                      500KB | 960x540 إلى 1280x720
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowMediaGuideModal(true)}
+                        className="text-[9px] bg-purple-500/10 text-purple-700 hover:bg-purple-500/20 px-2 py-0.5 rounded-full font-bold border border-purple-500/30 transition-all cursor-pointer"
+                      >
+                        📱 دليل التصوير الأفقي (16:9)
+                      </button>
+                      <span className="text-[9px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full font-semibold border border-purple-200/60">
+                        500KB | 16:9
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="border-2 border-dashed border-purple-200 bg-purple-50/10 hover:border-purple-400 rounded-xl p-3 text-center transition-all relative hover:bg-purple-50/25 cursor-pointer flex flex-col justify-center items-center">
@@ -944,6 +955,10 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
           </div>
         </div>
 
+        <MediaDimensionsHelperModal 
+          isOpen={showMediaGuideModal} 
+          onClose={() => setShowMediaGuideModal(false)} 
+        />
       </div>
     </div>
   );

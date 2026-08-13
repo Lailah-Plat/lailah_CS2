@@ -85,6 +85,37 @@ export function DiagnosticsDashboard({
   // Tab 4: Outbox & Inbox Queue State
   const [outboxEvents, setOutboxEvents] = useState<OutboxEvent[]>(() => OutboxInboxService.getOutboxEvents());
 
+  // Live Server Health & Feature Adoption Analytics State
+  const [liveMetrics, setLiveMetrics] = useState<any>(null);
+  const [featureAdoption, setFeatureAdoption] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchHealthAndAdoption = async () => {
+      try {
+        const [healthRes, adoptionRes] = await Promise.all([
+          fetch('/api/health/metrics'),
+          fetch('/api/analytics/feature-adoption')
+        ]);
+        if (healthRes.ok) {
+          const hData = await healthRes.json();
+          setLiveMetrics(hData);
+        }
+        if (adoptionRes.ok) {
+          const aData = await adoptionRes.json();
+          setFeatureAdoption(aData);
+        }
+      } catch (err) {
+        console.warn('Live health metrics fetch error:', err);
+      }
+    };
+
+    fetchHealthAndAdoption();
+    const timer = setInterval(fetchHealthAndAdoption, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Reload outbox events on window event
+
   // Reload outbox events on window event
   useEffect(() => {
     const handleUpdate = () => {
@@ -1167,6 +1198,78 @@ export function DiagnosticsDashboard({
                 </div>
               </div>
             </div>
+
+            {/* Live Node.js Server Metrics Stream */}
+            {liveMetrics && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <h5 className="text-xs font-black text-amber-400 border-b border-slate-800 pb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-amber-400 animate-pulse" />
+                    <span>مؤشرات أداء السيرفر بالـ Live Health Checks (/api/health/metrics)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">Uptime: {liveMetrics.uptimeSeconds}s | Node {liveMetrics.nodeVersion}</span>
+                </h5>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-slate-400 block text-[11px]">ذاكرة الـ Heap المستخدمة</span>
+                    <span className="text-lg font-black text-emerald-400 font-mono">{liveMetrics.memoryUsage?.heapUsedMB} MB</span>
+                    <span className="text-[10px] text-slate-500 block">من إجمالي {liveMetrics.memoryUsage?.heapTotalMB} MB</span>
+                  </div>
+
+                  <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-slate-400 block text-[11px]">الاتصالات اللحظية (Socket.IO)</span>
+                    <span className="text-lg font-black text-indigo-400 font-mono">{liveMetrics.webSockets?.connectedClients || 1} عملاء</span>
+                    <span className="text-[10px] text-emerald-400 block">تزامن أحداث حرة</span>
+                  </div>
+
+                  <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-slate-400 block text-[11px]">مستقبل الدفع (Webhook)</span>
+                    <span className="text-sm font-bold text-emerald-400 font-mono">{liveMetrics.subsystems?.webhookListener}</span>
+                    <span className="text-[10px] text-slate-500 block">تأكيد Server-to-Server</span>
+                  </div>
+
+                  <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                    <span className="text-slate-400 block text-[11px]">محرك iCal المزدوج</span>
+                    <span className="text-sm font-bold text-amber-400 font-mono">{liveMetrics.subsystems?.icalCalendarEngine}</span>
+                    <span className="text-[10px] text-slate-500 block">حظر المواعيد الخارجي</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Feature Adoption Analytics */}
+            {featureAdoption && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <div className="border-b border-slate-800 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <h5 className="text-xs font-black text-white flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-purple-400" />
+                    <span>تحليلات استخدام المزايا المتقدمة (Feature Adoption Analytics)</span>
+                  </h5>
+                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-900 px-3 py-1 rounded-full">
+                    متوسط تفعيل المزايا المتقدمة: {featureAdoption.summary?.averageAdoptionRate}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                  {featureAdoption.features?.map((feat: any) => (
+                    <div key={feat.id} className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-bold text-slate-200 text-xs">{feat.name}</span>
+                        <span className="text-[10px] font-bold text-purple-400 bg-purple-950/50 border border-purple-900/50 px-2 py-0.5 rounded">
+                          {feat.adoptionPercentage}%
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-2">{feat.description}</p>
+                      <div className="flex items-center justify-between text-[10px] pt-1 text-slate-400 border-t border-slate-850">
+                        <span>الشركاء المفعلين: <strong className="text-white">{feat.activeProvidersCount}/{feat.totalProvidersCount}</strong></span>
+                        <span className="text-emerald-400 font-bold">الأثر: {feat.monetizationImpactSAR.toLocaleString()} ر.س</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* External Adapters Circuit Breakers & Integration Health */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">

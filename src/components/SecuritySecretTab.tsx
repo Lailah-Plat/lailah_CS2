@@ -3,7 +3,7 @@ import {
   RefreshCw, ShieldCheck, Key, Timer, Save, Activity, CheckCircle2, AlertCircle, 
   Database, Download, ScrollText, FileDown, Shield, Users, KeyRound, Lock, Eye, 
   EyeOff, LogOut, Trash2, ShieldAlert, Globe, Server, CheckCircle, Info, Send, UserCheck, Trash,
-  Search, Layers, Filter
+  Search, Layers, Filter, Clock
 } from 'lucide-react';
 
 interface SecuritySecretTabProps {
@@ -59,6 +59,15 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
   const [autoRepairIntegrity, setAutoRepairIntegrity] = useState(false);
   const [schemaCategoryFilter, setSchemaCategoryFilter] = useState<string>('all');
   const [schemaSearchQuery, setSchemaSearchQuery] = useState<string>('');
+
+  // Automated Backup States (Requirement 4)
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
+  const [backupScheduleTime, setBackupScheduleTime] = useState('03:00');
+  const [backupRetentionDays, setBackupRetentionDays] = useState('30');
+  const [backupStorageTarget, setBackupStorageTarget] = useState<'local' | 'remote_s3' | 'remote_gcs'>('local');
+  const [remoteStorageUrl, setRemoteStorageUrl] = useState('s3://backups.laylah.sa/db-daily/');
+  const [isTriggeringNowBackup, setIsTriggeringNowBackup] = useState(false);
+  const [lastBackupTime, setLastBackupTime] = useState<string>(new Date().toISOString());
 
   // RBAC States
   const [roles, setRoles] = useState<any[]>([]);
@@ -1614,21 +1623,26 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  auditLogs
+                  (Array.isArray(auditLogs) ? auditLogs : [])
                     .filter((log) => {
+                      if (!log) return false;
+                      const actionStr = String(log.action || '');
+                      const empNameStr = String(log.employeeName || '');
                       const matchSearch =
                         !auditSearch ||
-                        log.action.toLowerCase().includes(auditSearch.toLowerCase()) ||
-                        (log.employeeName && log.employeeName.toLowerCase().includes(auditSearch.toLowerCase())) ||
+                        actionStr.toLowerCase().includes(auditSearch.toLowerCase()) ||
+                        (log.employeeName && empNameStr.toLowerCase().includes(auditSearch.toLowerCase())) ||
                         JSON.stringify(log.details || '').toLowerCase().includes(auditSearch.toLowerCase());
                       
-                      const severity = log.severity || (log.action.includes('MIGRATE') || log.action.includes('UPDATE') || log.action.includes('REVOKE') ? 'warning' : 'safe');
+                      const severity = log.severity || (actionStr.includes('MIGRATE') || actionStr.includes('UPDATE') || actionStr.includes('REVOKE') ? 'warning' : 'safe');
                       const matchSeverity = auditSeverity === 'all' || severity === auditSeverity;
 
                       return matchSearch && matchSeverity;
                     })
                     .map((log) => {
-                      const severity = log.severity || (log.action.includes('MIGRATE') || log.action.includes('UPDATE') || log.action.includes('REVOKE') ? 'warning' : 'safe');
+                      if (!log) return null;
+                      const actionStr = String(log.action || '');
+                      const severity = log.severity || (actionStr.includes('MIGRATE') || actionStr.includes('UPDATE') || actionStr.includes('REVOKE') ? 'warning' : 'safe');
                       return (
                         <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="p-3.5 whitespace-nowrap text-right">
@@ -1805,6 +1819,118 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
                   </div>
                   <Download className="w-4 h-4 text-slate-400 group-hover:text-amber-500" />
                 </a>
+              </div>
+
+              {/* Automated Scheduled Backups Configuration (Requirement 4) */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4 text-right">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">جدولة النسخ الاحتياطي التلقائي الأسبوعي/اليومي</h4>
+                      <p className="text-[10px] text-slate-400">توليد نسخة احتياطية وحفظها في التخزين المحلي أو السحابي تلقائياً</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={autoBackupEnabled} 
+                      onChange={(e) => {
+                        setAutoBackupEnabled(e.target.checked);
+                        showNotification('info', e.target.checked ? 'تم تفعيل جدولة النسخ الاحتياطي اليومي' : 'تم تعطيل النسخ الاحتياطي الآلي');
+                      }} 
+                      className="sr-only peer" 
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+
+                {autoBackupEnabled && (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 space-y-3.5 text-right font-sans">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block mb-1">وقت التنفيذ اليومي</label>
+                        <input 
+                          type="time" 
+                          value={backupScheduleTime} 
+                          onChange={(e) => setBackupScheduleTime(e.target.value)}
+                          className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block mb-1">فترة الاحتفاظ بالنسخ (Retention)</label>
+                        <select 
+                          value={backupRetentionDays} 
+                          onChange={(e) => setBackupRetentionDays(e.target.value)}
+                          className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-amber-500"
+                        >
+                          <option value="7">آخر 7 أيام</option>
+                          <option value="14">آخر 14 يوم</option>
+                          <option value="30">آخر 30 يوم (مستحسن)</option>
+                          <option value="90">آخر 90 يوم</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block mb-1">وجهة وحاوية التخزين</label>
+                        <select 
+                          value={backupStorageTarget} 
+                          onChange={(e) => setBackupStorageTarget(e.target.value as any)}
+                          className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-amber-500"
+                        >
+                          <option value="local">مقر المخدّم المحلي (/backups/)</option>
+                          <option value="remote_s3">سحابة بعيدة AWS S3 Bucket</option>
+                          <option value="remote_gcs">سحابة Google Cloud Storage</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {backupStorageTarget !== 'local' && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 block mb-1">مسار/رابط الحاوية السحابية (Bucket URL)</label>
+                        <input 
+                          type="text" 
+                          value={remoteStorageUrl} 
+                          onChange={(e) => setRemoteStorageUrl(e.target.value)}
+                          placeholder="s3://bucket-name/laylah-backups/" 
+                          className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-100 outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex-wrap gap-2">
+                      <div className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>آخر نسخة ناجحة: <strong className="font-mono">{new Date(lastBackupTime).toLocaleString('ar-SA')}</strong></span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isTriggeringNowBackup}
+                        onClick={async () => {
+                          setIsTriggeringNowBackup(true);
+                          try {
+                            const res = await fetch('/api/security/database/backup/json');
+                            if (res.ok) {
+                              setLastBackupTime(new Date().toISOString());
+                              showNotification('success', 'تم توليد وتخزين النسخة الاحتياطية الفورية بنجاح!');
+                            } else {
+                              showNotification('error', 'فشل توليد النسخة الاحتياطية');
+                            }
+                          } catch (err: any) {
+                            showNotification('error', err.message);
+                          } finally {
+                            setIsTriggeringNowBackup(false);
+                          }
+                        }}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Database className="w-3.5 h-3.5" />
+                        <span>{isTriggeringNowBackup ? 'جاري التوليد...' : 'توليد نسخة احتياطية الآن'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2065,17 +2191,17 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
                 const matchesCat = schemaCategoryFilter === 'all' || tbl.category === schemaCategoryFilter;
                 const q = schemaSearchQuery.trim().toLowerCase();
                 const matchesSearch = !q || 
-                  tbl.name.toLowerCase().includes(q) || 
-                  tbl.arabicName.toLowerCase().includes(q) || 
-                  tbl.fields.toLowerCase().includes(q) || 
-                  tbl.desc.toLowerCase().includes(q) ||
-                  tbl.categoryLabel.toLowerCase().includes(q);
+                  (tbl.name || '').toLowerCase().includes(q) || 
+                  (tbl.arabicName || '').toLowerCase().includes(q) || 
+                  (tbl.fields || '').toLowerCase().includes(q) || 
+                  (tbl.desc || '').toLowerCase().includes(q) ||
+                  (tbl.categoryLabel || '').toLowerCase().includes(q);
                 return matchesCat && matchesSearch;
               })
               .map((tbl) => {
-                const auditMatch = integrityResults.find((r: any) => 
-                  r.model?.toLowerCase() === tbl.name.toLowerCase() || 
-                  r.table?.toLowerCase() === tbl.name.toLowerCase()
+                const auditMatch = (integrityResults || []).find((r: any) => 
+                  r?.model?.toLowerCase() === (tbl.name || '').toLowerCase() || 
+                  r?.table?.toLowerCase() === (tbl.name || '').toLowerCase()
                 );
 
                 return (

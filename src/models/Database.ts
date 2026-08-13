@@ -749,76 +749,76 @@ import { Review, ServiceChat, ServiceChatMessage } from './FeedbackModels.js';
 import { Ticket, TicketMessage } from './SupportModels.js';
 
 // Setup relationships
-Invoice.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser' });
-User.hasMany(Invoice, { foreignKey: 'customerId', as: 'invoices' });
+Invoice.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser', constraints: false });
+User.hasMany(Invoice, { foreignKey: 'customerId', as: 'invoices', constraints: false });
 
-Invoice.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(Invoice, { foreignKey: 'providerId', as: 'providerInvoices' });
+Invoice.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(Invoice, { foreignKey: 'providerId', as: 'providerInvoices', constraints: false });
 
-Invoice.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking' });
-Booking.hasMany(Invoice, { foreignKey: 'bookingId', as: 'invoices' });
+Invoice.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking', constraints: false });
+Booking.hasMany(Invoice, { foreignKey: 'bookingId', as: 'invoices', constraints: false });
 
 // ServiceChat and ServiceChatMessage relations
-ServiceChat.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser' });
-User.hasMany(ServiceChat, { foreignKey: 'customerId', as: 'serviceChatsAsCustomer' });
+ServiceChat.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser', constraints: false });
+User.hasMany(ServiceChat, { foreignKey: 'customerId', as: 'serviceChatsAsCustomer', constraints: false });
 
-ServiceChat.belongsTo(User, { foreignKey: 'agentId', as: 'agentUser' });
-User.hasMany(ServiceChat, { foreignKey: 'agentId', as: 'serviceChatsAsAgent' });
+ServiceChat.belongsTo(User, { foreignKey: 'agentId', as: 'agentUser', constraints: false });
+User.hasMany(ServiceChat, { foreignKey: 'agentId', as: 'serviceChatsAsAgent', constraints: false });
 
-ServiceChatMessage.belongsTo(ServiceChat, { foreignKey: 'chatId', as: 'serviceChat' });
-ServiceChat.hasMany(ServiceChatMessage, { foreignKey: 'chatId', as: 'messages' });
+ServiceChatMessage.belongsTo(ServiceChat, { foreignKey: 'chatId', as: 'serviceChat', constraints: false });
+ServiceChat.hasMany(ServiceChatMessage, { foreignKey: 'chatId', as: 'messages', constraints: false });
 
 // Ticket and TicketMessage relations
-Ticket.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser' });
-User.hasMany(Ticket, { foreignKey: 'customerId', as: 'ticketsAsCustomer' });
+Ticket.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser', constraints: false });
+User.hasMany(Ticket, { foreignKey: 'customerId', as: 'ticketsAsCustomer', constraints: false });
 
-Ticket.belongsTo(User, { foreignKey: 'assignedAgentId', as: 'assignedAgentUser' });
-User.hasMany(Ticket, { foreignKey: 'assignedAgentId', as: 'ticketsAsAgent' });
+Ticket.belongsTo(User, { foreignKey: 'assignedAgentId', as: 'assignedAgentUser', constraints: false });
+User.hasMany(Ticket, { foreignKey: 'assignedAgentId', as: 'ticketsAsAgent', constraints: false });
 
-TicketMessage.belongsTo(Ticket, { foreignKey: 'ticketId', as: 'ticket' });
-Ticket.hasMany(TicketMessage, { foreignKey: 'ticketId', as: 'ticketMessages' });
+TicketMessage.belongsTo(Ticket, { foreignKey: 'ticketId', as: 'ticket', constraints: false });
+Ticket.hasMany(TicketMessage, { foreignKey: 'ticketId', as: 'ticketMessages', constraints: false });
 
-TicketMessage.belongsTo(User, { foreignKey: 'senderId', as: 'senderUser' });
-User.hasMany(TicketMessage, { foreignKey: 'senderId', as: 'ticketMessages' });
+TicketMessage.belongsTo(User, { foreignKey: 'senderId', as: 'senderUser', constraints: false });
+User.hasMany(TicketMessage, { foreignKey: 'senderId', as: 'ticketMessages', constraints: false });
 
 // Supplier relations
-Supplier.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(Supplier, { foreignKey: 'userId', as: 'suppliers' });
+Supplier.belongsTo(User, { foreignKey: 'userId', as: 'user', constraints: false });
+User.hasMany(Supplier, { foreignKey: 'userId', as: 'suppliers', constraints: false });
 
 // SubscriptionPlan relations
-ProviderSubscription.belongsTo(SubscriptionPlan, { foreignKey: 'planId', as: 'subscriptionPlan' });
-SubscriptionPlan.hasMany(ProviderSubscription, { foreignKey: 'planId', as: 'providerSubscriptions' });
+ProviderSubscription.belongsTo(SubscriptionPlan, { foreignKey: 'planId', as: 'subscriptionPlan', constraints: false });
+SubscriptionPlan.hasMany(ProviderSubscription, { foreignKey: 'planId', as: 'providerSubscriptions', constraints: false });
 
 // SupportServiceRequest Service relation
-SupportServiceRequest.belongsTo(Service, { foreignKey: 'serviceId', as: 'service' });
-Service.hasMany(SupportServiceRequest, { foreignKey: 'serviceId', as: 'supportServiceRequests' });
+SupportServiceRequest.belongsTo(Service, { foreignKey: 'serviceId', as: 'service', constraints: false });
+Service.hasMany(SupportServiceRequest, { foreignKey: 'serviceId', as: 'supportServiceRequests', constraints: false });
 
-ProviderSubscription.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(ProviderSubscription, { foreignKey: 'providerId', as: 'subscriptions' });
+ProviderSubscription.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(ProviderSubscription, { foreignKey: 'providerId', as: 'subscriptions', constraints: false });
 
-ProviderFeatureOverride.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(ProviderFeatureOverride, { foreignKey: 'providerId', as: 'featureOverrides' });
+ProviderFeatureOverride.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(ProviderFeatureOverride, { foreignKey: 'providerId', as: 'featureOverrides', constraints: false });
 
-PendingRegistration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-User.hasMany(PendingRegistration, { foreignKey: 'userId', as: 'pendingRegistrations' });
+PendingRegistration.belongsTo(User, { foreignKey: 'userId', as: 'user', constraints: false });
+User.hasMany(PendingRegistration, { foreignKey: 'userId', as: 'pendingRegistrations', constraints: false });
 
-Review.belongsTo(User, { foreignKey: 'userId', as: 'customerUser' });
-User.hasMany(Review, { foreignKey: 'userId', as: 'reviewsAsCustomer' });
+Review.belongsTo(User, { foreignKey: 'userId', as: 'customerUser', constraints: false });
+User.hasMany(Review, { foreignKey: 'userId', as: 'reviewsAsCustomer', constraints: false });
 
-Review.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(Review, { foreignKey: 'providerId', as: 'reviewsAsProvider' });
+Review.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(Review, { foreignKey: 'providerId', as: 'reviewsAsProvider', constraints: false });
 
-SupportServiceRequest.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser' });
-User.hasMany(SupportServiceRequest, { foreignKey: 'customerId', as: 'customerServiceRequests' });
+SupportServiceRequest.belongsTo(User, { foreignKey: 'customerId', as: 'customerUser', constraints: false });
+User.hasMany(SupportServiceRequest, { foreignKey: 'customerId', as: 'customerServiceRequests', constraints: false });
 
-SupportServiceRequest.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(SupportServiceRequest, { foreignKey: 'providerId', as: 'providerServiceRequests' });
+SupportServiceRequest.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(SupportServiceRequest, { foreignKey: 'providerId', as: 'providerServiceRequests', constraints: false });
 
-SupportServiceRequest.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking' });
-Booking.hasMany(SupportServiceRequest, { foreignKey: 'bookingId', as: 'serviceRequests' });
+SupportServiceRequest.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking', constraints: false });
+Booking.hasMany(SupportServiceRequest, { foreignKey: 'bookingId', as: 'serviceRequests', constraints: false });
 
-CustomerHeldBalance.belongsTo(Booking, { foreignKey: 'originalBookingId', as: 'originalBooking' });
-Booking.hasMany(CustomerHeldBalance, { foreignKey: 'originalBookingId', as: 'heldBalances' });
+CustomerHeldBalance.belongsTo(Booking, { foreignKey: 'originalBookingId', as: 'originalBooking', constraints: false });
+Booking.hasMany(CustomerHeldBalance, { foreignKey: 'originalBookingId', as: 'heldBalances', constraints: false });
 
 Wallet.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
 User.hasOne(Wallet, { foreignKey: 'providerId', as: 'wallet', constraints: false });

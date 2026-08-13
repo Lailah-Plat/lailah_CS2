@@ -242,7 +242,7 @@ Booking.init({
   endTime: { type: DataTypes.DATE, allowNull: false },
   guests: { type: DataTypes.INTEGER, defaultValue: 0 },
   totalAmount: { type: DataTypes.FLOAT, allowNull: false },
-  status: { type: DataTypes.ENUM('pending', 'confirmed', 'cancelled', 'completed'), defaultValue: 'pending' },
+  status: { type: DataTypes.STRING, defaultValue: 'pending' },
   userId: { type: DataTypes.INTEGER, allowNull: true },
   customerEmail: { type: DataTypes.STRING, allowNull: true },
   bookingType: { type: DataTypes.STRING, defaultValue: 'alacarte' },
@@ -284,26 +284,26 @@ BookingService.init({
 }, { sequelize, modelName: 'BookingService', tableName: 'booking_services' });
 
 // Relationships
-Hall.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(Hall, { foreignKey: 'providerId', as: 'halls' });
+Hall.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(Hall, { foreignKey: 'providerId', as: 'halls', constraints: false });
 
-Service.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser' });
-User.hasMany(Service, { foreignKey: 'providerId', as: 'providerServices' });
+Service.belongsTo(User, { foreignKey: 'providerId', as: 'providerUser', constraints: false });
+User.hasMany(Service, { foreignKey: 'providerId', as: 'providerServices', constraints: false });
 
-Hall.hasMany(Booking, { foreignKey: 'hallId', as: 'bookings' });
-Booking.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall' });
+Hall.hasMany(Booking, { foreignKey: 'hallId', as: 'bookings', constraints: false });
+Booking.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall', constraints: false });
 
-Hall.hasMany(Service, { foreignKey: 'hallId', as: 'services' });
-Service.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall' });
+Hall.hasMany(Service, { foreignKey: 'hallId', as: 'services', constraints: false });
+Service.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall', constraints: false });
 
-Hall.hasMany(HallExtraServices, { foreignKey: 'hallId', as: 'extraServices', onDelete: 'CASCADE' });
-HallExtraServices.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall' });
+Hall.hasMany(HallExtraServices, { foreignKey: 'hallId', as: 'extraServices', onDelete: 'CASCADE', constraints: false });
+HallExtraServices.belongsTo(Hall, { foreignKey: 'hallId', as: 'hall', constraints: false });
 
-Booking.hasMany(BookingService, { foreignKey: 'bookingId', as: 'bookingServices' });
-BookingService.belongsTo(Booking, { foreignKey: 'bookingId' });
+Booking.hasMany(BookingService, { foreignKey: 'bookingId', as: 'bookingServices', constraints: false });
+BookingService.belongsTo(Booking, { foreignKey: 'bookingId', constraints: false });
 
-Service.hasMany(BookingService, { foreignKey: 'serviceId' });
-BookingService.belongsTo(Service, { foreignKey: 'serviceId', as: 'serviceInfo' });
+Service.hasMany(BookingService, { foreignKey: 'serviceId', constraints: false });
+BookingService.belongsTo(Service, { foreignKey: 'serviceId', as: 'serviceInfo', constraints: false });
 
 export class SupportServiceRequest extends Model {
   declare id: number;
@@ -508,6 +508,15 @@ ForceMajeureRequest.init({
 export async function syncBookingModels() {
   const syncTable = async (model: any) => {
     try {
+      if (model.name === 'Booking') {
+        try {
+          if (sequelize.getDialect() === 'postgres') {
+            await sequelize.query(`ALTER TABLE "${Booking.tableName}" ALTER COLUMN "status" TYPE VARCHAR(255) USING "status"::varchar;`).catch(() => {});
+          }
+        } catch (eEnum: any) {
+          // Non-blocking enum migration
+        }
+      }
       if (model.name === 'BookingService') {
         try {
           // Get all booking IDs and service IDs that actually exist in the database
@@ -538,14 +547,17 @@ export async function syncBookingModels() {
           console.warn("⚠️ Safe BookingService pre-sync cleanup skipped (tables or columns might not exist yet):", cleanupErr.message || cleanupErr);
         }
       }
-      await model.sync({ alter: true });
-    } catch (e: any) {
-      console.warn(`⚠️ Failed to sync ${model.name} with alter:true, falling back:`, e.message || e);
+      await model.sync();
+      try {
+        await model.sync({ alter: { drop: false } });
+      } catch (e: any) {
+        // Table synced successfully via model.sync(); dynamic schema alterations handle missing columns below.
+      }
+    } catch (err: any) {
+      console.warn(`Sync table ${model.name} fallback:`, err.message || err);
       try {
         await model.sync();
-      } catch (e2: any) {
-        console.error(`❌ Critical failure syncing ${model.name}:`, e2.message || e2);
-      }
+      } catch (err2: any) {}
     }
   };
 

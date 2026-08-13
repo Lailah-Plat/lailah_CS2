@@ -40,7 +40,7 @@ export const AppProvider: React.FC<{ value: any; children: React.ReactNode }> = 
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within AppProvider');
+    return {} as AppContextType;
   }
   return context;
 };

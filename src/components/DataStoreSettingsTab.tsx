@@ -215,6 +215,9 @@ export default function DataStoreSettingsTab({ showNotification }: DataStoreSett
       try {
         setLoading(true);
         const res = await fetch('/api/system/configs');
+        if (!res.ok) return;
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) return;
         const data = await res.json();
         
         if (data.success && data.configs) {

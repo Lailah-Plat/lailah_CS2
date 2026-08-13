@@ -20,6 +20,11 @@ import {
   ClipboardList,
   Users2,
   ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Sparkles,
+  Share2,
+  Cpu,
 } from 'lucide-react';
 import { Hall, Promotion } from '../types';
 
@@ -48,7 +53,14 @@ export type TabId =
   | 'diagnostics'
   | 'unified_invoice'
   | 'financial_settings'
-  | 'activity_log';
+  | 'activity_log'
+  | 'roadmap_phases'
+  | 'urgent_alerts'
+  | 'feature_adoption'
+  | 'affiliate_referrals'
+  | 'system_health'
+  | 'technical_diagnostics'
+  | 'lpas_studio';
 
 export interface TabList {
   id: TabId;
@@ -59,6 +71,7 @@ export interface TabList {
 export const TABS: TabList[] = [
   { id: 'overview', label: 'لوحة الإحصائيات', icon: LayoutDashboard },
   { id: 'cockpit', label: 'لوحة الإجراءات والإحصائيات', icon: Activity },
+  { id: 'urgent_alerts', label: 'الإنذارات العاجلة 🚨', icon: AlertTriangle },
   { id: 'bookings', label: 'إدارة الحجوزات', icon: CalendarDays },
   { id: 'halls', label: 'إدارة القاعات', icon: Building2 },
   { id: 'services', label: 'إدارة الخدمات', icon: Package },
@@ -67,8 +80,9 @@ export const TABS: TabList[] = [
   { id: 'subscriptions', label: 'إدارة الباقات', icon: CreditCard },
   { id: 'finance', label: 'المركز المالي (Financial Center)', icon: Wallet },
   { id: 'financial_settings', label: 'الإعدادات المالية والرقابة', icon: Wallet },
-  { id: 'unified_invoice', label: 'الفاتورة الضريبية الموحدة', icon: FileText },
-  { id: 'marketing', label: 'التسويق والإعلانات', icon: Megaphone },
+  { id: 'marketing', label: 'مركز النمو والتسويق 📈', icon: Megaphone },
+  { id: 'lpas_studio', label: 'محرك صفحات الهبوط (LPAS) 🎯', icon: Sparkles },
+  { id: 'feature_adoption', label: 'تحليلات استخدام المزايا 📈', icon: Sparkles },
   { id: 'users', label: 'إدارة المستخدمين', icon: Users },
   { id: 'customers', label: 'إدارة العملاء والولاء', icon: Users },
   { id: 'providers', label: 'طلبات الشركاء', icon: Briefcase },
@@ -77,8 +91,9 @@ export const TABS: TabList[] = [
   { id: 'support', label: 'الدعم الفني', icon: HeadphonesIcon },
   { id: 'reviews', label: 'التقييمات والآراء', icon: Star },
   { id: 'messages', label: 'إدارة الرسائل', icon: MessageCircle },
-  { id: 'diagnostics', label: 'الفحص والاختبارات الذاتية', icon: ShieldAlert },
+  { id: 'technical_diagnostics', label: 'التشخيصات والاختبارات الفنية 🛡️', icon: Cpu },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
+  { id: 'roadmap_phases', label: 'خارطة الطريق والإطلاق المرحلي', icon: ShieldCheck },
   { id: 'provider_profile', label: 'إدارة بياناتي', icon: UserCircle },
   { id: 'staff_profile', label: 'إدارة بياناتي', icon: UserCircle },
   { id: 'activity_log', label: 'سجل النشاط', icon: ClipboardList },

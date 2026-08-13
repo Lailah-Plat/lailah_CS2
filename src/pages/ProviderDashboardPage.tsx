@@ -41,6 +41,7 @@ import { ReviewsSection } from '../components/admin/ReviewsSection';
 import UnifiedInvoiceTab from '../components/UnifiedInvoiceTab';
 import { ProviderActivityLogSection } from '../components/provider/ProviderActivityLogSection';
 import { ProviderMarketingWizard, AdRequestProviderWizard } from '../components/MarketingComponents';
+import { ProviderGrowthCenter } from '../components/provider/ProviderGrowthCenter';
 
 // Direct component imports for stability
 import { ProviderDashboard } from '../components/provider/ProviderDashboard';
@@ -59,8 +60,9 @@ import { PledgeDetailsModal } from '../components/modals/PledgeDetailsModal';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 
 import { useAppState } from '../hooks/useAppState';
-import { getActiveProviderCapabilities } from '../utils/capabilityEngine';
 import { AppProvider } from '../context/AppContext';
+import { getActiveProviderCapabilities } from '../utils/capabilityEngine';
+import { EntitlementProvider, useEntitlements } from '../context/EntitlementContext';
 import { TABS, sectionTabsMap, roles } from '../data/dashboardConstants';
 import { formatBookingId } from '../utils/idUtils';
 
@@ -74,19 +76,34 @@ const LoadingSpinner = () => (
   </div>
 );
 
-export default function ProviderDashboardPage() {
+export function ProviderDashboardContent() {
   const state = useAppState();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { canAccessTab, getModuleEntitlementStatus, capabilities } = useEntitlements();
 
   // Force role to provider inside this dedicated view
   const userRole = 'provider';
   const { toggleLanguage } = state;
 
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'overview';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [activeSection, setActiveSection] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab });
+  };
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const profileContainerRef = React.useRef<HTMLDivElement>(null);
@@ -239,31 +256,15 @@ export default function ProviderDashboardPage() {
     if (state.setIsMapModalOpen) state.setIsMapModalOpen(false);
   };
 
-  const capabilities = useMemo(() => {
-    return getActiveProviderCapabilities();
-  }, [state.providerSubscription]);
-
-  // Filter visible tabs for Provider view based on dynamic package features
+  // All provider tabs available in the unified control dashboard
   const visibleTabs = useMemo(() => {
-    if (!capabilities.hasAdvancedPortal) {
-      // Basic Provider (Level 1: Provider Gateway)
-      const basicAllowedIds = [
-        'overview',
-        'subscriptions',
-        'provider_profile',
-        'support'
-      ];
-      return TABS.filter(tab => basicAllowedIds.includes(tab.id));
-    }
-
-    const sub = state.providerSubscription || {};
-    
-    // Always allowed provider tabs
-    const allowedIds = [
+    const providerTabIds = [
       'overview',
       'bookings',
       'halls',
       'services',
+      'inventory',
+      'suppliers',
       'finance',
       'subscriptions',
       'reviews',
@@ -271,26 +272,12 @@ export default function ProviderDashboardPage() {
       'provider_profile',
       'activity_log',
       'marketing',
-      'provider_staff'
+      'provider_staff',
+      'support'
     ];
 
-    // inventory: Hide if includesInventory is false
-    if (sub.includesInventory !== false) {
-      allowedIds.push('inventory');
-    }
-
-    // suppliers: Hide if includesSuppliers is false
-    if (sub.includesSuppliers !== false) {
-      allowedIds.push('suppliers');
-    }
-
-    // support: Show only if hasSupport === true
-    if (sub.hasSupport === true) {
-      allowedIds.push('support');
-    }
-
-    return TABS.filter(tab => allowedIds.includes(tab.id));
-  }, [state.providerSubscription, capabilities]);
+    return TABS.filter(tab => providerTabIds.includes(tab.id));
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return typeof amount === 'number' ? `${amount.toLocaleString('ar-SA')} ر.س` : (amount || '');
@@ -299,234 +286,41 @@ export default function ProviderDashboardPage() {
   const renderContent = () => {
     const anyState = state as any;
 
-    // Safety check for subscription-restricted tabs
-    const isAllowed = visibleTabs.some(t => t.id === activeTab);
-    if (!isAllowed) {
+    // Entitlement check for modular tabs
+    const isEntitled = canAccessTab(activeTab);
+    if (!isEntitled) {
+      const status = getModuleEntitlementStatus(activeTab);
       return (
-        <div className="bg-white dark:bg-slate-900 p-12 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xl max-w-xl mx-auto text-center space-y-6 animate-in zoom-in-95 duration-300 font-sans mt-12" dir="rtl">
-          <div className="w-20 h-20 bg-amber-50 dark:bg-amber-950/30 rounded-full flex items-center justify-center mx-auto text-amber-500">
+        <div className="bg-white dark:bg-slate-900 p-10 md:p-14 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-xl max-w-xl mx-auto text-center space-y-6 animate-in zoom-in-95 duration-300 font-sans mt-8" dir="rtl">
+          <div className="w-20 h-20 bg-amber-50 dark:bg-amber-950/30 rounded-3xl flex items-center justify-center mx-auto text-amber-500 shadow-inner">
             <Lock className="w-10 h-10" />
           </div>
           <div className="space-y-2">
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">قسم غير مدرج في باقتك الحالية</h3>
+            <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-500 font-black text-xs rounded-full">
+              وحدة نمطية متقدمة ✨
+            </span>
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
+              {(status as any).requiredFeature || 'قسم يتطلب ترقية الباقة'}
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-              عذراً، هذا القسم غير مدرج في باقتك الحالية. يرجى ترقية اشتراكك للوصول إليه والاستفادة من كافة المزايا المتقدمة لتسهيل عملياتك.
+              هذه الوحدة النمطية متوفرة في باقات الاشتراك المتقدمة أو عبر تفعيل الحزمة الإضافية. ترقية اشتراكك تمنحك الوصول الفوري واستغلال كافة الإمكانيات لتطوير أعمالك.
             </p>
           </div>
-          <button
-            onClick={() => setActiveTab('subscriptions')}
-            className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 text-sm flex items-center justify-center gap-2"
-          >
-            <span>ترقية باقة الاشتراك الآن</span>
-            <span>←</span>
-          </button>
+          <div className="pt-2">
+            <button
+              onClick={() => handleTabChange('subscriptions')}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-sm flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <Crown className="w-5 h-5 text-slate-950" />
+              <span>ترقية باقة الاشتراك وتفعيل الميزة</span>
+            </button>
+          </div>
         </div>
       );
     }
 
     switch (activeTab) {
       case 'overview':
-        if (!capabilities.hasAdvancedPortal) {
-          return (
-            <div className="space-y-8 p-6 lg:p-8 max-w-5xl mx-auto overflow-y-auto h-full scrollbar-none font-sans" dir="rtl">
-              {/* Header Card */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-850 rounded-3xl p-6 lg:p-8 text-right shadow-2xl">
-                <div className="absolute top-0 left-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-x-12 -translate-y-12"></div>
-                <div className="absolute bottom-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl translate-x-12 translate-y-12"></div>
-                
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="space-y-3">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-400 text-xs font-black rounded-full border border-amber-500/25">
-                      <Briefcase className="w-3.5 h-3.5" />
-                      <span>بوابة الشريك الأساسية | Provider Gateway</span>
-                    </span>
-                    <h1 className="text-2xl lg:text-3xl font-black text-white">أهلاً بك، {currentProviderName} 👋</h1>
-                    <p className="text-slate-400 text-sm max-w-2xl leading-relaxed">
-                      تتم إدارة عملياتك، وقاعاتك، وخدماتك، وحجوزاتك بالكامل وبشكل مدمج ومباشر من خلال بوابات واجهة العميل المخصصة لتسهيل تجربة الاستخدام.
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setActiveTab('subscriptions')}
-                    className="shrink-0 px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs rounded-2xl shadow-lg hover:shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 border border-amber-400/20 cursor-pointer"
-                  >
-                    <Crown className="w-4 h-4 text-amber-200 fill-amber-200" />
-                    <span>ترقية الاشتراك لنظام BOS الكامل</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Four Main Portal Links Grid */}
-              <div className="space-y-4">
-                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  <span>بوابات التشغيل السريع المتاحة لك</span>
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Portal 1: Halls and Services */}
-                  <div className="group relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl transition-all duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/30 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-all">
-                        <Building2 className="w-6 h-6" />
-                      </div>
-                      <a 
-                        href="/halls-services-portal" 
-                        className="text-slate-400 group-hover:text-amber-500 transition-colors"
-                      >
-                        <ArrowUpRight className="w-5 h-5" />
-                      </a>
-                    </div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-amber-500 transition-colors">إدارة القاعات والخدمات</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-                      إضافة وتحديث قاعات الأفراح والمناسبات الخاصة بك، وتقديم العروض وباقات الخدمات المساندة المصاحبة.
-                    </p>
-                    <a 
-                      href="/halls-services-portal" 
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:underline"
-                    >
-                      <span>الانتقال للبوابة الآن</span>
-                      <span>←</span>
-                    </a>
-                  </div>
-
-                  {/* Portal 2: Bookings and Orders */}
-                  <div className="group relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl transition-all duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/30 rounded-xl flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-all">
-                        <Calendar className="w-6 h-6" />
-                      </div>
-                      <a 
-                        href="/logistics-portal" 
-                        className="text-slate-400 group-hover:text-indigo-500 transition-colors"
-                      >
-                        <ArrowUpRight className="w-5 h-5" />
-                      </a>
-                    </div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-indigo-500 transition-colors">إدارة الحجوزات والطلبات</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-                      متابعة عقود الحجوزات، والتحقق من التواريخ، وتنسيق العمليات اللوجستية وتلقي الدفعات المالية والعربين من عملائك.
-                    </p>
-                    <a 
-                      href="/logistics-portal" 
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline"
-                    >
-                      <span>الانتقال للبوابة الآن</span>
-                      <span>←</span>
-                    </a>
-                  </div>
-
-                  {/* Portal 3: Messaging */}
-                  <div className="group relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl transition-all duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-all">
-                        <MessageCircle className="w-6 h-6" />
-                      </div>
-                      <a 
-                        href="/provider-messages" 
-                        className="text-slate-400 group-hover:text-emerald-500 transition-colors"
-                      >
-                        <ArrowUpRight className="w-5 h-5" />
-                      </a>
-                    </div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-emerald-500 transition-colors">المحادثات والدردشة الفورية</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-                      التواصل الفوري والدردشة المباشرة مع عملائك للاستجابة السريعة لاستفساراتهم وتأكيد رغباتهم التشغيلية لضمان نجاح الحفل.
-                    </p>
-                    <a 
-                      href="/provider-messages" 
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline"
-                    >
-                      <span>الانتقال للبوابة الآن</span>
-                      <span>←</span>
-                    </a>
-                  </div>
-
-                  {/* Portal 4: Support */}
-                  <div className="group relative bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl transition-all duration-300">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/30 rounded-xl flex items-center justify-center text-rose-500 group-hover:scale-110 transition-all">
-                        <HelpCircle className="w-6 h-6" />
-                      </div>
-                      <button 
-                        onClick={() => setActiveTab('support')}
-                        className="text-slate-400 group-hover:text-rose-500 transition-colors cursor-pointer"
-                      >
-                        <ArrowUpRight className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1.5 group-hover:text-rose-500 transition-colors">الدعم والمساعدة الفنية</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-                      طلب المساعدة من إدارة المنصة ورفع تذاكر الدعم لحل أي مشاكل تقنية تواجهها في المنصة بكفاءة وسرعة عالية.
-                    </p>
-                    <button 
-                      onClick={() => setActiveTab('support')}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 group-hover:underline text-right cursor-pointer"
-                    >
-                      <span>الانتقال للبوابة الآن</span>
-                      <span>←</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Luxury BOS Pitch Card */}
-              <div className="bg-gradient-to-br from-amber-500/10 via-amber-600/5 to-transparent border border-amber-500/20 rounded-3xl p-6 lg:p-8 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center text-amber-500">
-                    <Crown className="w-5 h-5 fill-amber-500" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-slate-800 dark:text-slate-100">باقي خطوة لامتلاك نظام تشغيل الأعمال الكامل (Provider BOS) 👑</h2>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">رؤية كاملة لأدق تفاصيل نشاطك الاستثماري ونموه.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white/40 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-100/50 dark:border-slate-800/50 flex items-start gap-3">
-                    <span className="text-base">📊</span>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 mb-0.5">مركز التحليلات والتوقعات الذكية</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">رسوم بيانية متكاملة للأرباح، معدل الإشغال، والنمو السنوي والموسمي ونسب الحجوزات الملغاة والمؤكدة.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/40 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-100/50 dark:border-slate-800/50 flex items-start gap-3">
-                    <span className="text-base">👥</span>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 mb-0.5">إدارة الموظفين والمهام (Multi-Seat)</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">إضافة حسابات خاصة بموظفيك وإعطاؤهم صلاحيات تشغيلية مخصصة ومحدودة لمنع التداخل وتسريب البيانات.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/40 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-100/50 dark:border-slate-800/50 flex items-start gap-3">
-                    <span className="text-base">🏦</span>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 mb-0.5">المركز المالي وإدارة السيولة والمستودعات</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">تتبع الإيرادات، المصروفات، الأرباح الصافية، والتحكم بمخازن الأثاث والتجهيزات وإدارة شؤون الموردين والمشتريات.</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/40 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-100/50 dark:border-slate-800/50 flex items-start gap-3">
-                    <span className="text-base">🏢</span>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 mb-0.5">إدارة الفروع والمقرات المتعددة</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">أضف وتحكم في عدة قاعات أو فروع تابعة لنفس المؤسسة تحت مظلة إدارة مركزية موحدة فائقة السلاسة.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <button 
-                    onClick={() => setActiveTab('subscriptions')}
-                    className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
-                  >
-                    عرض خطط الاشتراك والترقية الآن
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        }
         return (
           <Suspense fallback={<LoadingSpinner />}>
             <ProviderDashboard {...anyState} activeSection={activeSection} setActiveSection={setActiveSection} />
@@ -592,10 +386,18 @@ export default function ProviderDashboardPage() {
 
       case 'marketing':
         return (
-          <div className="space-y-6">
-            <ProviderMarketingWizard {...anyState} />
-            <AdRequestProviderWizard {...anyState} />
-          </div>
+          <ProviderGrowthCenter
+            currentProviderName={currentProviderName}
+            campaigns={state.campaigns}
+            setCampaigns={state.setCampaigns}
+            adRequests={state.adRequests}
+            setAdRequests={state.setAdRequests}
+            promotions={state.promotions}
+            setPromotions={state.setPromotions}
+            halls={state.halls}
+            services={state.services}
+            showNotification={state.showNotification || ((t: string, m: string) => console.log(t, m))}
+          />
         );
 
       case 'provider_staff':
@@ -744,6 +546,7 @@ export default function ProviderDashboardPage() {
             {visibleTabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const isEntitled = canAccessTab(tab.id);
               return (
                 <button
                   key={tab.id}
@@ -751,7 +554,7 @@ export default function ProviderDashboardPage() {
                     setActiveTab(tab.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-xs font-bold rounded-xl transition-all duration-200 text-right ${
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-xs font-bold rounded-xl transition-all duration-200 text-right cursor-pointer ${
                     isActive
                       ? 'bg-gradient-to-l from-amber-500/20 to-orange-500/10 text-amber-400 border-r-4 border-amber-500 shadow-md'
                       : 'text-slate-300 hover:bg-slate-900/40 hover:text-white'
@@ -761,11 +564,18 @@ export default function ProviderDashboardPage() {
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
                     <span className="truncate">{tab.label}</span>
                   </div>
-                  {tab.id === 'messages' && unreadMessagesCount > 0 && (
-                    <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse shrink-0">
-                      {unreadMessagesCount}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isEntitled && (
+                      <span className="p-1 rounded-md bg-amber-500/10 text-amber-400/80 text-[10px]" title="ميزة متقدمة تتطلب ترقية الباقة">
+                        <Lock className="w-3 h-3" />
+                      </span>
+                    )}
+                    {tab.id === 'messages' && unreadMessagesCount > 0 && (
+                      <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                        {unreadMessagesCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -969,5 +779,13 @@ export default function ProviderDashboardPage() {
         formatBookingId={formatBookingId}
       />
     </AppProvider>
+  );
+}
+
+export default function ProviderDashboardPage() {
+  return (
+    <EntitlementProvider>
+      <ProviderDashboardContent />
+    </EntitlementProvider>
   );
 }
