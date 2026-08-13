@@ -1,4 +1,4 @@
-name: Sync Repositories
+name: Sync to Org Repo
 
 on:
   push:
@@ -10,12 +10,14 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source Code
+      - name: Checkout private repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Push to Organization Repo
         run: |
-          git remote add destination "https://x-access-token:${{ secrets.LAILAH_CS2_SYNC }}@github.com/Lailah-Plat/lailah_CS2.git"
-          git push destination main --force
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add org-repo "https://x-access-token:${{ secrets.LAILAH_CS2_SYNC }}@github.com/Lailah-Plat/lailah_CS2.git"
+          git push org-repo main --force
