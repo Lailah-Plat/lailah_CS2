@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch: # يتيح لك تشغيل الـ Workflow يدويًا بنقرة زر
 
 jobs:
   sync:
