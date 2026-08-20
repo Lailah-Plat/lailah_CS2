@@ -56,7 +56,7 @@ export const UsersManagementMain: React.FC<UsersManagementMainProps> = ({
             }`}
           >
             <Briefcase className="w-3.5 h-3.5" />
-            إدارة الشركاء (المزودين المعتمدين)
+            إدارة الشركاء
           </button>
           <button 
             onClick={() => setAdminUsersSection('provider_staff')}

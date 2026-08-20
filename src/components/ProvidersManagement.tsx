@@ -572,14 +572,12 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">
-            {mode === 'management_only' ? 'إدارة الشركاء والمزودين المعتمدين' : 'إدارة طلبات الشركاء والاعتمادات'}
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span>🤝</span>
+            <span>بوابة طلبات وحوكمة الشركاء والمنشآت المعتمدة</span>
           </h2>
           <p className="text-slate-500 text-xs mt-1 font-sans">
-            {mode === 'management_only' 
-              ? 'إدارة وحوكمة حسابات الشركاء النشطين، والاشتراكات، معايير فئات المستويات، والتراخيص التجارية بالمنصة'
-              : 'مركز استلام ومعالجة طلبات اعتماد المنشآت والقاعات، والخدمات المساندة، وتعديلات الأسعار الموسمية'
-            }
+            استقطاب وتأهيل الشركاء، تدقيق التراخيص والامتثال، ومتابعة مؤشرات الأداء والنمو
           </p>
         </div>
         <div className="flex flex-wrap gap-3">

@@ -718,8 +718,14 @@ export default function App() {
   };
 
   const activeTabLabel = useMemo(() => {
+    if (activeTab === 'overview') {
+      return userRole === 'admin' ? 'مركز القيادة والعمليات' : 'مركز الأعمال والإجراءات';
+    }
+    if (activeTab === 'cockpit') {
+      return userRole === 'admin' ? 'مركز القيادة والعمليات الموحد' : 'مركز الأعمال والإجراءات الموحد';
+    }
     return TABS.find(t => t.id === activeTab)?.label || 'لوحة التحكم';
-  }, [activeTab]);
+  }, [activeTab, userRole]);
 
   if (publicLpasSlug) {
     const lpasPage = resolveLPASPage(publicLpasSlug);

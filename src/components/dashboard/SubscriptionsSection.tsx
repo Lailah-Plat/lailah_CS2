@@ -1283,15 +1283,12 @@ export const SubscriptionsSection = (props: any) => {
       <div className="space-y-6 animate-in fade-in duration-500">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">
-              {userRole === 'admin' ? 'إدارة الباقات والعروض' : 'إدارة الباقات والاشتراكات'}
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span>💳</span>
+              <span>مركز إدارة باقات الاشتراكات وسوق الميزات الإضافية والقدرات التشغيلية</span>
             </h2>
-            <p className="text-slate-500 mt-1">
-              {adminSubscriptionsTab === 'packages' 
-                ? 'إضافة وإدارة باقات الشركاء وربطها بالإيرادات.' 
-                : adminSubscriptionsTab === 'addons'
-                ? 'إدارة وتسعير الميزات الإضافية والترقيات بمقابل مالي للشركاء.'
-                : 'إدارة وتفعيل عروض وأكواد الخصم المباشرة لجميع خدمات وحجوزات المنصة.'}
+            <p className="text-slate-500 text-xs mt-1">
+              ضبط مستويات العضوية، نسب العمولات، وتسعير القدرات والمزايا الإضافية
             </p>
           </div>
           {adminSubscriptionsTab === 'packages' && (

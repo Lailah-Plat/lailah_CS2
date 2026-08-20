@@ -332,8 +332,11 @@ export function InventoryDashboard({ inventory = [], setInventory, currentProvid
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">إدارة المخزون والأصول السحابية</h2>
-              <p className="text-slate-500 text-sm mt-0.5">تتبع أصول الخدمات والقاعات، دورة حياة الأجهزة، التنبيهات الآلية، وإدارة التلفيات بالجرد.</p>
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span>📦</span>
+                <span>منظومة إدارة الأصول والمخزون والمستلزمات</span>
+              </h2>
+              <p className="text-slate-500 text-xs mt-1">تتبع التجهيزات والمعدات، ضبط حركات العهد، ومراقبة مستويات الإهلاك والجاهزية</p>
             </div>
           </div>
         </div>

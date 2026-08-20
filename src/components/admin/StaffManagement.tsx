@@ -986,8 +986,11 @@ export default function StaffManagement({
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">إدارة الموظفين والصلاحيات</h2>
-          <p className="text-slate-500 mt-1">إضافة وإدارة موظفي النظام وتحديد صلاحياتهم المهنية.</p>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span>🛡️</span>
+            <span>منظومة حوكمة الفريق وإدارة الصلاحيات (RBAC) والمستويات</span>
+          </h2>
+          <p className="text-slate-500 text-xs mt-1">تعيين الأدوار الإدارية، سجل تدقيق الوصول الأمني، وإدارة الكوادر وفرق العمل</p>
         </div>
         <button 
           onClick={() => {

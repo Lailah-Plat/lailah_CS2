@@ -82,12 +82,10 @@ export function HallsServicesUnifiedPage({
               <span className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600 shrink-0">
                 <Building2 className="w-6 h-6 animate-pulse" />
               </span>
-              إدارة القاعات والخدمات المساندة ✨
+              مركز إدارة القاعات والمنشآت المتنوعة
             </h1>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              {userRole === 'provider' 
-                ? `بوابة مزود الخدمة لإدارة القاعات والمنشآت وتفعيل باقات الخدمات المساندة المخصصة لمؤسسة: ${currentProviderName}` 
-                : 'البوابة الإدارية المركزية لمراقبة وتعديل وتفعيل قاعات الشركاء والخدمات النشطة بالمنصة'}
+              إدارة طاقات الاستيعاب، رخص بلدي والدفاع المدني، وضبط التخصيص والمواصفات
             </p>
           </div>
         </div>

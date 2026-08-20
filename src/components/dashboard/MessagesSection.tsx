@@ -113,11 +113,12 @@ export const MessagesSection = (props: any) => {
         {/* Messages Header & Tab Switching */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">مركز المراسلة والتحكم بالمنصة</h2>
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span>💬</span>
+              <span>مركز الاتصال والمحادثات والرسائل اللحظية والبريد الإلكتروني وطوابير الدعم والتصعيد</span>
+            </h2>
             <p className="text-xs text-slate-500 mt-1">
-              {userRole === 'provider' 
-                ? 'إدارة محادثات العملاء النشطة وتخصيص أوقات العمل ورسالة التنبيه التي تظهر للعملاء بشكل منفرد.'
-                : 'مراقبة وحوكمة المحادثات والتحقق الآلي من وسائل الدفع الخارجي، أو إدارة طابور الدعم الفني المباشر وساعات الدوام.'}
+              إدارة قنوات التواصل المباشر، إشعارات المنظومة، وتنسيق المحادثات بين العملاء والشركاء
             </p>
           </div>
           

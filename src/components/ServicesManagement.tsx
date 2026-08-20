@@ -111,8 +111,13 @@ export default function ServicesManagement({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {!hideHeader ? (
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">إدارة الخدمات المساندة</h2>
-            <p className="text-slate-500 mt-1 text-xs">تتبع، تنشيط، تعديل وإضافة الباقات الخدمية المصاحبة لقاعات الحجز.</p>
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span>✨</span>
+              <span>إدارة سوق الخدمات المساندة والعمليات اللوجستية المتنوعة</span>
+            </h2>
+            <p className="text-slate-500 mt-1 text-xs">
+              اعتماد باقات الضيافة، التوثيق، الإضاءة وتنسيق التوريد والعمليات الميدانية
+            </p>
           </div>
         ) : (
           <div>

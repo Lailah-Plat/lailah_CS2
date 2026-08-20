@@ -95,7 +95,8 @@ export function AdminDashboard({
   showNotification,
 }: AdminDashboardProps) {
 
-  const [activeSubTab, setActiveSubTab] = useState<'operations' | 'lifecycles' | 'analytics' | 'stats' | 'growth'>('operations');
+  const [mainHubTab, setMainHubTab] = useState<'analytics_insights' | 'operations_lifecycle'>('analytics_insights');
+  const [activeSubTab, setActiveSubTab] = useState<'operations' | 'lifecycles' | 'analytics' | 'stats' | 'growth'>('analytics');
 
   // Interactive Analytics & Diversity Stats States
   const [analyticsFilterPeriod, setAnalyticsFilterPeriod] = useState<string>('all');
@@ -923,10 +924,10 @@ export function AdminDashboard({
         <div>
           <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">
             <Activity className="w-6 h-6 text-indigo-500 animate-pulse" />
-            لوحة إحصائيات الإدارة العامة
+            مركز القيادة والعمليات
           </h1>
           <p className="text-slate-500 text-xs mt-1">
-            متابعة شاملة لتدفق الأرباح، الشركاء، العملاء، والعمليات في المنصة كاملة بالوقت الحقيقي.
+            غرفة التحكم اللحظية لمتابعة المؤشرات الاستراتيجية والعمليات الميدانية بالوقت الفعلي
           </p>
         </div>
 
@@ -1034,43 +1035,131 @@ export function AdminDashboard({
         </div>
       </div>
 
-      {/* Tab Switcher for Inner Dashboard layout */}
-      <div className="bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 flex flex-wrap gap-2 w-full lg:w-fit mt-6">
-        <button
-          onClick={() => setActiveSubTab('operations')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeSubTab === 'operations' ? 'bg-white text-slate-900 shadow-sm scale-102 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          <Compass className="w-4 h-4 text-amber-500" />
-          🚀 مركز العمليات والتحكم (Operations Center)
-        </button>
-        <button
-          onClick={() => setActiveSubTab('lifecycles')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeSubTab === 'lifecycles' ? 'bg-white text-slate-900 shadow-sm scale-102 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          <RefreshCw className="w-4 h-4 text-purple-500 animate-spin-slow" />
-          🔄 نظام إدارة دورات الحياة (Lifecycles OS)
-        </button>
-        <button
-          onClick={() => setActiveSubTab('analytics')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeSubTab === 'analytics' ? 'bg-white text-slate-900 shadow-sm scale-102 font-black border border-emerald-200' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          <BarChart3 className="w-4 h-4 text-emerald-600" />
-          📊 الإحصائيات المتنوعة والتحليلات المالية
-        </button>
-        <button
-          onClick={() => setActiveSubTab('stats')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeSubTab === 'stats' ? 'bg-white text-slate-900 shadow-sm scale-102 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          <Activity className="w-4 h-4 text-indigo-500" />
-          العمليات والقوائم الفورية
-        </button>
-        <button
-          onClick={() => setActiveSubTab('growth')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeSubTab === 'growth' ? 'bg-white text-slate-900 shadow-sm scale-102 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-        >
-          <TrendingUp className="w-4 h-4 text-emerald-500" />
-          مؤشرات النمو والتراكم
-        </button>
+      {/* Primary Dual-Hub Architecture (التبويب المزدوج الاستراتيجي) */}
+      <div className="bg-white p-3 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+        {/* Main Dual Switcher */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/60">
+          <button
+            onClick={() => {
+              setMainHubTab('analytics_insights');
+              if (activeSubTab === 'operations' || activeSubTab === 'lifecycles') {
+                setActiveSubTab('analytics');
+              }
+            }}
+            className={`flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl text-sm font-black transition-all cursor-pointer ${
+              mainHubTab === 'analytics_insights'
+                ? 'bg-white text-slate-900 shadow-md border border-emerald-200/80 scale-100'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg ${mainHubTab === 'analytics_insights' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-black">📊 مؤشرات الأداء والتحليلات</div>
+              <div className="text-[10px] font-normal text-slate-500">التحليلات المالية، التدفقات، والنمو التراكمي</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              setMainHubTab('operations_lifecycle');
+              if (activeSubTab === 'analytics' || activeSubTab === 'growth') {
+                setActiveSubTab('operations');
+              }
+            }}
+            className={`flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl text-sm font-black transition-all cursor-pointer ${
+              mainHubTab === 'operations_lifecycle'
+                ? 'bg-white text-slate-900 shadow-md border border-amber-200/80 scale-100'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
+          >
+            <div className={`p-1.5 rounded-lg ${mainHubTab === 'operations_lifecycle' ? 'bg-amber-50 text-amber-600' : 'bg-slate-200 text-slate-500'}`}>
+              <Compass className="w-5 h-5" />
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-black">⚡ العمليات والإجراءات التنفيذية</div>
+              <div className="text-[10px] font-normal text-slate-500">مركز العمليات، دورات الحياة، وقوائم التنفيذ المباشرة</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Secondary Sub-Tabs Filter based on active Main Dual Hub */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+          {mainHubTab === 'analytics_insights' ? (
+            <>
+              <button
+                onClick={() => setActiveSubTab('analytics')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'analytics'
+                    ? 'bg-emerald-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                الإحصائيات المتنوعة والتحليلات المالية الموحدة
+              </button>
+              <button
+                onClick={() => setActiveSubTab('growth')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'growth'
+                    ? 'bg-emerald-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                مؤشرات النمو والتراكم والمقارنات الدورية
+              </button>
+              <button
+                onClick={() => setActiveSubTab('stats')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'stats'
+                    ? 'bg-emerald-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                دفتر السجلات والقوائم التفصيلية
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setActiveSubTab('operations')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'operations'
+                    ? 'bg-indigo-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <Compass className="w-4 h-4" />
+                🚀 مركز العمليات والتحكم (Operations Center)
+              </button>
+              <button
+                onClick={() => setActiveSubTab('lifecycles')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'lifecycles'
+                    ? 'bg-purple-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <RefreshCw className="w-4 h-4" />
+                🔄 نظام إدارة دورات الحياة (Lifecycles OS)
+              </button>
+              <button
+                onClick={() => setActiveSubTab('stats')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  activeSubTab === 'stats'
+                    ? 'bg-amber-600 text-white shadow-sm font-black'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                ⚡ قوائم الإجراءات والاعتمادات الفورية
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 3. Render Inner Sections depending on Active inner-sub-tab */}

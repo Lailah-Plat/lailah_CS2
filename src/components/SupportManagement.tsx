@@ -104,15 +104,16 @@ export const SupportManagement: React.FC<SupportManagementProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-black text-slate-800">مركز المحادثات وتذاكر الدعم والربط مع WhatsApp</h2>
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+              <span>🎧</span>
+              <span>مركز الدعم والمساندة</span>
+            </h2>
             <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-200">
               محدث بـ WhatsApp API & AI 🤖
             </span>
           </div>
           <p className="text-slate-500 text-xs mt-1">
-            {userRole === 'provider' 
-              ? 'تواصل المباشر مع فريق الدعم الفني وإدارة التذاكر والتراسل الفوري عبر الواتساب' 
-              : 'إدارة التذاكر وتوليد الردود بـ الذكاء الاصطناعي والتواصل الفوري مع العملاء ومتابعة SLA'}
+            متابعة التذاكر اللحظية، الدردشة المباشرة، وحل مطالبات واستفسارات الشركاء والعملاء
           </p>
         </div>
         <div className="flex gap-3 items-center flex-wrap">

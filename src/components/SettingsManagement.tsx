@@ -986,8 +986,11 @@ export const SettingsManagement = ({
     <div className="space-y-6 animate-in fade-in duration-500 max-w-8xl mx-auto pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-right" dir="rtl">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">إعدادات النظام</h2>
-          <p className="text-slate-500 mt-1">إدارة الهوية، المالية، الجغرافيا، التنبيهات والصلاحيات.</p>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span>⚙️</span>
+            <span>الإعدادات العامة والتقنية والربط التقني والسيادي</span>
+          </h2>
+          <p className="text-slate-500 text-xs mt-1">ضبط المنظومة، بوابات ZATCA ونفاذ وشموس وسبل، وبوابات الرسائل والـ Webhooks</p>
         </div>
         <button 
           onClick={handleSaveChanges}

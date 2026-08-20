@@ -185,9 +185,12 @@ export const ReviewsManagement: React.FC<ReviewsManagementProps> = ({
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">إدارة تقييمات العملاء والخدمات والمزودين</h2>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span>⭐</span>
+            <span>مركز الجودة والرقابة على التقييمات والآراء</span>
+          </h2>
           <p className="text-xs text-slate-500 mt-1">
-            اضغط على أي تعليق لفتح النافذة المخصصة للرد المباشر أو رفع تصعيد للإدارة مع التوثيق الزمني والتقيد التام بقواعد الخصوصية
+            تدقيق تقييمات العملاء، مراقبة معايير الجودة والخدمة، ومتابعة الآراء
           </p>
         </div>
         <div className="flex items-center gap-2">

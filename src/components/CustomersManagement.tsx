@@ -500,12 +500,12 @@ export const CustomersManagement: React.FC<CustomersManagementProps> = ({
         <div>
           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
             <Award className="w-7 h-7 text-amber-500" />
-            {mode === 'users_only' ? 'إدارة حسابات العملاء' : 'إدارة العملاء والولاء'}
+            {mode === 'users_only' ? 'إدارة حسابات العملاء' : 'مركز إدارة علاقات العملاء والولاء (CRM)'}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {mode === 'users_only' 
               ? 'إدارة الحسابات النشطة للعملاء (إضافة، تعديل، حظر، حذف، وعرض التفاصيل).' 
-              : 'إشراف كامل على حسابات العملاء، مستويات العضوية، محرك توزيع النقاط، وسجل حركات المكافآت.'}
+              : 'متابعة حسابات العملاء، سجل الحجوزات، التحقق من الهويات، ونقاط ومستويات الولاء'}
           </p>
         </div>
         

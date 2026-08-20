@@ -275,7 +275,7 @@ export function ProviderDashboardContent() {
       {
         title: '⚡ العمليات والقيادة',
         items: [
-          { id: 'overview', label: 'مركز القيادة والعمليات الموحد', icon: Activity },
+          { id: 'overview', label: 'مركز الأعمال والإجراءات', icon: Activity },
           { id: 'bookings', label: 'إدارة الحجوزات والطلبات', icon: CheckSquare },
         ]
       },

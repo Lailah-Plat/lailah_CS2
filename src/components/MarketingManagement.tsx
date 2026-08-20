@@ -103,15 +103,18 @@ export function MarketingManagement(props: MarketingManagementProps & { marketin
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-3 py-1 rounded-full border border-amber-500/30">
-                مركز النمو والتسويق الرقمي (Growth & Marketing Center)
+                منظومة النمو والتسويق الاستراتيجية (Growth & Marketing OS)
               </span>
               <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-500/30">
                 عزل محاسبي ووظيفي كامل ✅
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">مركز النمو والتسويق (Growth & Marketing Center)</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+              <span>📈</span>
+              <span>مركز النمو والتسويق ومحرك صفحات الهبوط</span>
+            </h1>
             <p className="text-slate-300 text-xs mt-1 max-w-3xl leading-relaxed">
-              منظومة متكاملة لزيادة مبيعات المنشآت وحجوزات القاعات والخدمات عبر ثلاثة منتجات مستقلة وظيفياً ومحاسبياً: الحملات التسويقية المُدارة من الوكالات، العروض الترويجية والكوبونات، والإعلانات المباشرة داخل صفحات منصة ليلة.
+              إدارة الحملات الإعلانية، محرك صفحات الهبوط LPAS، وبرامج التسويق بالعمولة
             </p>
           </div>
         </div>

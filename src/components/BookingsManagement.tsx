@@ -839,9 +839,15 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">
-          {userRole === 'admin' ? 'إدارة الحجوزات والخدمات' : 'إدارة الحجوزات'}
-        </h2>
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+            <span>📅</span>
+            <span>{userRole === 'admin' ? 'مركز الحجوزات والطلبات' : 'مركز الحجوزات والطلبات (إدارة العمليات)'}</span>
+          </h2>
+          <p className="text-slate-500 text-xs mt-1">
+            حوكمة الحجوزات والطلبات ودورات حجز القاعات، التحقق من التوافر، وتدقيق العقود المليونية
+          </p>
+        </div>
         {bookingActiveTab === 'bookings' ? (
           userRole === 'admin' && (
             <button 

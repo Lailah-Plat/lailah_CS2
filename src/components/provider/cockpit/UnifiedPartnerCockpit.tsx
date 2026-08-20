@@ -55,10 +55,10 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
             <span className="text-xs font-black text-amber-400 uppercase tracking-wider">Enterprise Venue & Event Operations Engine</span>
           </div>
           <h2 className="text-xl md:text-2xl font-black text-white mt-1">
-            مركز القيادة والعمليات اليومية الموحد ({currentProviderName})
+            مركز الأعمال والإجراءات ({currentProviderName})
           </h2>
           <p className="text-xs text-indigo-200 mt-1 font-medium">
-            نظام تشغيل وإدارة فضاءات وفعاليات متكامل يمارس المزود عبره أعماله اليومية بالكامل
+            المنظومة التشغيلية المتكاملة لمتابعة مؤشرات الأداء والتحليلات والعمليات التنفيذية الميدانية بالوقت الفعلي
           </p>
         </div>
 
@@ -70,15 +70,7 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'all' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            نظرة شاملة
-          </button>
-          <button
-            onClick={() => setCockpitSubTab('dispatch')}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-              cockpitSubTab === 'dispatch' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
-            }`}
-          >
-            التجهيز اليومي
+            🌟 نظرة شاملة
           </button>
           <button
             onClick={() => setCockpitSubTab('kpis')}
@@ -86,7 +78,15 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'kpis' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            المؤشرات الحية
+            📊 مؤشرات الأداء والتحليلات
+          </button>
+          <button
+            onClick={() => setCockpitSubTab('dispatch')}
+            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+              cockpitSubTab === 'dispatch' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
+            }`}
+          >
+            ⚡ العمليات والإجراءات الميدانية
           </button>
           <button
             onClick={() => setCockpitSubTab('lifecycle')}
@@ -94,7 +94,7 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'lifecycle' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            مدير المراحل الست
+            🔄 دورات الحياة (المراحل الست)
           </button>
           <button
             onClick={() => setCockpitSubTab('floorplan')}
@@ -102,7 +102,7 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'floorplan' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            مخطط القاعة
+            📐 مخطط القاعة
           </button>
           <button
             onClick={() => setCockpitSubTab('pricing')}
@@ -110,7 +110,7 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'pricing' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            التسعير الديناميكي
+            🏷️ التسعير الديناميكي
           </button>
           <button
             onClick={() => setCockpitSubTab('cashflow')}
@@ -118,7 +118,7 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
               cockpitSubTab === 'cashflow' ? 'bg-amber-400 text-slate-950 shadow-sm font-black' : 'text-white hover:bg-white/10'
             }`}
           >
-            التنبؤ المالي
+            💰 التنبؤ المالي
           </button>
         </div>
       </div>

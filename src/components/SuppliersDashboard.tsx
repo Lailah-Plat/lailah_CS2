@@ -195,8 +195,11 @@ export function SuppliersDashboard({ currentProviderName }: { currentProviderNam
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">إدارة الموردين الخارجية وبوابة الاستحقاقات</h2>
-              <p className="text-slate-500 text-sm mt-0.5">سجل الموردين المعتمدين، التسوية المالية والمطابقة الثلاثية (3-Way Matching)، وبوابة كشوف الحساب السحابية.</p>
+              <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span>🚚</span>
+                <span>مركز إدارة شبكة الموردين وسلاسل الإمداد</span>
+              </h2>
+              <p className="text-slate-500 text-xs mt-1">اعتماد عقود التوريد، تقييم موثوقية الموردين، وإدارة أوامر الشراء والتدفق الميداني</p>
             </div>
           </div>
         </div>

@@ -3771,13 +3771,18 @@ export default function FinanceDashboard({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-slate-800 font-heading">الإدارة المالية</h2>
+            <h2 className="text-2xl font-black text-slate-800 font-heading flex items-center gap-2">
+              <span>💰</span>
+              <span>المركز المالي والخزينة المركزية</span>
+            </h2>
             <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               مزامنة تامة لقاعدة البيانات 🟢
             </span>
           </div>
-          <p className="text-slate-500">إدارة الإيرادات، المصروفات، المطالبات، والفواتير الشاملة للضريبة</p>
+          <p className="text-slate-500 text-xs mt-0.5">
+            الرقابة السيادية على التدفقات النقدية، محافظ الشركاء، حسابات الضمان (Escrow)، والامتثال الضريبي ZATCA
+          </p>
         </div>
         <div className="flex gap-4 items-center">
           {userRole === 'admin' && (

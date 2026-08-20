@@ -370,10 +370,10 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
             <span className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600 border border-amber-500/10">
               <Crown className="w-6 h-6 animate-pulse text-amber-500" />
             </span>
-            إدارة البنية التحتية والاشتراك لشركاء ليلة 👑
+            مركز إدارة باقات الاشتراكات وسوق الميزات الإضافية والقدرات التشغيلية
           </h2>
           <p className="text-slate-500 mt-2 text-xs leading-relaxed max-w-2xl font-sans">
-            متابعة حالة باقة حسابك والصلاحيات المخولة لك من طرف الإدارة، ترقية باقة اشتراكك العامة أو تفعيل الميزات الإضافية المناسبة لإمكانية نمو أعمالك وسدادها فوراً.
+            ضبط مستويات العضوية، نسب العمولات، وتسعير القدرات والمزايا الإضافية
           </p>
         </div>
 
