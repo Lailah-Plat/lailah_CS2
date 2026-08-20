@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { 
   Megaphone, Plus, Globe, Eye, Copy, Check, Sparkles, Filter, 
   Trash2, Edit3, Shield, ArrowRight, Share2, Layers, MapPin, 
-  Tag, Calendar, BarChart2, RefreshCw, Smartphone, Monitor
+  Tag, Calendar, BarChart2, RefreshCw, Smartphone, Monitor, ExternalLink
 } from 'lucide-react';
 import { LPASLandingPage, LPASPageType } from '../../types/lpas';
 import { getLPASPages, saveLPASPages, getLPASAttribution } from '../../data/lpasData';
@@ -48,10 +48,14 @@ export const LPASManager: React.FC<LPASManagerProps> = ({
   const currentAttribution = getLPASAttribution();
 
   const handleCopyUrl = (slug: string) => {
-    const fullUrl = `${window.location.origin}?lpas_page=${slug}&utm_source=growth_studio&utm_campaign=${slug}`;
+    const fullUrl = `${window.location.origin}/landing/${slug}?utm_source=growth_studio&utm_campaign=${slug}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(null), 2500);
+  };
+
+  const handleOpenPage = (slug: string) => {
+    window.open(`/landing/${slug}?utm_source=growth_studio&utm_campaign=${slug}`, '_blank');
   };
 
   const handleCreatePage = (e: React.FormEvent) => {
@@ -274,24 +278,35 @@ export const LPASManager: React.FC<LPASManagerProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-2 mt-2">
+                  <div className="pt-4 border-t border-slate-800 flex items-center justify-between gap-1.5 mt-2">
                     <button
                       onClick={() => {
                         setSelectedPage(page);
                         setActiveTab('PREVIEW');
                       }}
-                      className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer"
+                      title="معاينة داخلية"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>معاينة وتجربة</span>
+                      <span>معاينة</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenPage(page.slug)}
+                      className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="فتح صفحة الهبوط العامة في نافذة جديدة"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>فتح الصفـحة</span>
                     </button>
 
                     <button
                       onClick={() => handleCopyUrl(page.slug)}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border border-slate-700"
+                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer border border-slate-700"
+                      title="نسخ رابط الحملة"
                     >
                       <Copy className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{copiedSlug === page.slug ? 'تم النسخ!' : 'رابط الحملة'}</span>
+                      <span>{copiedSlug === page.slug ? 'تم النسخ!' : 'نسخ الرابط'}</span>
                     </button>
                   </div>
 

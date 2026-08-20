@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { 
   Settings2, X, ShieldCheck, BadgePercent, ScrollText, Sparkles, 
-  Users2, ChevronDown, Clock, Coins, Layers, Box, Activity, Globe, MapPin, UploadCloud, Info, Video
+  Users2, ChevronDown, Clock, Coins, Layers, Box, Activity, Globe, MapPin, UploadCloud, Info, Video, Camera
 } from 'lucide-react';
 import { validateHallOrServiceImage, validateHallOrServiceVideo } from '../../utils/mediaValidator';
 import { MediaDimensionsHelperModal } from '../common/MediaDimensionsHelperModal';
+import { MediaStandardsGuideModal } from '../MediaStandardsGuideModal';
 
 interface ServiceModalFormProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
 }) => {
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [showMediaGuideModal, setShowMediaGuideModal] = useState(false);
+  const [isMediaGuideOpen, setIsMediaGuideOpen] = useState(false);
 
   // Check if selected provider has dynamic pricing active
   const providerHasDynamicPricing = React.useMemo(() => {
@@ -107,13 +109,24 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
               </div>
             </div>
           </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            className="bg-white text-slate-450 hover:text-red-500 hover:bg-red-50 border border-slate-150 p-2 rounded-full transition-all cursor-pointer shadow-sm"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMediaGuideOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-400/30 active:scale-95 shrink-0"
+              title="فتح دليل واشتراطات الوسائط والمعايير الأفقية (16:9)"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-100" />
+              <span>📷 دليل واشتراطات الوسائط (16:9)</span>
+            </button>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="bg-white text-slate-450 hover:text-red-500 hover:bg-red-50 border border-slate-150 p-2 rounded-full transition-all cursor-pointer shadow-sm"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Stepper Header Navigation Tabs */}
@@ -958,6 +971,11 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
         <MediaDimensionsHelperModal 
           isOpen={showMediaGuideModal} 
           onClose={() => setShowMediaGuideModal(false)} 
+        />
+
+        <MediaStandardsGuideModal
+          isOpen={isMediaGuideOpen}
+          onClose={() => setIsMediaGuideOpen(false)}
         />
       </div>
     </div>

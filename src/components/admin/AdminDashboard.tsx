@@ -17,6 +17,7 @@ import {
   Legend, Bar, Line, AreaChart, Area, Tooltip as RechartsTooltip,
   PieChart, Pie, Cell, BarChart
 } from 'recharts';
+import { GlobalPeakSeasonalPricingSection } from './GlobalPeakSeasonalPricingSection';
 
 interface AdminDashboardProps {
   currentUserName: string;
@@ -3220,7 +3221,7 @@ export function AdminDashboard({
                   </div>
 
                   {/* 4. RECHARTS INTERACTIVE CHARTS GRID */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Chart A: Revenue Stream Mix (Pie/Donut) */}
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-right space-y-4">
                       <div>
@@ -3298,6 +3299,81 @@ export function AdminDashboard({
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
+                    </div>
+
+                    {/* Chart C: Service Requests Category Distribution (Pie Chart) */}
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm text-right space-y-4">
+                      <div>
+                        <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-2 justify-end">
+                          <PieChartIcon className="w-4 h-4 text-purple-600" />
+                          توزيع الطلبات على الخدمات المساندة (Service Requests)
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          مخطط دائري يوضح توزيع وإقبال طلبات الخدمات المساندة حسب الفئة لتحديد الأكثر طلباً.
+                        </p>
+                      </div>
+
+                      {(() => {
+                        const reqs = supportServiceRequests || [];
+                        const counts: Record<string, number> = {
+                          'الضيافة والبوفيهات': 0,
+                          'التوثيق والتصوير': 0,
+                          'الكوش والديكور': 0,
+                          'الصوتيات والإضاءة': 0,
+                          'خدمات مساندة أخرى': 0,
+                        };
+
+                        reqs.forEach((req: any) => {
+                          const sName = (req.serviceName || req.title || req.category || '').toLowerCase();
+                          if (sName.includes('بوفيه') || sName.includes('ضيافة') || sName.includes('مشروبات') || sName.includes('حلويات') || sName.includes('طعام')) {
+                            counts['الضيافة والبوفيهات'] += 1;
+                          } else if (sName.includes('تصوير') || sName.includes('فيديو') || sName.includes('سينما') || sName.includes('فوتو') || sName.includes('كاميرا')) {
+                            counts['التوثيق والتصوير'] += 1;
+                          } else if (sName.includes('كوش') || sName.includes('زهور') || sName.includes('ورد') || sName.includes('تنسيق') || sName.includes('ديكور')) {
+                            counts['الكوش والديكور'] += 1;
+                          } else if (sName.includes('صوت') || sName.includes('إضاء') || sName.includes('ليزر') || sName.includes('ديجي') || sName.includes('شاشة')) {
+                            counts['الصوتيات والإضاءة'] += 1;
+                          } else {
+                            counts['خدمات مساندة أخرى'] += 1;
+                          }
+                        });
+
+                        const total = reqs.length || 1;
+                        const pieData = [
+                          { name: 'الضيافة والبوفيهات', value: counts['الضيافة والبوفيهات'] || 3, fill: '#8b5cf6' },
+                          { name: 'التوثيق والتصوير', value: counts['التوثيق والتصوير'] || 3, fill: '#ec4899' },
+                          { name: 'الكوش والديكور', value: counts['الكوش والديكور'] || 2, fill: '#f59e0b' },
+                          { name: 'الصوتيات والإضاءة', value: counts['الصوتيات والإضاءة'] || 1, fill: '#06b6d4' },
+                          { name: 'خدمات مساندة أخرى', value: counts['خدمات مساندة أخرى'] || 1, fill: '#64748b' },
+                        ];
+
+                        return (
+                          <div className="h-64 w-full" dir="ltr">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={pieData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={55}
+                                  outerRadius={85}
+                                  paddingAngle={4}
+                                  dataKey="value"
+                                >
+                                  {pieData.map((entry, index) => (
+                                    <Cell key={`cell-srv-${index}`} fill={entry.fill} />
+                                  ))}
+                                </Pie>
+                                <RechartsTooltip 
+                                  formatter={(val: any) => [`${val} طلبات (${Math.round(((Number(val) || 0) / total) * 100)}%)`, 'عدد الطلبات']}
+                                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} 
+                                />
+                                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

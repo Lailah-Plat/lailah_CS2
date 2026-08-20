@@ -9,12 +9,21 @@ import {
   Eye, RefreshCw, AlertCircle, Calendar, Sparkles, Inbox,
   CheckSquare, Users2, ShieldAlert, CheckCircle2, Sliders, Search, 
   FileSpreadsheet, Download, Plus, AlertTriangle, Play, FileText, Check, Printer, X, Coffee, Lock, Package, MapPin,
-  ChevronRight, ChevronLeft, List, LayoutGrid, Truck, Boxes, Trash, Edit, Info, UploadCloud, Loader2, Compass, Camera
+  ChevronRight, ChevronLeft, List, LayoutGrid, Truck, Boxes, Trash, Edit, Info, UploadCloud, Loader2, Compass, Camera,
+  QrCode, ClipboardList, Grid3X3, FileCheck2, ShoppingCart
 } from 'lucide-react';
 import { OperationsCenter } from './OperationsCenter';
 import { ProviderGrowthCenter } from './ProviderGrowthCenter';
+import { EventRunSheet } from './EventRunSheet';
+import { GuestGateQR } from './GuestGateQR';
+import { FloorPlanVisualizer } from './FloorPlanVisualizer';
+import { MilestoneContracts } from './MilestoneContracts';
+import { AutoStockProcurement } from './AutoStockProcurement';
+import { PostEventQualityHub } from './PostEventQualityHub';
 import ProviderPayoutAndSubscriptionPanel from '../payment/ProviderPayoutAndSubscriptionPanel';
 import { MediaStandardsGuideModal } from '../MediaStandardsGuideModal';
+import { DailyOperationsDispatchBar } from './cockpit/DailyOperationsDispatchBar';
+import { UnifiedPartnerCockpit } from './cockpit/UnifiedPartnerCockpit';
 import { 
   ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, 
   Legend, Bar, Line, AreaChart, Area, Tooltip as RechartsTooltip
@@ -89,7 +98,7 @@ export function ProviderDashboard({
   ];
 
   const [activeSubTab, setActiveSubTab] = useState<'business_os' | 'ops_center' | 'stats' | 'growth'>('business_os');
-  const [osTab, setOsTab] = useState<'overview' | 'profile' | 'catalog' | 'pricing' | 'availability' | 'bookings' | 'orders' | 'hybrid' | 'finance' | 'subscription' | 'reports' | 'marketing' | 'customers' | 'notifications' | 'inventory' | 'suppliers' | 'ops_center' | 'stats' | 'growth'>('overview');
+  const [osTab, setOsTab] = useState<'overview' | 'profile' | 'catalog' | 'pricing' | 'availability' | 'bookings' | 'orders' | 'hybrid' | 'finance' | 'subscription' | 'reports' | 'marketing' | 'customers' | 'notifications' | 'inventory' | 'suppliers' | 'ops_center' | 'stats' | 'growth' | 'runsheet' | 'guestgate' | 'floorplan' | 'procurement' | 'contracts' | 'quality'>('overview');
 
   useEffect(() => {
     if (activeSection) {
@@ -1162,38 +1171,6 @@ export function ProviderDashboard({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300" dir="rtl">
-      
-      {/* Unified Provider Workspace Status Banner (Phase 4 Decommissioning Completed) */}
-      <div className="bg-gradient-to-r from-emerald-950 via-indigo-950 to-slate-900 text-white p-4 rounded-3xl border border-emerald-500/30 flex flex-col md:flex-row justify-between items-center gap-3 text-right shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
-            <Sparkles className="w-5 h-5 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="text-xs font-black text-white">مساحة عمل المزود الموحدة والمتكيفة (Unified Adaptive Workspace)</h4>
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black px-2.5 py-0.5 rounded-full font-mono">
-                المرحلة 4 مكتملة ✅
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-300 mt-1 leading-relaxed">
-              تم توحيد تجربة المزود بالكامل وتفكيك نظام BOS القديم. تعمل جميع الموديولات تلقائياً بحسب باقة الاشتراك والأذونات النشطة تحت شريط محاذي واحد ومحرك استحقاقات معيارية.
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => {
-              setIsOnboarded(true);
-              setIsWizardForceOpen(false);
-              showNotification('success', 'مساحة عمل المزود الموحدة والمتكيفة نشطة بالكامل.');
-            }}
-            className="px-4 py-2 rounded-xl text-[11px] font-black bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md cursor-pointer active:scale-95 flex items-center gap-1.5"
-          >
-            <span>🛡️ مساحة العمل الموحدة</span>
-          </button>
-        </div>
-      </div>
 
 
 
@@ -2171,168 +2148,145 @@ export function ProviderDashboard({
                 )}
               </div>
 
-              {/* Business Domains List */}
-              <div className="space-y-3">
+              {/* Categorized Next-Gen Sidebar Navigation */}
+              <div className="space-y-4">
                 {[
                   {
-                    id: 'operations',
-                    name: 'التشغيل والعمليات',
-                    desc: 'مركز القيادة والفروع والطلبات والعهود والموردين',
-                    icon: Sliders,
-                    color: 'text-blue-600 bg-blue-50/50 border-blue-100',
-                    tabs: [
-                      { id: 'overview', name: 'مركز قيادة العمليات', desc: 'مؤشرات فورية ونشاط اليوم', icon: Activity, color: 'text-blue-500 bg-blue-50' },
-                      { id: 'ops_center', name: 'مركز العمليات والتشغيل', desc: 'إدارة وتنسيق العمليات الميدانية والمهام والتقويم المباشر', icon: Sliders, color: 'text-indigo-600 bg-indigo-50' },
-                      { id: 'profile', name: 'الهوية والفروع والكوادر', desc: 'إدارة الفروع والموظفين', icon: Building2, color: 'text-indigo-500 bg-indigo-50' },
-                      { id: 'orders', name: 'طلبات الخدمات التكميلية', desc: 'الطلبات اللوجستية المستقلة', icon: Inbox, color: 'text-rose-500 bg-rose-50' },
-                      { id: 'inventory', name: 'إدارة المخزون والعهود', desc: 'مراقبة المستلزمات والعهود الميدانية', icon: Boxes, color: 'text-emerald-500 bg-emerald-50' },
-                      { id: 'suppliers', name: 'إدارة وشراكات الموردين', desc: 'عقود الموردين والخدمات والطلبات', icon: Truck, color: 'text-cyan-500 bg-cyan-50' },
-                      { id: 'customers', name: 'سجلات وملاحظات العملاء', desc: 'الملفات الشخصية للمستفيدين', icon: Users2, color: 'text-orange-500 bg-orange-50' },
-                      { id: 'notifications', name: 'مركز التنبيهات المباشرة', desc: 'إشعارات النظام والتحويلات', icon: ShieldAlert, color: 'text-red-500 bg-red-50' }
+                    categoryName: '1. العمليات والقيادة',
+                    items: [
+                      { id: 'overview', name: 'مركز القيادة والعمليات الموحد', desc: 'أحداث اليوم والاتصال والتأكيد الميداني', icon: Activity, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+                      { id: 'bookings', name: 'إدارة الحجوزات والطلبات', desc: 'تتبع الحجوزات بالسيريال BKG-26 و SRV-26', icon: CheckSquare, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
                     ]
                   },
                   {
-                    id: 'catalog',
-                    name: 'كتالوج الخدمات والقاعات',
-                    desc: 'القاعات والباقات والسياسات والترويج',
-                    icon: Package,
-                    color: 'text-purple-600 bg-purple-50/50 border-purple-100',
-                    tabs: [
-                      { id: 'catalog', name: 'كتالوج الخدمات والقاعات', desc: 'القاعات، الخدمات والباقات', icon: Package, color: 'text-purple-500 bg-purple-50' },
-                      { id: 'hybrid', name: 'المناسبات والسياسات', desc: 'منع الازدواجية والتكامل', icon: Sparkles, color: 'text-violet-500 bg-violet-50' },
-                      { id: 'marketing', name: 'مركز النمو والتسويق 📈', desc: 'تتبع الحملات بالأرقام، شريط التقدم، الإعلانات والكوبونات', icon: Megaphone, color: 'text-fuchsia-500 bg-fuchsia-50' }
+                    categoryName: '2. إدارة المنشأة والخدمات',
+                    items: [
+                      { id: 'catalog', name: 'إدارة القاعات والكتالوج', desc: 'معروضات المنشأة وتوثيق الوسائط', icon: Package, color: 'text-purple-600 bg-purple-50 border-purple-100' },
+                      { id: 'orders', name: 'الخدمات المساندة والمستقلة', desc: 'إدارة طلبات الضيافة والتجهيزات', icon: Inbox, color: 'text-rose-600 bg-rose-50 border-rose-100' },
+                      { id: 'inventory', name: 'المخزون والموردين', desc: 'متابعة المستلزمات والعهود الميدانية', icon: Boxes, color: 'text-amber-600 bg-amber-50 border-amber-100' },
                     ]
                   },
                   {
-                    id: 'scheduling',
-                    name: 'الجدولة والمواعيد',
-                    desc: 'الحجوزات، المواعيد والإتاحة والتسعير',
-                    icon: Calendar,
-                    color: 'text-amber-600 bg-amber-50/50 border-amber-100',
-                    tabs: [
-                      { id: 'bookings', name: 'إدارة وتتبع الحجوزات', desc: 'حالة الحجز ودورة الحياة', icon: CheckSquare, color: 'text-teal-500 bg-teal-50' },
-                      { id: 'availability', name: 'مواعيد العمل والإتاحة', desc: 'التعطيل والقدرة الاستيعابية', icon: Clock, color: 'text-amber-500 bg-amber-50' },
-                      { id: 'pricing', name: 'محرك التسعير الذكي', desc: 'الأسعار الأساسية والموسمية', icon: CreditCard, color: 'text-emerald-500 bg-emerald-50' }
+                    categoryName: '3. المركز المالي والأداء',
+                    items: [
+                      { id: 'finance', name: 'المركز المالي وحساب الضمان', desc: 'إجمالي الأرباح وعربين الضمان والمسحوبات', icon: Wallet, color: 'text-cyan-600 bg-cyan-50 border-cyan-100' },
+                      { id: 'subscription', name: 'باقات الاشتراك والعمولة', desc: 'ترقية الاشتراك والعمولة المقتطعة', icon: Award, color: 'text-yellow-600 bg-yellow-50 border-yellow-100' },
+                      { id: 'marketing', name: 'التقييمات والتسويق والنمو', desc: 'مؤشر NPS والخصومات والتسويق', icon: Megaphone, color: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-100' },
                     ]
                   },
                   {
-                    id: 'finance',
-                    name: 'المركز المالي',
-                    desc: 'المحفظة والتسويات والاشتراك والفوترة',
-                    icon: Wallet,
-                    color: 'text-emerald-600 bg-emerald-50/50 border-emerald-100',
-                    tabs: [
-                      { id: 'finance', name: 'المركز المالي والمحفظة', desc: 'التسويات والأرباح والعمولات', icon: Wallet, color: 'text-cyan-500 bg-cyan-50' },
-                      { id: 'subscription', name: 'اشتراك المنشأة والفوترة', desc: 'باقة الاشتراك والترقيات', icon: Award, color: 'text-yellow-600 bg-yellow-50' }
-                    ]
-                  },
-                  {
-                    id: 'analytics',
-                    name: 'التحليلات والأداء',
-                    desc: 'التقارير الشاملة وأداء الأعمال والنمو',
-                    icon: TrendingUp,
-                    color: 'text-sky-600 bg-sky-50/50 border-sky-100',
-                    tabs: [
-                      { id: 'reports', name: 'التقارير الشاملة والأداء', desc: 'تقارير تشغيلية ومالية بدقة', icon: FileSpreadsheet, color: 'text-sky-500 bg-sky-50' },
-                      { id: 'stats', name: 'التحليلات والمؤشرات الفورية', desc: 'الأداء الفوري والنشاط ومستجدات الحملات', icon: Activity, color: 'text-purple-500 bg-purple-50' },
-                      { id: 'growth', name: 'مؤشرات النمو والتراكم', desc: 'تحليل حركة الأرباح ونمو الحجوزات', icon: TrendingUp, color: 'text-emerald-500 bg-emerald-50' }
+                    categoryName: '4. التواصل والدعم',
+                    items: [
+                      { id: 'notifications', name: 'الرسائل والدعم الفني', desc: 'الدردشة المباشرة وتذاكر المساعدة', icon: ShieldAlert, color: 'text-red-600 bg-red-50 border-red-100' },
+                      { id: 'profile', name: 'بيانات المنشأة والهوية', desc: 'معلومات الفروع والكوادر الميدانية', icon: Building2, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+                      { id: 'reports', name: 'التقارير الشاملة وسجل النشاط', desc: 'ملخصات الأداء والسجلات الميدانية', icon: FileSpreadsheet, color: 'text-sky-600 bg-sky-50 border-sky-100' },
                     ]
                   }
-                ].map((domain) => {
-                  // Filter tabs in domain based on search query
-                  const filteredTabs = domain.tabs.filter(t => 
+                ].map((group, groupIdx) => {
+                  const filteredItems = group.items.filter(item => 
                     sidebarSearch === '' || 
-                    t.name.includes(sidebarSearch) || 
-                    t.desc.includes(sidebarSearch) ||
-                    domain.name.includes(sidebarSearch)
+                    item.name.includes(sidebarSearch) || 
+                    item.desc.includes(sidebarSearch) ||
+                    group.categoryName.includes(sidebarSearch)
                   );
 
-                  if (filteredTabs.length === 0) return null;
-
-                  // Determine if this domain is active or contains the active subtab
-                  const containsActiveTab = filteredTabs.some(t => t.id === osTab);
-                  const isExpanded = sidebarSearch !== '' || expandedDomains[domain.id] !== false || containsActiveTab;
-                  
-                  const DomainIcon = domain.icon;
-
-                  // Count unread notifications in this domain
-                  let totalDomainNotifications = 0;
-                  if (domain.id === 'operations') {
-                    totalDomainNotifications = liveNotifications.filter(n => n.unread).length;
-                  }
+                  if (filteredItems.length === 0) return null;
 
                   return (
-                    <div 
-                      key={domain.id} 
-                      className={`border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden transition-all duration-300 ${containsActiveTab ? 'ring-1 ring-indigo-500/20 shadow-sm' : ''}`}
-                    >
-                      {/* Domain Accordion Header */}
-                      <button
-                        onClick={() => setExpandedDomains(prev => ({ ...prev, [domain.id]: !prev[domain.id] }))}
-                        className={`w-full flex items-center justify-between p-3 text-right bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-900/10 dark:hover:bg-slate-900/30 transition-all border-b border-slate-100 dark:border-slate-800 cursor-pointer`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {totalDomainNotifications > 0 && (
-                            <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-                              {totalDomainNotifications}
-                            </span>
-                          )}
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-slate-400" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="text-right min-w-0">
-                            <div className="text-xs font-black text-slate-800 dark:text-slate-100">{domain.name}</div>
-                            <div className="text-[9px] text-slate-400 truncate mt-0.5 max-w-[150px]">{domain.desc}</div>
-                          </div>
-                          <div className={`p-1.5 rounded-lg shrink-0 ${domain.color} border`}>
-                            <DomainIcon className="w-4 h-4" />
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Domain Subtabs List */}
-                      {isExpanded && (
-                        <div className="p-1.5 bg-white dark:bg-slate-950/20 space-y-1 transition-all">
-                          {filteredTabs.map((tab) => {
-                            const TabIcon = tab.icon;
-                            const isSelected = osTab === tab.id;
-                            const unreadNotificationsCount = tab.id === 'notifications' ? liveNotifications.filter(n => n.unread).length : 0;
-                            return (
-                              <button
-                                key={tab.id}
-                                onClick={() => {
-                                  setOsTab(tab.id as any);
-                                  setIsMobileMenuOpen(false);
-                                }}
-                                className={`w-full flex items-center gap-3 p-2 rounded-xl text-right transition-all cursor-pointer ${isSelected ? 'bg-gradient-to-r from-indigo-50/80 to-blue-50/30 dark:from-indigo-950/40 dark:to-slate-900/20 border-r-4 border-indigo-600 shadow-xs' : 'hover:bg-slate-50/80 dark:hover:bg-slate-900/20 border-r-4 border-transparent text-slate-600 dark:text-slate-400'}`}
-                              >
-                                <div className={`p-1.5 rounded-lg shrink-0 ${tab.color}`}>
-                                  <TabIcon className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div className={`text-[10px] font-black truncate ${isSelected ? 'text-indigo-950 dark:text-indigo-200 font-extrabold' : 'text-slate-700 dark:text-slate-300'}`}>{tab.name}</div>
-                                    {unreadNotificationsCount > 0 && (
-                                      <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                                        {unreadNotificationsCount}
-                                      </span>
-                                    )}
+                    <div key={groupIdx} className="space-y-1.5">
+                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2">
+                        {group.categoryName}
+                      </div>
+                      <div className="space-y-1">
+                        {filteredItems.map((navTab) => {
+                          const TabIcon = navTab.icon;
+                          const isSelected = osTab === navTab.id;
+                          const unreadCount = navTab.id === 'notifications' ? liveNotifications.filter(n => n.unread).length : 0;
+                          return (
+                            <button
+                              key={navTab.id}
+                              onClick={() => {
+                                setOsTab(navTab.id as any);
+                                setIsMobileMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 p-2.5 rounded-2xl text-right transition-all cursor-pointer ${
+                                isSelected 
+                                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md font-black scale-[1.01]' 
+                                  : 'bg-slate-50/70 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-800'
+                              }`}
+                            >
+                              <div className={`p-2 rounded-xl shrink-0 ${isSelected ? 'bg-white/20 text-white' : navTab.color + ' border'}`}>
+                                <TabIcon className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <div className={`text-xs font-black truncate ${isSelected ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>
+                                    {navTab.name}
                                   </div>
-                                  <div className="text-[8px] text-slate-400 truncate mt-0.5">{tab.desc}</div>
+                                  {unreadCount > 0 && (
+                                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                                      {unreadCount}
+                                    </span>
+                                  )}
                                 </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                                <div className={`text-[9px] truncate mt-0.5 ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                  {navTab.desc}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Advanced Operating Tools Accordion (Hidden by default to avoid clutter) */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => setExpandedDomains(prev => ({ ...prev, extra_tools: !prev.extra_tools }))}
+                  className="w-full flex items-center justify-between p-2 text-xs font-black text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-all cursor-pointer"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedDomains.extra_tools ? 'rotate-180' : ''}`} />
+                  <span className="flex items-center gap-1.5">
+                    <span>أدوات وإعدادات إضافية</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  </span>
+                </button>
+
+                {expandedDomains.extra_tools && (
+                  <div className="pt-2 space-y-1 animate-in fade-in duration-200">
+                    {[
+                      { id: 'profile', name: 'الهوية والفروع والكوادر', icon: Building2 },
+                      { id: 'pricing', name: 'محرك التسعير الذكي', icon: CreditCard },
+                      { id: 'availability', name: 'مواعيد العمل والإتاحة', icon: Clock },
+                      { id: 'marketing', name: 'مركز التسويق والحملات', icon: Megaphone },
+                      { id: 'quality', name: 'مؤشر الجودة وتجربة العميل', icon: Star },
+                      { id: 'reports', name: 'التقارير الشاملة', icon: FileSpreadsheet },
+                    ].map(subItem => {
+                      const SubIcon = subItem.icon;
+                      const isSubSelected = osTab === subItem.id;
+                      return (
+                        <button
+                          key={subItem.id}
+                          onClick={() => {
+                            setOsTab(subItem.id as any);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2 p-2 rounded-xl text-right text-xs transition-all cursor-pointer ${
+                            isSubSelected
+                              ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 font-black border-r-4 border-indigo-600'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <SubIcon className="w-3.5 h-3.5 text-slate-400" />
+                          <span className="truncate">{subItem.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2345,6 +2299,23 @@ export function ProviderDashboard({
               {osTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   
+                  {/* Next-Gen Unified Partner Cockpit (الأركان التشغيلية الستة المكتملة لمركز القيادة والعمليات الموحد) */}
+                  <UnifiedPartnerCockpit
+                    currentProviderName={currentProviderName}
+                    currentUserName={currentUserName}
+                    myBookings={bookings || []}
+                    mySupportRequests={supportServiceRequests || []}
+                    halls={halls || []}
+                    showNotification={showNotification}
+                    onOpenChat={(b) => {
+                      setOsTab('notifications');
+                      showNotification('info', `تم فتح غرفة التواصل المباشر للحجز ${b.id || b.bookingId}`);
+                    }}
+                    onUpdateBookingStage={(bookingId, newStage) => {
+                      showNotification('success', `تم تحديث مرحلة الجاهزية التشغيلية للحجز ${bookingId} إلى المرحلة ${newStage} بنجاح!`);
+                    }}
+                  />
+
                   {/* Command Center Title Banner */}
                   <div className="bg-gradient-to-l from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 rounded-3xl relative overflow-hidden shadow-md text-right">
                     <div className="absolute left-0 top-0 bottom-0 w-1/3 bg-radial from-white/10 to-transparent pointer-events-none"></div>
@@ -8630,6 +8601,48 @@ export function ProviderDashboard({
                     mySupportRequests={mySupportRequests}
                     showNotification={showNotification}
                   />
+                </div>
+              )}
+
+              {/* osTab === 'runsheet' -> Live Event Run-Sheet */}
+              {osTab === 'runsheet' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <EventRunSheet bookings={myBookings} />
+                </div>
+              )}
+
+              {/* osTab === 'guestgate' -> Guest Gate QR Check-in */}
+              {osTab === 'guestgate' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <GuestGateQR hallCapacity={350} />
+                </div>
+              )}
+
+              {/* osTab === 'floorplan' -> 2D Floor Plan Visualizer */}
+              {osTab === 'floorplan' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <FloorPlanVisualizer />
+                </div>
+              )}
+
+              {/* osTab === 'procurement' -> Auto Stock Procurement */}
+              {osTab === 'procurement' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <AutoStockProcurement />
+                </div>
+              )}
+
+              {/* osTab === 'contracts' -> Milestone Contracts */}
+              {osTab === 'contracts' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <MilestoneContracts />
+                </div>
+              )}
+
+              {/* osTab === 'quality' -> Post-Event Quality & NPS Hub */}
+              {osTab === 'quality' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  <PostEventQualityHub />
                 </div>
               )}
 
