@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Megaphone, Target, Wallet, FileText, Percent, Share2, ShieldCheck, Plus, Check, CheckCircle2, X 
+  Megaphone, Target, Wallet, FileText, Percent, Share2, ShieldCheck, Plus, Check, CheckCircle2, X, Zap,
+  Sparkles, Crown, Users, RefreshCw, Camera, Wand2
 } from 'lucide-react';
 import { 
   AgencyMarketingView, 
@@ -13,6 +14,11 @@ import { InternalAdsManagement } from './InternalAdsManagement';
 import { AffiliateMarketingTab } from './AffiliateMarketingTab';
 import { AffiliateReferralDashboard } from './AffiliateReferralDashboard';
 import { LPASManager } from './lpas/LPASManager';
+import { GlobalPeakSeasonalPricingSection } from './admin/GlobalPeakSeasonalPricingSection';
+import { AIMarketingStudio } from './growth/AIMarketingStudio';
+import { InfluencerNetworkTab } from './growth/InfluencerNetworkTab';
+import { AmbassadorProgramTab } from './growth/AmbassadorProgramTab';
+import { SmartAutomationRetargetingTab } from './growth/SmartAutomationRetargetingTab';
 
 interface MarketingManagementProps {
   userRole: string;
@@ -73,9 +79,16 @@ export function MarketingManagement(props: MarketingManagementProps & { marketin
     ] : []),
     { id: 'promotions_tab', label: 'طلبات العروض والخصومات', icon: Percent, color: 'hover:text-emerald-600 hover:border-emerald-555' },
     ...(userRole === 'admin' ? [
+      { id: 'peak_pricing', label: '⚡ أسعار الذروة والمواسم والمحاكاة', icon: Zap, color: 'hover:text-amber-600 hover:border-amber-500' }
+    ] : []),
+    ...(userRole === 'admin' ? [
       { id: 'admin_grants', label: 'الحملات المجانية والمنح الإدارية (Grants)', icon: ShieldCheck, color: 'hover:text-amber-600 hover:border-amber-500' }
     ] : []),
     { id: 'affiliate_codes', label: 'أكواد التسويق بالإحالة والعمولات', icon: Share2, color: 'hover:text-amber-600 hover:border-amber-500' },
+    { id: 'ai_marketing_studio', label: 'استوديو المحتوى والتسويق الذكي (AI Studio) 🪄', icon: Sparkles, color: 'hover:text-indigo-600 hover:border-indigo-500' },
+    { id: 'influencers_network', label: 'شبكة المؤثرين وصناع المحتوى 📸', icon: Camera, color: 'hover:text-purple-600 hover:border-purple-500' },
+    { id: 'ambassadors_program', label: 'برنامج سفراء ليلة والمكافآت 👑', icon: Crown, color: 'hover:text-amber-600 hover:border-amber-500' },
+    { id: 'smart_retargeting', label: 'أتمتة الرسائل واستعادة الحجوزات 🔄', icon: RefreshCw, color: 'hover:text-emerald-600 hover:border-emerald-500' },
     { id: 'lpas_pages', label: 'محرك صفحات الهبوط (LPAS) 🎯', icon: Target, color: 'hover:text-amber-600 hover:border-amber-500' },
     ...(userRole === 'provider' ? [
       { id: 'my_requests', label: 'متابعة طلباتي', icon: FileText, color: 'hover:text-emerald-600 hover:border-emerald-500' }
@@ -371,6 +384,13 @@ export function MarketingManagement(props: MarketingManagementProps & { marketin
           />
         )}
 
+        {activeMarketingSubTab === 'peak_pricing' && userRole === 'admin' && (
+          <GlobalPeakSeasonalPricingSection
+            halls={halls}
+            showNotification={showNotification}
+          />
+        )}
+
         {activeMarketingSubTab === 'admin_grants' && userRole === 'admin' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-150 shadow-sm space-y-6 text-right font-sans" dir="rtl">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
@@ -400,6 +420,40 @@ export function MarketingManagement(props: MarketingManagementProps & { marketin
 
         {activeMarketingSubTab === 'affiliate_codes' && (
           <AffiliateReferralDashboard
+            showNotification={showNotification}
+          />
+        )}
+
+        {activeMarketingSubTab === 'ai_marketing_studio' && (
+          <AIMarketingStudio
+            halls={halls}
+            services={services}
+            providers={providers}
+            currentUser={currentUser}
+            showNotification={showNotification}
+          />
+        )}
+
+        {activeMarketingSubTab === 'influencers_network' && (
+          <InfluencerNetworkTab
+            halls={halls}
+            services={services}
+            providers={providers}
+            currentUser={currentUser}
+            showNotification={showNotification}
+          />
+        )}
+
+        {activeMarketingSubTab === 'ambassadors_program' && (
+          <AmbassadorProgramTab
+            currentUser={currentUser}
+            showNotification={showNotification}
+          />
+        )}
+
+        {activeMarketingSubTab === 'smart_retargeting' && (
+          <SmartAutomationRetargetingTab
+            currentUser={currentUser}
             showNotification={showNotification}
           />
         )}

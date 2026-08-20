@@ -22,6 +22,10 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
+  ArrowLeft,
+  ChevronLeft,
+  Eye,
+  Megaphone,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { providers } from "../data/mockData";
@@ -94,6 +98,13 @@ export default function Header() {
   // Client notifications system state
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [pendingApprovalsStats, setPendingApprovalsStats] = useState<{
+    hallsCount: number;
+    servicesCount: number;
+    providersCount: number;
+    total: number;
+  }>({ hallsCount: 0, servicesCount: 0, providersCount: 0, total: 0 });
+  const [isPendingBannerDismissed, setIsPendingBannerDismissed] = useState(false);
   const [notifications, setNotifications] = useState<any[]>(() => {
     try {
       const stored = localStorage.getItem("CLIENT_NOTIFICATIONS");
@@ -377,6 +388,26 @@ export default function Header() {
             message: `💎 المعاملات الكبرى: تم رصد ${highValuePendingBookings} معاملات حجز كبرى (تتجاوز 50,000 ر.س) تحت الرقابة والتدقيق المالي المباشر.`,
             actionLabel: 'المركز المالي والحسابات',
             actionUrl: '/dashboard?tab=finance'
+          });
+        }
+
+        const totalPendingApprovals = pendingHalls.length + pendingServices.length + pendingDocsCount;
+        setPendingApprovalsStats({
+          hallsCount: pendingHalls.length,
+          servicesCount: pendingServices.length,
+          providersCount: pendingDocsCount,
+          total: totalPendingApprovals,
+        });
+
+        if (totalPendingApprovals > 0) {
+          newAlerts.push({
+            id: 'alert_total_pending_facility_approvals',
+            type: 'warning',
+            isSovereignOperationalAlert: true,
+            nonDisableable: true,
+            message: `⚡ سرعة الاستجابة التشغيلية: يوجد ${totalPendingApprovals} طلبات اعتماد معلقة للمنشآت والقاعات بانتظار المعالجة والبت المباشر (${pendingHalls.length} قاعات، ${pendingServices.length} خدمات، ${pendingDocsCount} شركاء).`,
+            actionLabel: 'معالجة والبت في الطلبات',
+            actionUrl: '/dashboard?tab=partner_requests'
           });
         }
       } else if (userRole === 'provider') {
@@ -963,6 +994,45 @@ export default function Header() {
 
   return (
     <>
+      {/* 🚨 Operational Approvals Notification Top Bar for Admin */}
+      {userRole === 'admin' && pendingApprovalsStats.total > 0 && !isPendingBannerDismissed && (
+        <div className="bg-gradient-to-r from-rose-950 via-amber-950 to-slate-950 text-white px-4 py-2.5 border-b border-rose-500/40 shadow-xl flex items-center justify-between gap-3 text-xs sm:text-sm font-sans relative z-50 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="p-1.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+              <AlertTriangle className="w-4.5 h-4.5 text-rose-400 animate-bounce" />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-black text-rose-300 bg-rose-500/20 px-2.5 py-0.5 rounded-lg border border-rose-400/30 text-[11px] shadow-2xs">
+                ⚡ تنبيه الاستجابة التشغيلية العاجلة
+              </span>
+              <span className="text-slate-200 font-bold">
+                يوجد <span className="font-mono font-black text-amber-400 text-sm px-2 py-0.5 bg-amber-500/20 rounded-md border border-amber-400/30">{pendingApprovalsStats.total}</span> طلبات اعتماد منشآت وقاعات معلقة بانتظار معالجة الإدارة:
+              </span>
+              <span className="text-slate-300 text-xs font-mono font-medium hidden md:inline">
+                ({pendingApprovalsStats.hallsCount} قاعات ومرافق • {pendingApprovalsStats.servicesCount} خدمات مساندة • {pendingApprovalsStats.providersCount} وثائق شركاء)
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate('/dashboard?tab=partner_requests')}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 whitespace-nowrap"
+            >
+              <span>معالجة والبت في الطلبات ({pendingApprovalsStats.total})</span>
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setIsPendingBannerDismissed(true)}
+              className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
+              title="إخفاء التنبيه المؤقت"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Premium Ad Banner */}
       <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2 text-center text-sm font-medium">
         🎉 عرض خاص: خصم 20% على جميع قاعات الأفراح عند الحجز المبكر هذا الأسبوع!
@@ -1337,15 +1407,26 @@ export default function Header() {
                             }
                           })()}
                         </span>
-                        <span className="text-[9px] font-medium text-amber-400 mt-1">
-                          {userRole === "admin"
-                            ? "مدير النظام 🛡️"
-                            : userRole === "provider"
-                              ? "مزود الخدمة 💼"
-                              : userRole === "agency"
-                                ? "جهة تسويق 📢"
-                                : "عميل مميز ✨"}
-                        </span>
+                        {userRole === "admin" && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 bg-blue-900/90 px-2 py-0.5 rounded-full border border-blue-600/60 shadow-sm mt-1">
+                            <ShieldCheck className="w-2.5 h-2.5 text-amber-300" /> المشرف العام 🛡️
+                          </span>
+                        )}
+                        {userRole === "provider" && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 bg-indigo-950/90 px-2 py-0.5 rounded-full border border-indigo-600/60 shadow-sm mt-1">
+                            <Building2 className="w-2.5 h-2.5 text-amber-400" /> مزود خدمة 💼
+                          </span>
+                        )}
+                        {userRole === "agency" && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black text-pink-200 bg-fuchsia-950/90 px-2 py-0.5 rounded-full border border-fuchsia-600/60 shadow-sm mt-1">
+                            <Megaphone className="w-2.5 h-2.5 text-pink-300" /> جهة تسويق 📢
+                          </span>
+                        )}
+                        {userRole === "customer" && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-500/40 mt-1">
+                            ✨ عميل المنصة
+                          </span>
+                        )}
                       </div>
 
                       <ChevronDown
@@ -1362,7 +1443,7 @@ export default function Header() {
                         ></div>
 
                         <div
-                          className="absolute left-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 py-3 text-slate-800 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+                          className="absolute left-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 py-3 text-slate-800 z-50 animate-in fade-in slide-in-from-top-2 duration-200"
                           dir="rtl"
                         >
                           {/* User Header Info */}
@@ -1398,138 +1479,310 @@ export default function Header() {
                                 }
                               })()}
                             </p>
+                            <div className="mt-2">
+                              {userRole === "admin" && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 text-amber-300 text-[10px] font-black border border-blue-700/60 shadow-sm">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-amber-300" /> المشرف العام (Admin) 🛡️
+                                </span>
+                              )}
+                              {userRole === "provider" && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-900 text-[10px] font-black border border-indigo-200 shadow-sm">
+                                  <Building2 className="w-3.5 h-3.5 text-indigo-600" /> شريك مزود خدمة 💼
+                                </span>
+                              )}
+                              {userRole === "agency" && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-fuchsia-50 text-fuchsia-900 text-[10px] font-black border border-fuchsia-200 shadow-sm">
+                                  <Megaphone className="w-3.5 h-3.5 text-fuchsia-600" /> جهة تسويق معتمدة 📢
+                                </span>
+                              )}
+                              {userRole === "customer" && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 text-[10px] font-black border border-emerald-200 shadow-sm">
+                                  ✨ عميل المنصة
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          {/* Conditionally show provider dashboard & portals to providers and admins */}
-                          {(userRole === "provider" ||
-                            userRole === "admin") && (
-                            <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
-                              {/* Primary Unified Control Dashboard Link */}
-                              <Link
-                                to="/provider-dashboard"
-                                onClick={() => setIsUserMenuOpen(false)}
-                                className="flex items-center gap-3 px-3 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all border border-amber-500 shadow-sm"
-                              >
-                                <div className="w-7 h-7 bg-amber-950 rounded-lg flex items-center justify-center text-amber-400 shrink-0">
-                                  <LayoutDashboard className="w-4 h-4" />
-                                </div>
-                                <span>لوحة تحكم المزود الموحدة</span>
-                              </Link>
+                          {/* 1. ADMIN USER PORTAL OPTIONS */}
+                          {userRole === "admin" && (
+                            <>
+                              {/* Prominent Admin Control Dashboard Link */}
+                              <div className="px-3 pb-2.5 border-b border-slate-100 mb-2">
+                                <Link
+                                  to="/dashboard"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white shadow-md border border-blue-700 hover:from-blue-800 hover:to-indigo-800 transition-all group"
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="p-2 bg-amber-500 text-slate-950 rounded-lg shrink-0 group-hover:scale-105 transition-transform shadow">
+                                      <ShieldCheck className="w-4 h-4" />
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xs font-black text-white flex items-center gap-1">
+                                        <span>لوحة تحكم الإدارة</span>
+                                        <span className="text-[9px] bg-amber-400 text-blue-950 px-1.5 py-0.2 rounded font-black">Admin</span>
+                                      </div>
+                                      <div className="text-[9px] text-blue-200 mt-0.5 font-medium">الرقابة السيادية والاعتمادات</div>
+                                    </div>
+                                  </div>
+                                  <ChevronLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform shrink-0" />
+                                </Link>
+                              </div>
 
-                              {/* Direct Tab Links inside Unified Dashboard */}
-                              <Link
-                                to="/provider-dashboard?tab=halls"
-                                onClick={() => setIsUserMenuOpen(false)}
-                                className="flex items-center gap-3 px-3 py-2 text-xs font-black text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-200"
-                              >
-                                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
-                                  <Building2 className="w-4 h-4" />
-                                </div>
-                                <span>إدارة القاعات والخدمات</span>
-                              </Link>
-
-                              <Link
-                                to="/provider-dashboard?tab=bookings"
-                                onClick={() => setIsUserMenuOpen(false)}
-                                className="flex items-center gap-3 px-3 py-2 text-xs font-black text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all border border-slate-200"
-                              >
-                                <div className="w-7 h-7 bg-slate-600 rounded-lg flex items-center justify-center text-white shrink-0">
-                                  <ClipboardList className="w-4 h-4" />
-                                </div>
-                                <span>إدارة الحجوزات والطلبات</span>
-                              </Link>
-
-                              {/* 'محادثات العملاء' option opens the partner/provider messaging portal in the client UI for providers and admin */}
-                              {(userRole === "provider" || userRole === "admin") && (
+                              {/* Provider Portals Preview Section for Admin */}
+                              <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
+                                <p className="px-1 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                  <Eye className="w-3 h-3 text-indigo-500" />
+                                  <span>معاينة بوابات المزودين:</span>
+                                </p>
+                                <Link
+                                  to="/provider-dashboard"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-bold text-amber-950 bg-amber-50/80 hover:bg-amber-100 rounded-lg transition-all border border-amber-200"
+                                >
+                                  <LayoutDashboard className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>لوحة تحكم المزود الموحدة</span>
+                                </Link>
+                                <Link
+                                  to="/provider-dashboard?tab=halls"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-bold text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 rounded-lg transition-all border border-indigo-200"
+                                >
+                                  <Building2 className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>إدارة القاعات والخدمات</span>
+                                </Link>
+                                <Link
+                                  to="/provider-dashboard?tab=bookings"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-bold text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all border border-slate-200"
+                                >
+                                  <ClipboardList className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>إدارة الحجوزات والطلبات</span>
+                                </Link>
                                 <Link
                                   to="/provider-messages"
                                   onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-200"
+                                  className="flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-bold text-indigo-950 bg-indigo-50/70 hover:bg-indigo-100 rounded-lg transition-all border border-indigo-200"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>محادثات العملاء</span>
+                                </Link>
+                              </div>
+
+                              {/* Customer & common links for admin */}
+                              <div className="px-2 space-y-0.5">
+                                <Link
+                                  to="/bookings"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
+                                >
+                                  <Receipt className="w-4 h-4 text-slate-400" />
+                                  <span>حجوزاتي المعتمدة</span>
+                                </Link>
+                                <Link
+                                  to="/favorites"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50/50 rounded-lg transition-all"
+                                >
+                                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                                  <span>القاعات المفضلة (مفضلتي)</span>
+                                </Link>
+                                <Link
+                                  to="/profile"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
+                                >
+                                  <User className="w-4 h-4 text-slate-400" />
+                                  <span>الملف الشخصي والحساب</span>
+                                </Link>
+                                <Link
+                                  to="/support"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-650 hover:text-indigo-800 hover:bg-indigo-50/30 rounded-lg transition-all"
+                                >
+                                  <HelpCircle className="w-4 h-4 text-indigo-500" />
+                                  <span>مركز الدعم والتذاكر</span>
+                                </Link>
+                              </div>
+                            </>
+                          )}
+
+                          {/* 2. PROVIDER USER PORTAL OPTIONS (STRICT ISOLATION - NO ADMIN LINKS) */}
+                          {userRole === "provider" && (
+                            <>
+                              <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
+                                <p className="px-1 text-[9px] font-black text-indigo-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                  <Building2 className="w-3 h-3 text-indigo-600" />
+                                  <span>بوابات الشريك المزود:</span>
+                                </p>
+                                <Link
+                                  to="/provider-dashboard"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all border border-amber-500 shadow-sm"
+                                >
+                                  <div className="w-7 h-7 bg-amber-950 rounded-lg flex items-center justify-center text-amber-400 shrink-0">
+                                    <LayoutDashboard className="w-4 h-4" />
+                                  </div>
+                                  <span>لوحة تحكم المزود الموحدة</span>
+                                </Link>
+                                <Link
+                                  to="/provider-dashboard?tab=halls"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-indigo-950 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-200"
+                                >
+                                  <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
+                                    <Building2 className="w-4 h-4" />
+                                  </div>
+                                  <span>إدارة القاعات والخدمات</span>
+                                </Link>
+                                <Link
+                                  to="/provider-dashboard?tab=bookings"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all border border-slate-200"
+                                >
+                                  <div className="w-7 h-7 bg-slate-600 rounded-lg flex items-center justify-center text-white shrink-0">
+                                    <ClipboardList className="w-4 h-4" />
+                                  </div>
+                                  <span>إدارة الحجوزات والطلبات</span>
+                                </Link>
+                                <Link
+                                  to="/provider-messages"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-black text-indigo-950 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-all border border-indigo-200"
                                 >
                                   <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
                                     <MessageSquare className="w-4 h-4" />
                                   </div>
                                   <span>محادثات العملاء</span>
                                 </Link>
-                              )}
-                            </div>
-                          )}
+                              </div>
 
-                          {/* Standard User Links with Beautiful Icons */}
-                          <div className="px-2 space-y-0.5">
-                            <Link
-                              to="/bookings"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
-                            >
-                              <Receipt className="w-4 h-4 text-slate-400" />
-                              <span>حجوزاتي المعتمدة</span>
-                            </Link>
-
-                            <Link
-                              to="/favorites"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50/50 rounded-lg transition-all"
-                            >
-                              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                              <span>القاعات المفضلة</span>
-                            </Link>
-
-                            <Link
-                              to="/service-requests"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
-                            >
-                              <Sparkles className="w-4 h-4 text-slate-400" />
-                              <span>طلبات خدمات المناسبات</span>
-                            </Link>
-
-                            <Link
-                              to="/profile"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
-                            >
-                              <User className="w-4 h-4 text-slate-400" />
-                              <span>الملف الشخصي والحساب</span>
-                            </Link>
-
-                            <Link
-                              to="/support"
-                              onClick={() => setIsUserMenuOpen(false)}
-                              className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-650 hover:text-indigo-800 hover:bg-indigo-50/30 rounded-lg transition-all"
-                            >
-                              <HelpCircle className="w-4 h-4 text-indigo-500" />
-                              <span>مركز الدعم والتذاكر</span>
-                            </Link>
-                          </div>
-
-                          {/* Admin & Marketing Portals with Icons */}
-                          {(userRole === "admin" || userRole === "agency") && (
-                            <>
-                              <hr className="my-2 border-slate-100" />
-                              <div className="px-2">
-                                {userRole === "admin" && (
-                                  <Link
-                                    to="/dashboard"
-                                    onClick={() => setIsUserMenuOpen(false)}
-                                    className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-blue-900 hover:bg-slate-50 hover:text-amber-600 rounded-lg transition-all"
-                                  >
-                                    <ShieldCheck className="w-4 h-4 text-blue-600" />
-                                    <span>لوحة تحكم الإدارة</span>
-                                  </Link>
-                                )}
-                                {userRole === "agency" && (
-                                  <Link
-                                    to="/dashboard"
-                                    onClick={() => setIsUserMenuOpen(false)}
-                                    className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-blue-900 hover:bg-slate-50 hover:text-amber-600 rounded-lg transition-all"
-                                  >
-                                    <Settings className="w-4 h-4 text-amber-600" />
-                                    <span>لوحة جهة التسويق</span>
-                                  </Link>
-                                )}
+                              <div className="px-2 space-y-0.5">
+                                <Link
+                                  to="/favorites"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50/50 rounded-lg transition-all"
+                                >
+                                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                                  <span>القاعات المفضلة (مفضلتي)</span>
+                                </Link>
+                                <Link
+                                  to="/profile"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all"
+                                >
+                                  <User className="w-4 h-4 text-slate-400" />
+                                  <span>الملف الشخصي والحساب</span>
+                                </Link>
+                                <Link
+                                  to="/support"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-650 hover:text-indigo-800 hover:bg-indigo-50/30 rounded-lg transition-all"
+                                >
+                                  <HelpCircle className="w-4 h-4 text-indigo-500" />
+                                  <span>مركز الدعم والتذاكر</span>
+                                </Link>
                               </div>
                             </>
+                          )}
+
+                          {/* 3. AGENCY USER PORTAL OPTIONS */}
+                          {userRole === "agency" && (
+                            <>
+                              <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
+                                <p className="px-1 text-[9px] font-black text-fuchsia-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                  <Megaphone className="w-3 h-3 text-fuchsia-600" />
+                                  <span>بوابة التسويق المعتمدة:</span>
+                                </p>
+                                <Link
+                                  to="/dashboard"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2.5 text-xs font-black text-fuchsia-950 bg-fuchsia-50 hover:bg-fuchsia-100 rounded-xl transition-all border border-fuchsia-200"
+                                >
+                                  <div className="w-7 h-7 bg-fuchsia-600 rounded-lg flex items-center justify-center text-white shrink-0">
+                                    <Megaphone className="w-4 h-4" />
+                                  </div>
+                                  <span>لوحة جهة التسويق</span>
+                                </Link>
+                              </div>
+                              <div className="px-2 space-y-0.5">
+                                <Link
+                                  to="/favorites"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50/50 rounded-lg transition-all"
+                                >
+                                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                                  <span>القاعات المفضلة (مفضلتي)</span>
+                                </Link>
+                                <Link
+                                  to="/profile"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg"
+                                >
+                                  <User className="w-4 h-4 text-slate-400" />
+                                  <span>الملف الشخصي والحساب</span>
+                                </Link>
+                                <Link
+                                  to="/support"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-650 hover:text-indigo-800 hover:bg-indigo-50/30 rounded-lg transition-all"
+                                >
+                                  <HelpCircle className="w-4 h-4 text-indigo-500" />
+                                  <span>مركز الدعم والتذاكر</span>
+                                </Link>
+                              </div>
+                            </>
+                          )}
+
+                          {/* 4. CUSTOMER USER OPTIONS (STRICT ISOLATION - NO PROVIDER/ADMIN LINKS) */}
+                          {userRole === "customer" && (
+                            <div className="px-2 space-y-0.5">
+                              <p className="px-2 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">خدمات العميل:</p>
+                              <Link
+                                to="/bookings"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
+                              >
+                                <Receipt className="w-4 h-4 text-slate-400" />
+                                <span>حجوزاتي المعتمدة</span>
+                              </Link>
+
+                              <Link
+                                to="/favorites"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-rose-650 hover:text-rose-800 hover:bg-rose-50/50 rounded-lg transition-all"
+                              >
+                                <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                                <span>القاعات المفضلة</span>
+                              </Link>
+
+                              <Link
+                                to="/bookings?tab=services"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
+                              >
+                                <Sparkles className="w-4 h-4 text-slate-400" />
+                                <span>طلبات خدمات المناسبات</span>
+                              </Link>
+
+                              <Link
+                                to="/profile"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-750 hover:text-amber-600 hover:bg-slate-50 rounded-lg transition-all"
+                              >
+                                <User className="w-4 h-4 text-slate-400" />
+                                <span>الملف الشخصي والحساب</span>
+                              </Link>
+
+                              <Link
+                                to="/support"
+                                onClick={() => setIsUserMenuOpen(false)}
+                                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-indigo-650 hover:text-indigo-800 hover:bg-indigo-50/30 rounded-lg transition-all"
+                              >
+                                <HelpCircle className="w-4 h-4 text-indigo-500" />
+                                <span>مركز الدعم والتذاكر</span>
+                              </Link>
+                            </div>
                           )}
 
                           <hr className="my-2 border-slate-100" />
@@ -1874,121 +2127,262 @@ export default function Header() {
                       </span>
                       <span className="text-[10px] font-medium text-amber-400 mt-0.5">
                         {userRole === "admin"
-                          ? "مدير النظام 🛡️"
+                          ? "المشرف العام (Admin) 🛡️"
                           : userRole === "provider"
-                            ? "مزود الخدمة 💼"
+                            ? "شريك مزود خدمة 💼"
                             : userRole === "agency"
-                              ? "جهة تسويق 📢"
-                              : "عميل مميز ✨"}
+                              ? "جهة تسويق معتمدة 📢"
+                              : "✨ عميل المنصة"}
                       </span>
                     </div>
                   </div>
 
+                  {/* ADMIN USER MOBILE */}
                   {userRole === "admin" && (
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-blue-900 bg-amber-400 border border-amber-500"
-                    >
-                      <ShieldCheck className="w-5 h-5 text-blue-900" />
-                      <span>لوحة تحكم الإدارة</span>
-                    </Link>
-                  )}
-                  {(userRole === "provider" || userRole === "admin") && (
-                    <>
+                    <div className="space-y-2 mb-3">
                       <Link
-                        to="/provider-dashboard"
+                        to="/dashboard"
                         onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-amber-950 bg-amber-400 border border-amber-500"
+                        className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-black text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-600 shadow-md"
                       >
-                        <LayoutDashboard className="w-5 h-5 text-amber-950" />
-                        <span>لوحة تحكم المزود الموحدة</span>
+                        <ShieldCheck className="w-5 h-5 text-blue-950" />
+                        <div className="flex flex-col text-right">
+                          <span>لوحة تحكم الإدارة</span>
+                          <span className="text-[10px] font-medium text-blue-950/80">الرقابة السيادية والاعتمادات</span>
+                        </div>
                       </Link>
-                      <Link
-                        to="/provider-dashboard?tab=halls"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-500/30"
-                      >
-                        <Building2 className="w-5 h-5 text-indigo-400" />
-                        <span>إدارة القاعات والخدمات</span>
-                      </Link>
-                      <Link
-                        to="/provider-dashboard?tab=bookings"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-100 bg-slate-850 border border-slate-700/60"
-                      >
-                        <ClipboardList className="w-5 h-5 text-slate-400" />
-                        <span>إدارة الحجوزات والطلبات</span>
-                      </Link>
-                    </>
+
+                      <div className="bg-white/5 p-2 rounded-xl border border-white/10 space-y-1">
+                        <p className="px-2 text-[10px] font-bold text-amber-400/90 mb-1">معاينة بوابات المزودين:</p>
+                        <Link
+                          to="/provider-dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-200 hover:bg-white/10"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-amber-400" />
+                          <span>لوحة تحكم المزود الموحدة</span>
+                        </Link>
+                        <Link
+                          to="/provider-dashboard?tab=halls"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-200 hover:bg-white/10"
+                        >
+                          <Building2 className="w-4 h-4 text-indigo-400" />
+                          <span>إدارة القاعات والخدمات</span>
+                        </Link>
+                        <Link
+                          to="/provider-dashboard?tab=bookings"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-200 hover:bg-white/10"
+                        >
+                          <ClipboardList className="w-4 h-4 text-slate-400" />
+                          <span>إدارة الحجوزات والطلبات</span>
+                        </Link>
+                        <Link
+                          to="/provider-messages"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-200 hover:bg-white/10"
+                        >
+                          <MessageSquare className="w-4 h-4 text-indigo-400" />
+                          <span>محادثات العملاء</span>
+                        </Link>
+                      </div>
+
+                      <div className="space-y-1 bg-white/5 p-2 rounded-xl border border-white/5">
+                        <Link
+                          to="/bookings"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5"
+                        >
+                          <Receipt className="w-4.5 h-4.5 text-slate-400" />
+                          <span>حجوزاتي المعتمدة</span>
+                        </Link>
+                        <Link
+                          to="/favorites"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-350 font-bold hover:bg-rose-500/10"
+                        >
+                          <Heart className="w-4.5 h-4.5 text-rose-400 fill-rose-400" />
+                          <span>القاعات المفضلة (مفضلتي)</span>
+                        </Link>
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5"
+                        >
+                          <User className="w-4.5 h-4.5 text-slate-400" />
+                          <span>الملف الشخصي والحساب</span>
+                        </Link>
+                        <Link
+                          to="/support"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 font-bold hover:bg-white/5"
+                        >
+                          <HelpCircle className="w-4.5 h-4.5 text-indigo-400" />
+                          <span>مركز الدعم والتذاكر</span>
+                        </Link>
+                      </div>
+                    </div>
                   )}
-                  {(userRole === "provider" || userRole === "admin") && (
-                    <Link
-                      to="/provider-messages"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-550/30"
-                    >
-                      <MessageSquare className="w-5 h-5 text-indigo-400" />
-                      <span>محادثات العملاء</span>
-                    </Link>
+
+                  {/* PROVIDER USER MOBILE (STRICT ISOLATION) */}
+                  {userRole === "provider" && (
+                    <div className="space-y-2 mb-3">
+                      <div className="bg-white/5 p-2 rounded-xl border border-white/10 space-y-1">
+                        <p className="px-2 text-[10px] font-bold text-amber-400 mb-1">بوابات الشريك المزود:</p>
+                        <Link
+                          to="/provider-dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-black text-amber-950 bg-amber-400 border border-amber-500"
+                        >
+                          <LayoutDashboard className="w-5 h-5 text-amber-950" />
+                          <span>لوحة تحكم المزود الموحدة</span>
+                        </Link>
+                        <Link
+                          to="/provider-dashboard?tab=halls"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-500/30"
+                        >
+                          <Building2 className="w-5 h-5 text-indigo-400" />
+                          <span>إدارة القاعات والخدمات</span>
+                        </Link>
+                        <Link
+                          to="/provider-dashboard?tab=bookings"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-100 bg-slate-850 border border-slate-700/60"
+                        >
+                          <ClipboardList className="w-5 h-5 text-slate-400" />
+                          <span>إدارة الحجوزات والطلبات</span>
+                        </Link>
+                        <Link
+                          to="/provider-messages"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-indigo-100 bg-indigo-900/50 border border-indigo-550/30"
+                        >
+                          <MessageSquare className="w-5 h-5 text-indigo-400" />
+                          <span>محادثات العملاء</span>
+                        </Link>
+                      </div>
+
+                      <div className="space-y-1 bg-white/5 p-2 rounded-xl border border-white/5">
+                        <Link
+                          to="/favorites"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-350 font-bold hover:bg-rose-500/10"
+                        >
+                          <Heart className="w-4.5 h-4.5 text-rose-400 fill-rose-400" />
+                          <span>القاعات المفضلة (مفضلتي)</span>
+                        </Link>
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5"
+                        >
+                          <User className="w-4.5 h-4.5 text-slate-400" />
+                          <span>الملف الشخصي والحساب</span>
+                        </Link>
+                        <Link
+                          to="/support"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 font-bold hover:bg-white/5"
+                        >
+                          <HelpCircle className="w-4.5 h-4.5 text-indigo-400" />
+                          <span>مركز الدعم والتذاكر</span>
+                        </Link>
+                      </div>
+                    </div>
                   )}
+
+                  {/* AGENCY USER MOBILE */}
                   {userRole === "agency" && (
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-blue-950 bg-amber-400 border border-amber-500"
-                    >
-                      <Settings className="w-5 h-5 text-blue-950" />
-                      <span>لوحة جهة التسويق</span>
-                    </Link>
+                    <div className="space-y-2 mb-3">
+                      <Link
+                        to="/dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-fuchsia-950 bg-fuchsia-300 border border-fuchsia-400"
+                      >
+                        <Megaphone className="w-5 h-5 text-fuchsia-950" />
+                        <span>لوحة جهة التسويق</span>
+                      </Link>
+                      <div className="space-y-1 bg-white/5 p-2 rounded-xl border border-white/5">
+                        <Link
+                          to="/favorites"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-350 font-bold hover:bg-rose-500/10"
+                        >
+                          <Heart className="w-4.5 h-4.5 text-rose-400 fill-rose-400" />
+                          <span>القاعات المفضلة (مفضلتي)</span>
+                        </Link>
+                        <Link
+                          to="/profile"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5"
+                        >
+                          <User className="w-4.5 h-4.5 text-slate-400" />
+                          <span>الملف الشخصي والحساب</span>
+                        </Link>
+                        <Link
+                          to="/support"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 font-bold hover:bg-white/5"
+                        >
+                          <HelpCircle className="w-4.5 h-4.5 text-indigo-400" />
+                          <span>مركز الدعم والتذاكر</span>
+                        </Link>
+                      </div>
+                    </div>
                   )}
 
-                  <div className="space-y-1 bg-white/5 p-2 rounded-xl border border-white/5">
-                    <Link
-                      to="/bookings"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
-                    >
-                      <Receipt className="w-4.5 h-4.5 text-slate-400" />
-                      <span>حجوزاتي المعتمدة</span>
-                    </Link>
+                  {/* CUSTOMER USER MOBILE (STRICT ISOLATION) */}
+                  {userRole === "customer" && (
+                    <div className="space-y-1 bg-white/5 p-2 rounded-xl border border-white/5 mb-3">
+                      <p className="px-2 text-[10px] font-bold text-amber-400/80 mb-1">خدمات العميل:</p>
+                      <Link
+                        to="/bookings"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
+                      >
+                        <Receipt className="w-4.5 h-4.5 text-slate-400" />
+                        <span>حجوزاتي المعتمدة</span>
+                      </Link>
 
-                    <Link
-                      to="/favorites"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-350 font-bold hover:bg-rose-500/10 transition-all"
-                    >
-                      <Heart className="w-4.5 h-4.5 text-rose-400 fill-rose-400" />
-                      <span>القاعات المفضلة</span>
-                    </Link>
+                      <Link
+                        to="/favorites"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-rose-350 font-bold hover:bg-rose-500/10 transition-all"
+                      >
+                        <Heart className="w-4.5 h-4.5 text-rose-400 fill-rose-400" />
+                        <span>القاعات المفضلة</span>
+                      </Link>
 
-                    <Link
-                      to="/service-requests"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
-                    >
-                      <Sparkles className="w-4.5 h-4.5 text-slate-400" />
-                      <span>طلبات خدمات المناسبات</span>
-                    </Link>
+                      <Link
+                        to="/bookings?tab=services"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
+                      >
+                        <Sparkles className="w-4.5 h-4.5 text-slate-400" />
+                        <span>طلبات خدمات المناسبات</span>
+                      </Link>
 
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
-                    >
-                      <User className="w-4.5 h-4.5 text-slate-400" />
-                      <span>الملف الشخصي والحساب</span>
-                    </Link>
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-all"
+                      >
+                        <User className="w-4.5 h-4.5 text-slate-400" />
+                        <span>الملف الشخصي والحساب</span>
+                      </Link>
 
-                    <Link
-                      to="/support"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 font-bold hover:bg-white/5 hover:text-indigo-200 transition-all"
-                    >
-                      <HelpCircle className="w-4.5 h-4.5 text-indigo-400" />
-                      <span>مركز الدعم والتذاكر</span>
-                    </Link>
-                  </div>
+                      <Link
+                        to="/support"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 font-bold hover:bg-white/5 hover:text-indigo-200 transition-all"
+                      >
+                        <HelpCircle className="w-4.5 h-4.5 text-indigo-400" />
+                        <span>مركز الدعم والتذاكر</span>
+                      </Link>
+                    </div>
+                  )}
 
                   <button
                     onClick={() => {

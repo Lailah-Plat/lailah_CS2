@@ -33,11 +33,13 @@ import {
   Banknote,
   TrendingUp,
   TrendingDown,
-  Search
+  Search,
+  Star
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PartnerTieringEngineModal } from './partner/PartnerTieringEngineModal';
 import { getSubscriptions } from '../utils/subscriptions';
+import { ProviderRatingsMiniDashboard } from './admin/ProviderRatingsMiniDashboard';
 
 export interface Provider {
   id: string | number;
@@ -417,6 +419,12 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
   const [rejectionFeedbackItem, setRejectionFeedbackItem] = React.useState<any>(null);
   const [rejectionFeedbackType, setRejectionFeedbackType] = React.useState<'hall' | 'service'>('hall');
 
+  // Rating & Loyalty Dashboard sorting and filtering state
+  const [providersSectionSubTab, setProvidersSectionSubTab] = React.useState<'list' | 'ratings'>('list');
+  const [providerSortKey, setProviderSortKey] = React.useState<string>('rating_desc');
+  const [providerMinRatingFilter, setProviderMinRatingFilter] = React.useState<number>(0);
+  const [providerSearchQuery, setProviderSearchQuery] = React.useState<string>('');
+
   React.useEffect(() => {
     localStorage.setItem('SYSTEM_DATastore_provider_commissions', JSON.stringify(commissionRates));
   }, [commissionRates]);
@@ -522,6 +530,43 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
   });
 
   const combinedProviders = Array.from(dbProvidersMap.values());
+
+  const sortedAndFilteredProviders = React.useMemo(() => {
+    let list = [...combinedProviders];
+
+    if (providerSearchQuery.trim()) {
+      const q = providerSearchQuery.toLowerCase().trim();
+      list = list.filter(p => 
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.city && p.city.toLowerCase().includes(q)) ||
+        (p.phone && p.phone.includes(q)) ||
+        (p.idNumber && p.idNumber.includes(q))
+      );
+    }
+
+    if (providerMinRatingFilter > 0) {
+      list = list.filter(p => Number(p.rating || 0) >= providerMinRatingFilter);
+    }
+
+    return list.sort((a, b) => {
+      if (providerSortKey === 'rating_desc') {
+        return Number(b.rating || 0) - Number(a.rating || 0);
+      }
+      if (providerSortKey === 'rating_asc') {
+        return Number(a.rating || 0) - Number(b.rating || 0);
+      }
+      if (providerSortKey === 'bookings_desc') {
+        return Number(b.bookingsCount || 0) - Number(a.bookingsCount || 0);
+      }
+      if (providerSortKey === 'reviews_desc') {
+        return Number(b.reviewsCount || Math.round((b.rating || 4.8) * 15)) - Number(a.reviewsCount || Math.round((a.rating || 4.8) * 15));
+      }
+      if (providerSortKey === 'name_asc') {
+        return (a.name || '').localeCompare(b.name || '', 'ar');
+      }
+      return 0;
+    });
+  }, [combinedProviders, providerSortKey, providerMinRatingFilter, providerSearchQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -737,8 +782,48 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
       )}
 
       {activeTabToRender === 'list' && (
-        <div className="space-y-4">
-          {/* 💡 Table Details & Column Guide Banner */}
+        <div className="space-y-6">
+          {/* 🔘 Subtab Switcher Bar for Provider Management */}
+          <div className="bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80 flex flex-wrap gap-2 w-full sm:w-fit">
+            <button
+              onClick={() => setProvidersSectionSubTab('list')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                providersSectionSubTab === 'list'
+                  ? 'bg-white text-slate-900 shadow-sm scale-102 font-black border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Users2 className="w-4 h-4 text-indigo-600" />
+              👥 قائمة الحسابات والشركاء المعتمدين
+            </button>
+            <button
+              onClick={() => setProvidersSectionSubTab('ratings')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                providersSectionSubTab === 'ratings'
+                  ? 'bg-amber-500 text-slate-950 shadow-md scale-102 font-black'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
+              ⭐ لوحة تقييمات الشركاء ومعايير الولاء والجودة
+            </button>
+          </div>
+
+          {providersSectionSubTab === 'ratings' ? (
+            /* ⭐ Mini Dashboard for Provider Ratings & Quality Standards in standalone tab */
+            <ProviderRatingsMiniDashboard
+              providers={combinedProviders}
+              activeSort={providerSortKey}
+              setActiveSort={setProviderSortKey}
+              minRatingFilter={providerMinRatingFilter}
+              setMinRatingFilter={setProviderMinRatingFilter}
+              searchQuery={providerSearchQuery}
+              setSearchQuery={setProviderSearchQuery}
+              onViewProviderProfile={(prov) => setViewingDetailedProvider(prov)}
+            />
+          ) : (
+            <>
+              {/* 💡 Table Details & Column Guide Banner */}
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-sm border border-slate-800 font-sans">
             <div className="flex justify-between items-center cursor-pointer select-none" onClick={() => setIsTableGuideOpen(!isTableGuideOpen)}>
               <div className="flex items-center gap-3">
@@ -813,12 +898,13 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
                   <th className="p-4">عمولة المنصة واقتطاع المبيعات</th>
                   <th className="p-4">التراخيص والربط الضريبي</th>
                   <th className="p-4">المدينة والهاتف</th>
+                  <th className="p-4 text-center">التقييم والجودة ⭐</th>
                   <th className="p-4">الحالة التشغيلية</th>
                   <th className="p-4 text-center">التحكم الرقابي والعمليات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-150 text-xs">
-                {combinedProviders.map((p) => {
+                {sortedAndFilteredProviders.map((p) => {
                   const level = getLocalPartnerLevel(p.bookingsCount, p.rating, p.packageName);
                   const pkgLower = (p.packageName || '').toLowerCase();
                   const defaultPkgRate = pkgLower.includes('ملك') || pkgLower.includes('vip') ? 5 :
@@ -934,6 +1020,15 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
                           <div className="flex flex-col text-xs">
                             <span className="font-bold text-slate-700">{p.city}</span>
                             <span className="text-slate-400 font-mono" dir="ltr">{p.phone}</span>
+                          </div>
+                        </td>
+
+                        {/* Rating & Quality */}
+                        <td className="p-4 text-center">
+                          <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-mono font-extrabold text-xs shadow-2xs" title={`${p.reviewsCount || Math.round((p.rating || 4.8) * 15 + 8)} مراجعة تقييمية`}>
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                            <span>{Number(p.rating || 4.8).toFixed(1)}</span>
+                            <span className="text-[10px] text-amber-600 font-medium">({p.reviewsCount || Math.round((p.rating || 4.8) * 15 + 8)})</span>
                           </div>
                         </td>
 
@@ -1125,7 +1220,9 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
             </table>
           </div>
         </div>
-      </div>
+      </>
+      )}
+        </div>
       )}
 
       {activeTabToRender === 'halls_approval' && (

@@ -77,6 +77,7 @@ import { SecuritySecretTab } from './SecuritySecretTab';
 import { PartnerTieringEngineModal } from './partner/PartnerTieringEngineModal';
 import PlatformInfoSettings from './admin/PlatformInfoSettings';
 import DataStoreSettingsTab from './DataStoreSettingsTab';
+import TechnicalIntegrationTab from './admin/TechnicalIntegrationTab';
 import SensitiveDataApprovalsPanel from './admin/SensitiveDataApprovalsPanel';
 import PaymentGatewayLimitsPanel from './admin/PaymentGatewayLimitsPanel';
 import PaymentTokensAuditPanel from './admin/PaymentTokensAuditPanel';
@@ -896,6 +897,7 @@ export const SettingsManagement = ({
     { id: 'loyalty', label: 'برنامج الولاء' },
     { id: 'support', label: 'الدعم الفني والتذاكر' },
     { id: 'platform_data', label: 'بيانات المنصة' },
+    { id: 'technical_integration', label: 'الربط التقني' },
     { id: 'data_store', label: 'مخزن البيانات' },
   ].filter(tab => {
     if (userRole === 'admin') {
@@ -3747,13 +3749,19 @@ export const SettingsManagement = ({
             </div>
           )}
 
+          {activeSettingsTab === 'technical_integration' && (
+            <div className="p-6">
+              <TechnicalIntegrationTab showNotification={showNotification} />
+            </div>
+          )}
+
           {activeSettingsTab === 'data_store' && (
             <div className="p-6">
               <DataStoreSettingsTab showNotification={showNotification} />
             </div>
           )}
 
-          {!['general', 'security', 'financial', 'localization', 'payment', 'notifications', 'platform_data', 'inventory', 'loyalty', 'support', 'data_store'].includes(activeSettingsTab) && (
+          {!['general', 'security', 'financial', 'localization', 'payment', 'notifications', 'platform_data', 'inventory', 'loyalty', 'support', 'technical_integration', 'data_store'].includes(activeSettingsTab) && (
             <div className="text-center py-20 bg-slate-50 rounded-2xl border border-dashed border-slate-200" dir="rtl">
               <Settings className="w-12 h-12 text-slate-400 mx-auto mb-4 animate-spin-slow" />
               <h3 className="text-lg font-bold text-slate-800">تحت التطوير والتحضين ⚙️</h3>

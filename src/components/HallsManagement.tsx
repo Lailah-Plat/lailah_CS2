@@ -1220,9 +1220,20 @@ export default function HallsManagement({
                   <p className="text-[9px] text-slate-400">يرجى اتباع خطوت التسجيل لإتمام المزامنة الفورية مع الخادم بنجاح</p>
                 </div>
               </div>
-              <button type="button" onClick={() => setIsHallModalOpen(false)} className="p-1.5 hover:bg-slate-150 rounded-full text-slate-400">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMediaGuideOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-400/30 active:scale-95 shrink-0"
+                  title="فتح دليل واشتراطات الوسائط والمعايير الأفقية (16:9)"
+                >
+                  <Camera className="w-4 h-4 text-emerald-100" />
+                  <span>📷 دليل وااشتراطات الوسائط (16:9)</span>
+                </button>
+                <button type="button" onClick={() => setIsHallModalOpen(false)} className="p-1.5 hover:bg-slate-150 rounded-full text-slate-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Stepper Navigation */}

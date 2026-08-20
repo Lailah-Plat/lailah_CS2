@@ -222,8 +222,8 @@ export function MediaStandardsGuideModal({
   const checkedCount = checklist.filter(Boolean).length;
 
   return (
-    <div className={`fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center ${isMaximized ? 'p-0' : 'p-2 sm:p-5'} overflow-y-auto`} dir="rtl">
-      <div className={`bg-slate-900 border border-slate-800 text-right overflow-hidden shadow-2xl flex flex-col transition-all duration-300 ${
+    <div className={`fixed inset-0 z-[100] bg-slate-950/92 backdrop-blur-xl flex items-center justify-center ${isMaximized ? 'p-0' : 'p-2 sm:p-5'} overflow-y-auto animate-in fade-in duration-200`} dir="rtl">
+      <div className={`bg-slate-900/95 border border-emerald-500/20 text-right overflow-hidden shadow-2xl shadow-emerald-950/50 flex flex-col transition-all duration-300 relative before:absolute before:inset-0 before:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] before:from-emerald-900/25 before:via-indigo-950/10 before:to-transparent before:pointer-events-none ${
         isMaximized 
           ? 'w-full h-full max-w-none max-h-none rounded-none border-0' 
           : 'w-full max-w-5xl max-h-[92vh] rounded-3xl'
