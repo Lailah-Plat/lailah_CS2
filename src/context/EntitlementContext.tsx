@@ -57,7 +57,7 @@ export const EntitlementProvider: React.FC<{ children: React.ReactNode }> = ({ c
       case 'operations':
       case 'logistics':
         return {
-          isEntitled: capabilities.hasOperationsDashboard || capabilities.hasBOSWorkspace,
+          isEntitled: capabilities.hasOperationsDashboard || capabilities.hasAdvancedPortal,
           requiredFeature: 'نظام إدارة العمليات واللوجستيات المتقدمة',
           isUpgradeAvailable: true,
         };
@@ -76,6 +76,7 @@ export const EntitlementProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // Core always accessible tabs
     const coreTabs = [
       'overview',
+      'cockpit',
       'bookings',
       'halls',
       'services',
