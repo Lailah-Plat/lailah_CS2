@@ -4,7 +4,7 @@ import {
   Building2, Sparkles, Search, Filter, Table, List, LayoutGrid, Eye, 
   Settings2, RefreshCw, Pencil, Plus, Power, Trash2, Layers, Star, 
   Edit, ShieldCheck, ShieldAlert, BadgePercent, X, MapPin, UploadCloud, 
-  ScrollText, Landmark, Info, Coins, HelpCircle, Camera
+  ScrollText, Landmark, Info, Coins, HelpCircle, Camera, Archive, RotateCcw
 } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import { AddServiceModal } from './AddServiceModal';
@@ -31,6 +31,8 @@ interface HallsManagementProps {
   setServices: React.Dispatch<React.SetStateAction<any[]>>;
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
   activeTab: 'halls' | 'services';
+  handleRestoreHall?: (id: any) => void;
+  setDeleteData?: (data: any) => void;
 }
 
 export default function HallsManagement({
@@ -46,7 +48,9 @@ export default function HallsManagement({
   services,
   setServices,
   showNotification,
-  activeTab
+  activeTab,
+  handleRestoreHall,
+  setDeleteData
 }: HallsManagementProps) {
   // Navigation sub-tab
   const [hallsAndServicesSubTab, setHallsAndServicesSubTab] = useState<'halls' | 'services'>('halls');
@@ -275,30 +279,60 @@ export default function HallsManagement({
 
   // Hall Delete action
   const handleHallDelete = async (id: number) => {
-    if (!confirm("هل أنت متأكد من رغبتك في حذف هذه القاعة نهائياً من قاعدة البيانات؟")) return;
+    const targetHall = halls.find(h => h.id === id);
+    if (setDeleteData) {
+      setDeleteData({
+        id,
+        name: targetHall?.name || 'القاعة',
+        type: 'hall'
+      });
+      return;
+    }
+
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف أو أرشفة "${targetHall?.name || 'القاعة'}"؟`)) return;
     try {
       const res = await fetch(`/api/bookings/halls/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setHalls(prev => prev.filter(h => h.id !== id));
-        showNotification('success', 'تم حذف القاعة من قاعدة البيانات والمنصة بنجاح.');
+        showNotification('success', 'تم تنفيذ الإجراء بنجاح.');
       } else {
-        showNotification('error', 'فشل حذف القاعة من قاعدة البيانات الخارجية.');
+        showNotification('error', 'فشل تنفيذ الإجراء.');
       }
     } catch {
-      showNotification('error', 'حدث خطأ أثناء الاتصال بالخادم لحذف القاعة.');
+      showNotification('error', 'حدث خطأ أثناء الاتصال بالخادم.');
     }
+  };
+
+  const handleHallRestore = (id: number) => {
+    if (handleRestoreHall) {
+      handleRestoreHall(id);
+      return;
+    }
+    setHalls(prev => prev.map(h => {
+      if (h.id === id) {
+        return {
+          ...h,
+          isArchived: false,
+          archivedAt: undefined,
+          status: 'approved',
+          activationStatus: 'مفعل'
+        };
+      }
+      return h;
+    }));
+    showNotification('success', '♻️ تم استعادة القاعة من الأرشيف وإعادة تفعيلها بنجاح.');
   };
 
   // Service Delete action
   const handleServiceDelete = async (id: number) => {
-    if (!confirm("هل أنت متأكد من رغبتك في حذف هذه الخدمة نهائياً من قاعدة البيانات؟")) return;
+    if (!confirm("هل أنت متأكد من رغبتك في حذف هذه الخدمة؟")) return;
     try {
       const res = await fetch(`/api/bookings/services/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setServices(prev => prev.filter(s => s.id !== id));
-        showNotification('success', 'تم حذف الخدمة المساندة من المنصة بنجاح.');
+        showNotification('success', 'تم حذف الخدمة المساندة بنجاح.');
       } else {
-        showNotification('error', 'فشل حذف الخدمة من قاعدة البيانات الخارجية.');
+        showNotification('error', 'فشل حذف الخدمة.');
       }
     } catch {
       showNotification('error', 'حدث خطأ أثناء الاتصال بالخادم لحذف الخدمة.');
@@ -329,10 +363,20 @@ export default function HallsManagement({
       const matchCity = !hallsFilterCity || h.city === hallsFilterCity;
       const matchProvider = !hallsFilterProvider || h.provider === hallsFilterProvider;
       const matchCategory = !hallsFilterCategory || h.category === hallsFilterCategory;
-      const matchStatus = !hallsFilterStatus || 
-        (hallsFilterStatus === 'مفعل' && (h.activationStatus || 'مفعل') === 'مفعل' && h.status === 'approved') ||
-        (hallsFilterStatus === 'موقوف' && (h.activationStatus === 'موقوف' || h.status === 'blocked')) ||
-        (hallsFilterStatus === 'بانتظار الموافقة' && (h.status === 'pending' || h.status === 'بانتظار الموافقة'));
+      
+      let matchStatus = true;
+      if (hallsFilterStatus === 'مؤرشفة') {
+        matchStatus = Boolean(h.isArchived) || h.status === 'مؤرشفة';
+      } else if (hallsFilterStatus === 'مفعل') {
+        matchStatus = !h.isArchived && (h.activationStatus || 'مفعل') === 'مفعل' && (h.status === 'approved' || h.status === 'مفعل');
+      } else if (hallsFilterStatus === 'موقوف') {
+        matchStatus = !h.isArchived && (h.activationStatus === 'موقوف' || h.status === 'blocked' || h.status === 'معطل');
+      } else if (hallsFilterStatus === 'بانتظار الموافقة') {
+        matchStatus = !h.isArchived && (h.status === 'pending' || h.status === 'بانتظار الموافقة' || h.adminApprovalStatus === 'pending');
+      } else if (!hallsFilterStatus) {
+        // By default, if no specific status selected, show non-archived unless searched
+        matchStatus = true;
+      }
 
       return matchSearch && matchRegion && matchCity && matchProvider && matchCategory && matchStatus;
     }).sort((a, b) => {
@@ -538,6 +582,8 @@ export default function HallsManagement({
               <option value="">كل الحالات</option>
               <option value="مفعل">مفعل</option>
               <option value="موقوف">موقوف</option>
+              <option value="بانتظار الموافقة">بانتظار الموافقة</option>
+              <option value="مؤرشفة">📦 مؤرشفة (خارج العرض)</option>
             </select>
             <button
               onClick={() => {

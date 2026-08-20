@@ -99,7 +99,6 @@ export function AdminDashboard({
   const [activeSubTab, setActiveSubTab] = useState<'operations' | 'lifecycles' | 'analytics' | 'stats' | 'growth'>('analytics');
 
   // Interactive Analytics & Diversity Stats States
-  const [analyticsFilterPeriod, setAnalyticsFilterPeriod] = useState<string>('all');
   const [analyticsCategoryFilter, setAnalyticsCategoryFilter] = useState<string>('all');
 
   // Lifecycles OS local interactive states
@@ -932,106 +931,119 @@ export function AdminDashboard({
         </div>
 
         {/* Period Filter Panel */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full lg:w-auto">
-          {/* Calendar Picker trigger */}
-          <div className="flex rounded-xl bg-white p-1 shadow-sm border border-slate-100 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200/80 w-full lg:w-auto shrink-0 shadow-xs">
+          {/* 4 Main Unified Period Options */}
+          <div className="flex rounded-xl bg-white p-1 shadow-xs border border-slate-200/60 shrink-0">
             <button
-              onClick={() => setDashboardPeriod('monthly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'monthly' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={() => setDashboardPeriod('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              شهرياً
+              تراكمي (شامل)
             </button>
             <button
               onClick={() => setDashboardPeriod('yearly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'yearly' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'yearly' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              سنوياً
+              سنوي
+            </button>
+            <button
+              onClick={() => setDashboardPeriod('monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'monthly' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              شهري
             </button>
             <button
               onClick={() => setDashboardPeriod('custom')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'custom' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'custom' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
               مخصّص
             </button>
-            <button
-              onClick={() => setDashboardPeriod('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'all' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              تراكمي
-            </button>
           </div>
 
-          {/* Dynamic Select elements based on active period filter */}
-          {dashboardPeriod === 'monthly' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <select 
-                value={selectedDashboardYear} 
-                onChange={(e) => setSelectedDashboardYear(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-              <select 
-                value={selectedDashboardMonth} 
-                onChange={(e) => setSelectedDashboardMonth(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="01">يناير (01)</option>
-                <option value="02">فبراير (02)</option>
-                <option value="03">مارس (03)</option>
-                <option value="04">أبريل (04)</option>
-                <option value="05">مايو (05)</option>
-                <option value="06">يونيو (06)</option>
-                <option value="07">يوليو (07)</option>
-                <option value="08">أغسطس (08)</option>
-                <option value="09">سبتمبر (09)</option>
-                <option value="10">أكتوبر (10)</option>
-                <option value="11">نوفمبر (11)</option>
-                <option value="12">ديسمبر (12)</option>
-              </select>
-            </div>
-          )}
+          {/* Dynamic Select elements with fixed dimensions */}
+          <div className="flex items-center gap-1.5 min-w-[210px] justify-start shrink-0">
+            {dashboardPeriod === 'all' && (
+              <div className="px-3 py-1.5 bg-white border border-slate-200/60 rounded-xl text-xs font-bold text-slate-600 flex items-center gap-1.5 shadow-xs w-full justify-center">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                <span>كافة السنوات والعمليات التراكمية</span>
+              </div>
+            )}
 
-          {dashboardPeriod === 'yearly' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <select 
-                value={selectedDashboardYear} 
-                onChange={(e) => setSelectedDashboardYear(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-              <select 
-                value={yearlyPeriodType} 
-                onChange={(e) => setYearlyPeriodType(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="gregorian">سنة ميلادية</option>
-                <option value="academic">سنة دراسية (سبتمبر - أغسطس)</option>
-                <option value="zakat">سنة زكوية وهجرية (10 مارس)</option>
-              </select>
-            </div>
-          )}
+            {dashboardPeriod === 'yearly' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <select 
+                  value={selectedDashboardYear} 
+                  onChange={(e) => setSelectedDashboardYear(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs"
+                >
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                </select>
+                <select 
+                  value={yearlyPeriodType} 
+                  onChange={(e) => setYearlyPeriodType(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs flex-1"
+                >
+                  <option value="gregorian">سنة ميلادية</option>
+                  <option value="academic">سنة دراسية (سبتمبر - أغسطس)</option>
+                  <option value="zakat">سنة زكوية/هجرية (10 مارس)</option>
+                </select>
+              </div>
+            )}
 
-          {dashboardPeriod === 'custom' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <input 
-                type="date" 
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500"
-              />
-              <span className="text-slate-400 text-xs">إلى</span>
-              <input 
-                type="date" 
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500"
-              />
-            </div>
-          )}
+            {dashboardPeriod === 'monthly' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <select 
+                  value={selectedDashboardYear} 
+                  onChange={(e) => setSelectedDashboardYear(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs"
+                >
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                </select>
+                <select 
+                  value={selectedDashboardMonth} 
+                  onChange={(e) => setSelectedDashboardMonth(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs flex-1"
+                >
+                  <option value="01">يناير (01)</option>
+                  <option value="02">فبراير (02)</option>
+                  <option value="03">مارس (03)</option>
+                  <option value="04">أبريل (04)</option>
+                  <option value="05">مايو (05)</option>
+                  <option value="06">يونيو (06)</option>
+                  <option value="07">يوليو (07)</option>
+                  <option value="08">أغسطس (08)</option>
+                  <option value="09">سبتمبر (09)</option>
+                  <option value="10">أكتوبر (10)</option>
+                  <option value="11">نوفمبر (11)</option>
+                  <option value="12">ديسمبر (12)</option>
+                </select>
+              </div>
+            )}
+
+            {dashboardPeriod === 'custom' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <input 
+                  type="date" 
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="py-1 px-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 shadow-xs"
+                />
+                <span className="text-slate-400 text-xs font-bold">إلى</span>
+                <input 
+                  type="date" 
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="py-1 px-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 shadow-xs"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2844,47 +2856,18 @@ export function AdminDashboard({
                   </p>
                 </div>
 
-                {/* Quick Filters & Actions */}
+                {/* Quick Actions (CSV / Print) */}
                 <div className="flex flex-wrap items-center gap-3 shrink-0">
-                  <div className="bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex items-center gap-1 text-xs font-bold text-white">
-                    {[
-                      { id: 'all', label: 'الكل' },
-                      { id: '2026', label: 'عام 2026' },
-                      { id: 'q1', label: 'Q1' },
-                      { id: 'q2', label: 'Q2' },
-                    ].map(period => (
-                      <button
-                        key={period.id}
-                        onClick={() => setAnalyticsFilterPeriod(period.id)}
-                        className={`px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer font-black ${
-                          analyticsFilterPeriod === period.id 
-                            ? 'bg-emerald-500 text-white shadow-md' 
-                            : 'text-slate-300 hover:text-white hover:bg-white/10'
-                        }`}
-                      >
-                        {period.label}
-                      </button>
-                    ))}
-                  </div>
-
                   <button
                     onClick={() => {
                       const filteredBookings = bookings.filter(b => {
-                        if (analyticsFilterPeriod === 'all') return true;
                         const dateStr = b.date || b.bookingDate || b.createdAt || '';
-                        if (analyticsFilterPeriod === '2026') return dateStr.includes('2026');
-                        if (analyticsFilterPeriod === 'q1') return dateStr.includes('2026-01') || dateStr.includes('2026-02') || dateStr.includes('2026-03');
-                        if (analyticsFilterPeriod === 'q2') return dateStr.includes('2026-04') || dateStr.includes('2026-05') || dateStr.includes('2026-06');
-                        return true;
+                        return isDateInPeriod(dateStr);
                       });
 
                       const filteredRequests = supportServiceRequests.filter(s => {
-                        if (analyticsFilterPeriod === 'all') return true;
                         const dateStr = s.date || s.requestDate || s.createdAt || '';
-                        if (analyticsFilterPeriod === '2026') return dateStr.includes('2026');
-                        if (analyticsFilterPeriod === 'q1') return dateStr.includes('2026-01') || dateStr.includes('2026-02') || dateStr.includes('2026-03');
-                        if (analyticsFilterPeriod === 'q2') return dateStr.includes('2026-04') || dateStr.includes('2026-05') || dateStr.includes('2026-06');
-                        return true;
+                        return isDateInPeriod(dateStr);
                       });
 
                       // Helper to get provider commission rate based on subscription tier
@@ -2978,21 +2961,13 @@ export function AdminDashboard({
             {/* 2. FINANCIAL INTELLIGENCE KPI MATRIX (REAL-TIME DB CALCULATIONS) */}
             {(() => {
               const filteredBookings = bookings.filter(b => {
-                if (analyticsFilterPeriod === 'all') return true;
                 const dateStr = b.date || b.bookingDate || b.createdAt || '';
-                if (analyticsFilterPeriod === '2026') return dateStr.includes('2026');
-                if (analyticsFilterPeriod === 'q1') return dateStr.includes('2026-01') || dateStr.includes('2026-02') || dateStr.includes('2026-03');
-                if (analyticsFilterPeriod === 'q2') return dateStr.includes('2026-04') || dateStr.includes('2026-05') || dateStr.includes('2026-06');
-                return true;
+                return isDateInPeriod(dateStr);
               });
 
               const filteredRequests = supportServiceRequests.filter(s => {
-                if (analyticsFilterPeriod === 'all') return true;
                 const dateStr = s.date || s.requestDate || s.createdAt || '';
-                if (analyticsFilterPeriod === '2026') return dateStr.includes('2026');
-                if (analyticsFilterPeriod === 'q1') return dateStr.includes('2026-01') || dateStr.includes('2026-02') || dateStr.includes('2026-03');
-                if (analyticsFilterPeriod === 'q2') return dateStr.includes('2026-04') || dateStr.includes('2026-05') || dateStr.includes('2026-06');
-                return true;
+                return isDateInPeriod(dateStr);
               });
 
               // Helper to get provider commission rate based on subscription tier
@@ -3012,7 +2987,7 @@ export function AdminDashboard({
                 return 0.10; // Default subscription tier commission rate
               };
 
-              // Real sum from database records
+              // Real sum from database records (Bookings + Support Services + External/Direct Revenues + Operating Expenses)
               const bookingsGMV = filteredBookings.reduce((sum, b) => {
                 const status = (b.paymentStatus || b.status || '').toLowerCase();
                 const isPaid = ['مدفوع', 'paid', 'جزئي', 'partial', 'مكتمل', 'completed', 'مؤكد', 'confirmed'].includes(status);
@@ -3020,7 +2995,7 @@ export function AdminDashboard({
               }, 0);
 
               const requestsGMV = filteredRequests.reduce((sum, s) => {
-                const status = (s.status || '').toLowerCase();
+                const status = (s.status || s.paymentStatus || '').toLowerCase();
                 const isCancelled = ['ملغي', 'ملغى', 'cancelled', 'rejected'].includes(status);
                 return !isCancelled ? sum + (Number(s.price) || Number(s.amount) || Number(s.totalPrice) || 0) : sum;
               }, 0);
@@ -3036,7 +3011,8 @@ export function AdminDashboard({
               }, 0);
 
               const requestsCommissionRev = filteredRequests.reduce((sum, s) => {
-                if (['ملغي', 'ملغى', 'cancelled', 'rejected'].includes((s.status || '').toLowerCase())) return sum;
+                const status = (s.status || s.paymentStatus || '').toLowerCase();
+                if (['ملغي', 'ملغى', 'cancelled', 'rejected'].includes(status)) return sum;
                 const price = Number(s.price) || Number(s.amount) || Number(s.totalPrice) || 0;
                 const isMarketingAgency = (s.category || s.serviceType || s.title || '').includes('تسويق') || (s.category || s.serviceType || s.title || '').includes('حملة');
                 const rate = isMarketingAgency ? 0.15 : getProviderCommissionRate(s.providerId, s.providerName || s.provider);
@@ -3048,10 +3024,46 @@ export function AdminDashboard({
               const activeProvidersCount = (localProviders || []).filter(p => p.subscriptionStatus === 'Active' || p.operationalStatus === 'Active' || p.status === 'نشط').length;
               const computedSubRev = activeProvidersCount * 4500;
               const computedAdsRev = (internalAds || []).reduce((sum, ad) => sum + (Number(ad.budget) || Number(ad.price) || 2500), 0);
-              const computedTotalGrossRev = computedCommissionRev + computedSubRev + computedAdsRev;
+              
+              // Retrieve persistent revenues and expenses from local storage for accurate sovereign platform analytics
+              let localRevenuesList: any[] = [];
+              let localExpensesList: any[] = [];
+              try {
+                const storedRev = localStorage.getItem('finance_revenues') || localStorage.getItem('app_revenues');
+                if (storedRev) localRevenuesList = JSON.parse(storedRev);
+                const storedExp = localStorage.getItem('finance_expenses') || localStorage.getItem('app_expenses');
+                if (storedExp) localExpensesList = JSON.parse(storedExp);
+              } catch (e) {
+                // fallback to empty arrays
+              }
+
+              // Filter external revenues and operating expenses in current period
+              const periodRevenues = localRevenuesList.filter((r: any) => isDateInPeriod(r.date || r.createdAt || ''));
+              const periodExpenses = localExpensesList.filter((e: any) => isDateInPeriod(e.date || e.createdAt || ''));
+              
+              const externalRevTotal = periodRevenues.reduce((sum: number, r: any) => sum + (Number(r.amountIncludingVat) || Number(r.total) || Number(r.amount) || 0), 0);
+              const totalOperationalExpenses = periodExpenses.reduce((sum: number, e: any) => sum + (Number(e.amountIncludingVat) || Number(e.total) || Number(e.amount) || 0), 0);
+
+              // Total Gross Platform Sovereign Revenue (Commissions + Subscriptions + Ads/Marketing + External Revenues)
+              const computedTotalGrossRev = computedCommissionRev + computedSubRev + computedAdsRev + externalRevTotal;
 
               const computedGatewayFees = Math.round(computedGMV * 0.018);
-              const computedVAT = Math.round(computedTotalGrossRev * 0.15);
+
+              // ZATCA VAT Return Calculation for Platform Sovereign Operations:
+              // Output VAT collected on platform taxable revenues (inclusive of 15% VAT)
+              const outputVatPlatform = Math.round((computedTotalGrossRev - (computedTotalGrossRev / 1.15)));
+              
+              // Input VAT paid on operational purchases/expenses (inclusive of 15% VAT)
+              const inputVatPlatform = Math.round((totalOperationalExpenses - (totalOperationalExpenses / 1.15)));
+              
+              // Net VAT Payable/Refundable to ZATCA = Output VAT - Input VAT
+              const computedVAT = Math.max(0, outputVatPlatform - inputVatPlatform);
+
+              // Platform Net Operational Profit = Gross Sovereign Revenue - Operational Expenses - Gateway Fees
+              const computedNetPlatformProfit = Math.max(0, computedTotalGrossRev - totalOperationalExpenses - computedGatewayFees);
+              
+              // Zakat Estimation (2.5% on annual net liquid base / net profit)
+              const computedZakat = Math.round(computedNetPlatformProfit * 0.025);
 
               const computedRefunds = filteredBookings
                 .filter(b => ['ملغي', 'ملغى', 'مسترد', 'refunded'].includes((b.paymentStatus || b.status || '').toLowerCase()))
@@ -3061,6 +3073,8 @@ export function AdminDashboard({
 
               const totalCompletedOrdersCount = filteredBookings.length + filteredRequests.length;
               const computedAOV = totalCompletedOrdersCount > 0 ? Math.round(computedGMV / totalCompletedOrdersCount) : 0;
+              const avgBookingVal = filteredBookings.length > 0 ? Math.round(bookingsGMV / filteredBookings.length) : 0;
+              const avgServiceVal = filteredRequests.length > 0 ? Math.round(requestsGMV / filteredRequests.length) : 0;
 
               const cancelledBookingsCount = filteredBookings.filter(b => ['ملغي', 'ملغى', 'مسترد'].includes((b.paymentStatus || b.status || '').toLowerCase())).length;
               const cancellationRate = filteredBookings.length > 0 ? ((cancelledBookingsCount / filteredBookings.length) * 100).toFixed(1) + '%' : '0.0%';

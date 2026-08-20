@@ -69,6 +69,10 @@ export interface Hall {
   hasPendingEdits?: boolean;
   pendingChanges?: any;
   pendingPayload?: any;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }
 
 export interface AppliedPromotionSnapshot {
@@ -269,6 +273,10 @@ export interface Service {
   quantity?: string | number;
   createdAt?: string;
   updatedAt?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }
 
 export interface AmortizationInstallment {

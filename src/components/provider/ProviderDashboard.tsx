@@ -170,8 +170,8 @@ export function ProviderDashboard({
     const stored = localStorage.getItem(`provider_employees_${currentProviderName}`);
     if (stored) return JSON.parse(stored);
     return [
-      { id: 'EMP-26-00000001', name: 'خالد الرويلي', role: 'مشرف تجهيز', branch: 'فرع الرياض الرئيسي', permissions: 'صلاحيات كاملة', status: 'نشط' },
-      { id: 'EMP-26-00000002', name: 'أحمد السالم', role: 'منسق ضيافة', branch: 'فرع الرياض الرئيسي', permissions: 'تعديل الحجوزات فقط', status: 'نشط' },
+      { id: 'EMP-26-00000001', name: 'خالد الرويلي', role: 'مشرف تجهيز', branch: 'فرع الرياض الرئيسي', permissions: 'إدارة تشغيلية كاملة', status: 'نشط' },
+      { id: 'EMP-26-00000002', name: 'أحمد السالم', role: 'منسق ضيافة', branch: 'فرع الرياض الرئيسي', permissions: 'متابعة تجهيز العمليات', status: 'نشط' },
       { id: 'EMP-26-00000003', name: 'سارة العتيبي', role: 'مشرفة استقبال وقاعات', branch: 'فرع شمال الرياض', permissions: 'استعراض الحجوزات فقط', status: 'نشط' },
       { id: 'EMP-26-00000004', name: 'فهد المطيري', role: 'مهندس صوت وإضاءة', branch: 'فرع شمال الرياض', permissions: 'محدودة للفرع', status: 'نشط' },
     ];
@@ -3636,8 +3636,8 @@ export function ProviderDashboard({
                           onChange={(e) => setNewEmpPerm(e.target.value)}
                           className="p-2 border border-slate-200 bg-white rounded-xl text-xs outline-none text-right"
                         >
-                          <option value="صلاحيات كاملة">صلاحيات كاملة</option>
-                          <option value="تعديل الحجوزات فقط">تعديل الحجوزات فقط</option>
+                          <option value="إدارة تشغيلية كاملة">إدارة تشغيلية كاملة</option>
+                          <option value="متابعة تجهيز العمليات">متابعة وتجهيز العمليات</option>
                           <option value="استعراض الحجوزات فقط">استعراض الحجوزات فقط</option>
                           <option value="محدودة للفرع">محدودة للفرع</option>
                         </select>
@@ -8169,106 +8169,119 @@ export function ProviderDashboard({
         </div>
 
         {/* Period Filter Panel */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full lg:w-auto">
-          {/* Calendar Picker trigger */}
-          <div className="flex rounded-xl bg-white p-1 shadow-sm border border-slate-100 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200/80 w-full lg:w-auto shrink-0 shadow-xs">
+          {/* 4 Main Unified Period Options */}
+          <div className="flex rounded-xl bg-white p-1 shadow-xs border border-slate-200/60 shrink-0">
             <button
-              onClick={() => setDashboardPeriod('monthly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'monthly' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              onClick={() => setDashboardPeriod('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              شهرياً
+              تراكمي (شامل)
             </button>
             <button
               onClick={() => setDashboardPeriod('yearly')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'yearly' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'yearly' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
-              سنوياً
+              سنوي
+            </button>
+            <button
+              onClick={() => setDashboardPeriod('monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'monthly' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              شهري
             </button>
             <button
               onClick={() => setDashboardPeriod('custom')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'custom' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'custom' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
             >
               مخصّص
             </button>
-            <button
-              onClick={() => setDashboardPeriod('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${dashboardPeriod === 'all' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-500 hover:text-slate-800'}`}
-            >
-              تراكمي
-            </button>
           </div>
 
-          {/* Dynamic Select elements based on active period filter */}
-          {dashboardPeriod === 'monthly' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <select 
-                value={selectedDashboardYear} 
-                onChange={(e) => setSelectedDashboardYear(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-              <select 
-                value={selectedDashboardMonth} 
-                onChange={(e) => setSelectedDashboardMonth(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="01">يناير (01)</option>
-                <option value="02">فبراير (02)</option>
-                <option value="03">مارس (03)</option>
-                <option value="04">أبريل (04)</option>
-                <option value="05">مايو (05)</option>
-                <option value="06">يونيو (06)</option>
-                <option value="07">يوليو (07)</option>
-                <option value="08">أغسطس (08)</option>
-                <option value="09">سبتمبر (09)</option>
-                <option value="10">أكتوبر (10)</option>
-                <option value="11">نوفمبر (11)</option>
-                <option value="12">ديسمبر (12)</option>
-              </select>
-            </div>
-          )}
+          {/* Dynamic Select elements with fixed dimensions */}
+          <div className="flex items-center gap-1.5 min-w-[210px] justify-start shrink-0">
+            {dashboardPeriod === 'all' && (
+              <div className="px-3 py-1.5 bg-white border border-slate-200/60 rounded-xl text-xs font-bold text-slate-600 flex items-center gap-1.5 shadow-xs w-full justify-center">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                <span>كافة السنوات والعمليات التراكمية</span>
+              </div>
+            )}
 
-          {dashboardPeriod === 'yearly' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <select 
-                value={selectedDashboardYear} 
-                onChange={(e) => setSelectedDashboardYear(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-              <select 
-                value={yearlyPeriodType} 
-                onChange={(e) => setYearlyPeriodType(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500"
-              >
-                <option value="gregorian">سنة ميلادية</option>
-                <option value="academic">سنة دراسية (سبتمبر - أغسطس)</option>
-                <option value="zakat">سنة زكوية وهجرية (10 مارس)</option>
-              </select>
-            </div>
-          )}
+            {dashboardPeriod === 'yearly' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <select 
+                  value={selectedDashboardYear} 
+                  onChange={(e) => setSelectedDashboardYear(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs"
+                >
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                </select>
+                <select 
+                  value={yearlyPeriodType} 
+                  onChange={(e) => setYearlyPeriodType(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs flex-1"
+                >
+                  <option value="gregorian">سنة ميلادية</option>
+                  <option value="academic">سنة دراسية (سبتمبر - أغسطس)</option>
+                  <option value="zakat">سنة زكوية/هجرية (10 مارس)</option>
+                </select>
+              </div>
+            )}
 
-          {dashboardPeriod === 'custom' && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <input 
-                type="date" 
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500"
-              />
-              <span className="text-slate-400 text-xs">إلى</span>
-              <input 
-                type="date" 
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="p-1 px-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500"
-              />
-            </div>
-          )}
+            {dashboardPeriod === 'monthly' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <select 
+                  value={selectedDashboardYear} 
+                  onChange={(e) => setSelectedDashboardYear(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs"
+                >
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                </select>
+                <select 
+                  value={selectedDashboardMonth} 
+                  onChange={(e) => setSelectedDashboardMonth(e.target.value)}
+                  className="py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none cursor-pointer focus:border-amber-500 shadow-xs flex-1"
+                >
+                  <option value="01">يناير (01)</option>
+                  <option value="02">فبراير (02)</option>
+                  <option value="03">مارس (03)</option>
+                  <option value="04">أبريل (04)</option>
+                  <option value="05">مايو (05)</option>
+                  <option value="06">يونيو (06)</option>
+                  <option value="07">يوليو (07)</option>
+                  <option value="08">أغسطس (08)</option>
+                  <option value="09">سبتمبر (09)</option>
+                  <option value="10">أكتوبر (10)</option>
+                  <option value="11">نوفمبر (11)</option>
+                  <option value="12">ديسمبر (12)</option>
+                </select>
+              </div>
+            )}
+
+            {dashboardPeriod === 'custom' && (
+              <div className="flex items-center gap-1.5 w-full">
+                <input 
+                  type="date" 
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="py-1 px-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 shadow-xs"
+                />
+                <span className="text-slate-400 text-xs font-bold">إلى</span>
+                <input 
+                  type="date" 
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="py-1 px-2 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-amber-500 shadow-xs"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

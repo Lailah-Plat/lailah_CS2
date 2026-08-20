@@ -3,7 +3,7 @@ import { safeSetLocalStorage } from '../utils/safeStorage';
 import { 
   Wallet, TrendingUp, TrendingDown, FileText, Briefcase, 
   Download, Plus, Filter, Calendar as CalendarIcon, PieChart as PieChartIcon,
-  X, Check, Heart, Sparkles, Lock, Paperclip,
+  X, Check, Heart, Sparkles, Lock, Paperclip, Calculator, Percent,
   Activity, CreditCard, Users, RefreshCw, Bell, ShieldAlert, Landmark
 } from 'lucide-react';
 import {
@@ -2046,6 +2046,15 @@ export default function FinanceDashboard({
     isExternal: true,
     isTaxable: true
   });
+
+  // Interactive Tax Calculator States
+  const [isExpenseTaxCalcOpen, setIsExpenseTaxCalcOpen] = useState(false);
+  const [expenseCalcAmount, setExpenseCalcAmount] = useState('');
+  const [expenseCalcMode, setExpenseCalcMode] = useState<'add_vat' | 'extract_vat'>('add_vat');
+
+  const [isRevenueTaxCalcOpen, setIsRevenueTaxCalcOpen] = useState(false);
+  const [revenueCalcAmount, setRevenueCalcAmount] = useState('');
+  const [revenueCalcMode, setRevenueCalcMode] = useState<'add_vat' | 'extract_vat'>('add_vat');
 
   React.useEffect(() => {
     const handleAddRevenueEvent = (e: any) => {
@@ -6627,13 +6636,187 @@ export default function FinanceDashboard({
                      </select>
                   </div>
                   <div>
-                     <label className="block text-sm font-bold text-slate-700 mb-2">المبلغ الكلي للإيراد</label>
+                     <div className="flex justify-between items-center mb-2">
+                       <label className="text-sm font-bold text-slate-700">المبلغ الكلي شامل الضريبة</label>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setIsRevenueTaxCalcOpen(!isRevenueTaxCalcOpen);
+                           if (!revenueCalcAmount && newRevenue.total) {
+                             setRevenueCalcAmount(newRevenue.total);
+                           }
+                         }}
+                         className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200/70 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                       >
+                         <Calculator className="w-3.5 h-3.5" />
+                         <span>حاسبة الضريبة (15%)</span>
+                       </button>
+                     </div>
                      <div className="relative">
                         <input required value={newRevenue.total} onChange={e=>setNewRevenue({...newRevenue, total: e.target.value})} type="number" step="0.01" min="0" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-blue-500 font-heading text-sm" placeholder="0.00" />
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">SAR</span>
                      </div>
                   </div>
                 </div>
+
+                {/* Quick 1-Click Tax Helper Buttons for Revenue */}
+                {newRevenue.total && !isNaN(parseFloat(newRevenue.total)) && parseFloat(newRevenue.total) > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[11px] font-bold text-slate-400">إجراءات حسابية سريعة:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(newRevenue.total) || 0;
+                        const withTax = (cur * 1.15).toFixed(2);
+                        setNewRevenue(prev => ({ ...prev, total: withTax, isTaxable: true }));
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="يعتبر المبلغ الحالي غير شامل ويضيف 15% ضريبة عليه"
+                    >
+                      <span>+ إضافة 15% ضريبة</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({(parseFloat(newRevenue.total) * 1.15).toFixed(2)})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(newRevenue.total) || 0;
+                        const baseOnly = (cur / 1.15).toFixed(2);
+                        setNewRevenue(prev => ({ ...prev, total: baseOnly, isTaxable: false }));
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="استخراج المبلغ الأساسي فقط بدون ضريبة"
+                    >
+                      <span>÷ حسم / استخراج الأساس</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({(parseFloat(newRevenue.total) / 1.15).toFixed(2)})</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Interactive Dedicated Tax Calculator Card for Revenue */}
+                {isRevenueTaxCalcOpen && (
+                  <div className="p-4 bg-gradient-to-br from-blue-50/60 to-slate-50 border border-blue-200/80 rounded-2xl space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center border-b border-blue-100/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                          <Calculator className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-800">حاسبة ضريبة القيمة المضافة للإيرادات (15% VAT)</h4>
+                          <p className="text-[10px] text-slate-500 font-medium">تسجيل الإيراد شاملاً لضريبة القيمة المضافة بدقة متوافقة مع الأنظمة المحاسبية</p>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsRevenueTaxCalcOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Mode Switcher */}
+                    <div className="grid grid-cols-2 gap-2 bg-white p-1 rounded-xl border border-blue-100 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => setRevenueCalcMode('add_vat')}
+                        className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer text-center ${
+                          revenueCalcMode === 'add_vat'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        1. إضافة الضريبة (المبلغ غير شامل)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRevenueCalcMode('extract_vat')}
+                        className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer text-center ${
+                          revenueCalcMode === 'extract_vat'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        2. حسم / استخراج الضريبة (المبلغ شامل)
+                      </button>
+                    </div>
+
+                    {/* Calculator Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        {revenueCalcMode === 'add_vat' 
+                          ? 'أدخل المبلغ الأساسي الخاضع للضريبة (قبل 15%):' 
+                          : 'أدخل المبلغ الإجمالي النهائي للإيراد (شامل 15%):'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={revenueCalcAmount}
+                          onChange={e => setRevenueCalcAmount(e.target.value)}
+                          placeholder="مثال: 1000"
+                          className="w-full bg-white border border-blue-200 focus:border-blue-500 rounded-xl pl-12 pr-4 py-2.5 outline-none font-mono text-sm font-bold text-slate-800 shadow-xs"
+                        />
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">SAR</span>
+                      </div>
+                    </div>
+
+                    {/* Calculation Results Card */}
+                    {revenueCalcAmount && !isNaN(parseFloat(revenueCalcAmount)) && parseFloat(revenueCalcAmount) > 0 && (() => {
+                      const inputVal = parseFloat(revenueCalcAmount);
+                      let baseVal = 0;
+                      let vatVal = 0;
+                      let totalVal = 0;
+
+                      if (revenueCalcMode === 'add_vat') {
+                        baseVal = inputVal;
+                        vatVal = inputVal * 0.15;
+                        totalVal = inputVal * 1.15;
+                      } else {
+                        totalVal = inputVal;
+                        baseVal = inputVal / 1.15;
+                        vatVal = inputVal - baseVal;
+                      }
+
+                      return (
+                        <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-xs space-y-2.5">
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                              <span className="text-[9px] font-bold text-slate-400 block">المبلغ الأساسي (قبل الضريبة)</span>
+                              <span className="text-xs font-black text-slate-800 font-mono block mt-0.5">{baseVal.toFixed(2)} ر.س</span>
+                            </div>
+                            <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100">
+                              <span className="text-[9px] font-bold text-blue-600 block">قيمة الضريبة (15% VAT)</span>
+                              <span className="text-xs font-black text-blue-600 font-mono block mt-0.5">{vatVal.toFixed(2)} ر.س</span>
+                            </div>
+                            <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                              <span className="text-[9px] font-bold text-emerald-700 block">الإجمالي الشامل للضريبة</span>
+                              <span className="text-xs font-black text-emerald-700 font-mono block mt-0.5">{totalVal.toFixed(2)} ر.س</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewRevenue(prev => ({
+                                  ...prev,
+                                  total: totalVal.toFixed(2),
+                                  isTaxable: true
+                                }));
+                                setIsRevenueTaxCalcOpen(false);
+                              }}
+                              className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>تطبيق المبلغ الشامل ({totalVal.toFixed(2)} ر.س) في حقل الإيراد</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 <div>
                    {newRevenue.total && !isNaN(parseFloat(newRevenue.total)) && (
@@ -6824,13 +7007,187 @@ export default function FinanceDashboard({
                      </select>
                   </div>
                   <div>
-                     <label className="block text-sm font-bold text-slate-700 mb-2">المبلغ الكلي شامل الضريبة</label>
+                     <div className="flex justify-between items-center mb-2">
+                       <label className="text-sm font-bold text-slate-700">المبلغ الكلي شامل الضريبة</label>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setIsExpenseTaxCalcOpen(!isExpenseTaxCalcOpen);
+                           if (!expenseCalcAmount && newExpense.total) {
+                             setExpenseCalcAmount(newExpense.total);
+                           }
+                         }}
+                         className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200/70 px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                       >
+                         <Calculator className="w-3.5 h-3.5" />
+                         <span>حاسبة الضريبة (15%)</span>
+                       </button>
+                     </div>
                      <div className="relative">
                         <input required value={newExpense.total} onChange={e=>setNewExpense({...newExpense, total: e.target.value})} type="number" step="0.01" min="0" className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-red-500 font-heading text-sm" placeholder="0.00" />
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">SAR</span>
                      </div>
                   </div>
                 </div>
+
+                {/* Quick 1-Click Tax Helper Buttons */}
+                {newExpense.total && !isNaN(parseFloat(newExpense.total)) && parseFloat(newExpense.total) > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[11px] font-bold text-slate-400">إجراءات حسابية سريعة:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(newExpense.total) || 0;
+                        const withTax = (cur * 1.15).toFixed(2);
+                        setNewExpense(prev => ({ ...prev, total: withTax, isTaxable: true }));
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="يعتبر المبلغ الحالي غير شامل ويضيف 15% ضريبة عليه"
+                    >
+                      <span>+ إضافة 15% ضريبة</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({(parseFloat(newExpense.total) * 1.15).toFixed(2)})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = parseFloat(newExpense.total) || 0;
+                        const baseOnly = (cur / 1.15).toFixed(2);
+                        setNewExpense(prev => ({ ...prev, total: baseOnly, isTaxable: false }));
+                      }}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                      title="استخراج المبلغ الأساسي فقط بدون ضريبة"
+                    >
+                      <span>÷ حسم / استخراج الأساس</span>
+                      <span className="text-[10px] text-slate-500 font-mono">({(parseFloat(newExpense.total) / 1.15).toFixed(2)})</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Interactive Dedicated Tax Calculator Card */}
+                {isExpenseTaxCalcOpen && (
+                  <div className="p-4 bg-gradient-to-br from-red-50/60 to-slate-50 border border-red-200/80 rounded-2xl space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center border-b border-red-100/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-red-600 text-white flex items-center justify-center shadow-xs">
+                          <Calculator className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-800">حاسبة ضريبة القيمة المضافة (15% VAT)</h4>
+                          <p className="text-[10px] text-slate-500 font-medium">اختر نمط الحساب لحساب وإدراج المبلغ بدقة متوافقة مع هيئة الزكاة والضريبة</p>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsExpenseTaxCalcOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Mode Switcher */}
+                    <div className="grid grid-cols-2 gap-2 bg-white p-1 rounded-xl border border-red-100 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => setExpenseCalcMode('add_vat')}
+                        className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer text-center ${
+                          expenseCalcMode === 'add_vat'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        1. إضافة الضريبة (المبلغ غير شامل)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpenseCalcMode('extract_vat')}
+                        className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer text-center ${
+                          expenseCalcMode === 'extract_vat'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        }`}
+                      >
+                        2. حسم / استخراج الضريبة (المبلغ شامل)
+                      </button>
+                    </div>
+
+                    {/* Calculator Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        {expenseCalcMode === 'add_vat' 
+                          ? 'أدخل المبلغ الأساسي الخاضع للضريبة (قبل 15%):' 
+                          : 'أدخل المبلغ الإجمالي النهائي (شامل 15%):'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={expenseCalcAmount}
+                          onChange={e => setExpenseCalcAmount(e.target.value)}
+                          placeholder="مثال: 1000"
+                          className="w-full bg-white border border-red-200 focus:border-red-500 rounded-xl pl-12 pr-4 py-2.5 outline-none font-mono text-sm font-bold text-slate-800 shadow-xs"
+                        />
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">SAR</span>
+                      </div>
+                    </div>
+
+                    {/* Calculation Results Card */}
+                    {expenseCalcAmount && !isNaN(parseFloat(expenseCalcAmount)) && parseFloat(expenseCalcAmount) > 0 && (() => {
+                      const inputVal = parseFloat(expenseCalcAmount);
+                      let baseVal = 0;
+                      let vatVal = 0;
+                      let totalVal = 0;
+
+                      if (expenseCalcMode === 'add_vat') {
+                        baseVal = inputVal;
+                        vatVal = inputVal * 0.15;
+                        totalVal = inputVal * 1.15;
+                      } else {
+                        totalVal = inputVal;
+                        baseVal = inputVal / 1.15;
+                        vatVal = inputVal - baseVal;
+                      }
+
+                      return (
+                        <div className="bg-white p-3.5 rounded-xl border border-red-100 shadow-xs space-y-2.5">
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                              <span className="text-[9px] font-bold text-slate-400 block">المبلغ الأساسي (قبل الضريبة)</span>
+                              <span className="text-xs font-black text-slate-800 font-mono block mt-0.5">{baseVal.toFixed(2)} ر.س</span>
+                            </div>
+                            <div className="p-2 bg-red-50/50 rounded-lg border border-red-100">
+                              <span className="text-[9px] font-bold text-red-600 block">قيمة الضريبة (15% VAT)</span>
+                              <span className="text-xs font-black text-red-600 font-mono block mt-0.5">{vatVal.toFixed(2)} ر.س</span>
+                            </div>
+                            <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                              <span className="text-[9px] font-bold text-emerald-700 block">الإجمالي الشامل للضريبة</span>
+                              <span className="text-xs font-black text-emerald-700 font-mono block mt-0.5">{totalVal.toFixed(2)} ر.س</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewExpense(prev => ({
+                                  ...prev,
+                                  total: totalVal.toFixed(2),
+                                  isTaxable: true
+                                }));
+                                setIsExpenseTaxCalcOpen(false);
+                              }}
+                              className="flex-1 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>تطبيق المبلغ الشامل ({totalVal.toFixed(2)} ر.س) في حقل المصروف</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 <div>
                    {newExpense.total && !isNaN(parseFloat(newExpense.total)) && (

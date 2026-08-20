@@ -98,6 +98,9 @@ interface UnifiedAppModalsProps {
   deleteData: any;
   setDeleteData: (data: any) => void;
   handleDelete: () => void;
+  bookings?: any[];
+  supportServiceRequests?: any[];
+  halls?: any[];
 
   // Pledge Details Modal Props
   isPledgeModalOpen: boolean;
@@ -335,6 +338,10 @@ export const UnifiedAppModals: React.FC<UnifiedAppModalsProps> = (props) => {
         deleteData={deleteData}
         setDeleteData={setDeleteData}
         handleDelete={handleDelete}
+        bookings={props.bookings}
+        supportRequests={props.supportServiceRequests}
+        halls={props.halls}
+        services={services}
       />
 
       {/* Pledge Details Modal */}

@@ -48,9 +48,8 @@ export const fetchWithRetry = async (url: string, retries = 3, delay = 1000, opt
     }
     const text = await res.text();
     if (text.trim().startsWith('<')) {
-      const err = new Error('تم استلام استجابة HTML بدلاً من تنسيق JSON.');
-      (err as any).noRetry = true;
-      throw err;
+      // If we received an HTML document (e.g. server starting up or transitional response), allow retry
+      throw new Error('تم استلام استجابة HTML بدلاً من تنسيق JSON.');
     }
     return text ? JSON.parse(text) : { success: true };
   } catch (err: any) {

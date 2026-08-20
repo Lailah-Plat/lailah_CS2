@@ -442,16 +442,16 @@ async function startServer() {
   app.use("/api/notifications/sms", smsRouter);
   app.use("/api/calendar", iCalRouter);
 
-  // JSON Error Handler for API routes to prevent HTML error fallbacks
-  app.use("/api", errorMiddleware);
-
   // 404 handler for API routes to prevent Vite SPA fallback from returning index.html (HTML)
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      return res.status(404).json({ success: false, error: `API endpoint ${req.originalUrl} not found` });
+    if (req.path.startsWith('/api') || req.originalUrl.startsWith('/api') || req.url.startsWith('/api')) {
+      return res.status(404).json({ success: false, error: `API endpoint ${req.originalUrl || req.url} not found` });
     }
     next();
   });
+
+  // JSON Error Handler for API routes to prevent HTML error fallbacks
+  app.use(errorMiddleware);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

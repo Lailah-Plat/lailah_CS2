@@ -5370,11 +5370,108 @@ export function useAppState() {
   };
 
   const handleDeleteHall = (id: any) => {
-    setHalls((prev: any[]) => prev.filter(h => h.id !== id));
-    showNotification('success', 'تم حذف القاعة بنجاح.');
+    const targetHall = halls.find(h => String(h.id) === String(id));
+    const hallName = targetHall?.name || '';
+    
+    // Check related bookings
+    const relatedBookings = bookings.filter(b => 
+      String(b.hallId) === String(id) || 
+      (hallName && (b.hall === hallName || b.hallName === hallName))
+    );
+    
+    // Active future bookings
+    const activeBookings = relatedBookings.filter(b => !['ملغي', 'مكتمل', 'منفذ'].includes(b.status));
+    
+    if (activeBookings.length > 0) {
+      showNotification('error', `⚠️ حظر الإيقاف أو الحذف: يوجد (${activeBookings.length}) حجز مستقبلي نشط مرتبط بالقاعة. يجب استكمال التشغيل أو إلغاء الحجز عبر الإدارة أولاً.`);
+      return false;
+    }
+    
+    if (relatedBookings.length > 0) {
+      // Soft Delete / Smart Archival
+      setHalls((prev: any[]) => prev.map(h => {
+        if (String(h.id) === String(id)) {
+          return {
+            ...h,
+            isArchived: true,
+            archivedAt: new Date().toISOString(),
+            status: 'مؤرشفة',
+            activationStatus: 'موقوف'
+          };
+        }
+        return h;
+      }));
+      showNotification('info', '📦 تم نقل القاعة إلى الأرشيف وإلغاء إدراجها من العرض العام بنجاح، مع حفظ كافة السجلات المالية التاريخية.');
+      return true;
+    }
+    
+    // Clean delete (no bookings)
+    setHalls((prev: any[]) => prev.filter(h => String(h.id) !== String(id)));
+    try {
+      fetch(`/api/bookings/halls/${id}`, { method: 'DELETE' }).catch(() => {});
+    } catch (e) {}
+    showNotification('success', '🗑️ تم حذف القاعة الجديدة نهائياً وتنظيف السجل لعدم وجود أي عمليات سابقة.');
+    return true;
+  };
+
+  const handleRestoreHall = (id: any) => {
+    setHalls((prev: any[]) => prev.map(h => {
+      if (String(h.id) === String(id)) {
+        return {
+          ...h,
+          isArchived: false,
+          archivedAt: undefined,
+          status: h.adminApprovalStatus === 'approved' || h.approved ? 'approved' : 'pending',
+          activationStatus: 'مفعل'
+        };
+      }
+      return h;
+    }));
+    showNotification('success', '♻️ تم استعادة القاعة من الأرشيف وإعادة تفعيلها بنجاح.');
   };
 
   const handleDeleteService = async (id: any) => {
+    const targetService = servicesState.find(s => String(s.id) === String(id));
+    const sName = targetService?.name || '';
+    
+    // Check related service requests
+    const relatedRequests = (supportServiceRequests || []).filter(r => 
+      String(r.serviceId) === String(id) || 
+      (sName && (r.serviceName === sName || r.name === sName))
+    );
+    
+    const activeRequests = relatedRequests.filter(r => !['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status));
+    
+    if (activeRequests.length > 0) {
+      showNotification('error', `⚠️ حظر الإيقاف أو الحذف: يوجد (${activeRequests.length}) طلب خدمة قائم لم يتم تنفيذه بعد.`);
+      return false;
+    }
+    
+    if (relatedRequests.length > 0) {
+      // Soft delete / Archival
+      setServicesState((prev: any[]) => {
+        const updated = prev.map(s => {
+          if (String(s.id) === String(id)) {
+            return {
+              ...s,
+              isArchived: true,
+              archivedAt: new Date().toISOString(),
+              serviceStatus: 'مؤرشفة',
+              adminStatus: 'مؤرشفة'
+            };
+          }
+          return s;
+        });
+        try {
+          localStorage.setItem('layla_services', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
+      showNotification('info', '📦 تم نقل الخدمة إلى الأرشيف وإلغاء إدراجها من العرض العام بنجاح، مع حفظ كافة السجلات المالية التاريخية.');
+      return true;
+    }
+    
+    // Clean delete
     setServicesState((prev: any[]) => {
       const updated = prev.filter(s => String(s.id) !== String(id));
       try {
@@ -5389,7 +5486,30 @@ export function useAppState() {
     } catch (err) {
       console.warn('Backend API delete note:', err);
     }
-    showNotification('success', 'تم حذف الخدمة بنجاح.');
+    showNotification('success', '🗑️ تم حذف الخدمة الجديدة نهائياً وتنظيف السجل لعدم وجود أي عمليات سابقة.');
+    return true;
+  };
+
+  const handleRestoreService = (id: any) => {
+    setServicesState((prev: any[]) => {
+      const updated = prev.map(s => {
+        if (String(s.id) === String(id)) {
+          return {
+            ...s,
+            isArchived: false,
+            archivedAt: undefined,
+            serviceStatus: 'نشط',
+            adminStatus: 'معتمد'
+          };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('layla_services', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    showNotification('success', '♻️ تم استعادة الخدمة من الأرشيف وإعادة تفعيلها بنجاح.');
   };
 
   const handleDeleteCustomer = (id: any) => {
@@ -6068,7 +6188,9 @@ export function useAppState() {
     handleDeleteReview,
     submitCustomerReview,
     handleDeleteHall,
+    handleRestoreHall,
     handleDeleteService,
+    handleRestoreService,
     handleDeleteCustomer,
     handleDeleteCampaign,
     handleDeleteStaff,

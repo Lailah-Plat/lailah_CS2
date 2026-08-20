@@ -648,7 +648,7 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                         <option value="تم القبول">تم القبول</option>
                         <option value="جاري التنفيذ">جاري التنفيذ</option>
                         <option value="مكتمل">مكتمل</option>
-                        <option value="ملغي">ملغي</option>
+                        {userRole === 'admin' && <option value="ملغي">ملغي</option>}
                       </select>
                     </td>
                     <td className="p-4">
@@ -780,7 +780,7 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                       <option value="تم القبول">تم القبول</option>
                       <option value="جاري التنفيذ">جاري التنفيذ</option>
                       <option value="مكتمل">مكتمل</option>
-                      <option value="ملغي">ملغي</option>
+                      {userRole === 'admin' && <option value="ملغي">ملغي</option>}
                     </select>
                   </div>
                   <div className="flex gap-1">
@@ -1157,12 +1157,13 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                           >
                             <option value="جديد">جديد</option>
                             <option value="انتظار">انتظار</option>
-                            <option value="مؤكد flex items-center gap-1">مؤكد</option>
+                            <option value="مؤكد">مؤكد</option>
                             <option value="منفذ">منفذ</option>
-                            <option value="ملغي">ملغي</option>
+                            {userRole === 'admin' && <option value="ملغي">ملغي</option>}
                           </select>
                         </td>
                         <td className="p-4">
+                        {userRole === 'admin' ? (
                           <select
                             value={b.paymentStatus}
                             onChange={(e) => setBookings(bookings.map((bk: any) => bk.id === b.id ? { ...bk, paymentStatus: e.target.value } : bk))}
@@ -1173,24 +1174,35 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                             <option value="غير مدفوع">غير مدفوع</option>
                             <option value="مسترجع">مسترجع</option>
                           </select>
+                        ) : (
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border text-center ${getStatusColor(b.paymentStatus)}`}>
+                            {b.paymentStatus}
+                          </span>
+                        )}
                         </td>
                         <td className="p-4 flex gap-2">
-                          <button onClick={() => setSelectedBookingForOperations(b)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-3 py-1 rounded-xl text-[11px] font-black transition-all shadow-sm flex items-center gap-1 shrink-0 cursor-pointer" title="لوحة التحكم التشغيلية للحجز وإعادة الجدولة">
+                          <button onClick={() => setSelectedBookingForOperations(b)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-3 py-1 rounded-xl text-[11px] font-black transition-all shadow-sm flex items-center gap-1 shrink-0 cursor-pointer" title="لوحة التحكم التشغيلية للحجز وتفاصيل التجهيز">
                             <Activity className="w-3.5 h-3.5" />
                             <span>تشغيل ⚡</span>
                           </button>
-                          <button onClick={() => { setViewingBooking(b); setIsBookingViewModalOpen(true); }} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors" title="عرض التفاصيل">
+                          <button onClick={() => { setViewingBooking(b); setIsBookingViewModalOpen(true); }} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors" title="عرض التفاصيل الكاملة">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button onClick={() => { setEditingItem(b); setBookingForm(b); setIsBookingModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors" title="تعديل">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setInvoiceBookingToPrint(b)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-colors" title="إصدار فاتورة">
+                          {userRole === 'admin' && (
+                            <>
+                              <button onClick={() => { setEditingItem(b); setBookingForm(b); setIsBookingModalOpen(true); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded-xl transition-colors" title="تعديل">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          <button onClick={() => setInvoiceBookingToPrint(b)} className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-colors" title="طباعة الفاتورة / أمر التشغيل">
                             <FileText className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setDeleteData({ id: b.id, type: "bookings", name: `حجز #${b.id}` })} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="حذف">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {userRole === 'admin' && (
+                            <button onClick={() => setDeleteData({ id: b.id, type: "bookings", name: `حجز #${b.id}` })} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="حذف">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                           {isEligibleForForceMajeureButton(b) && (
                             <button
                               id={`btn-apply-force-majeure-${b.id}`}
@@ -1201,9 +1213,9 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                                 setIsForceMajeureModalOpen(true);
                               }}
                               className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wide border border-red-200 transition-colors flex items-center gap-1 shrink-0"
-                              title="تقديم طلب إلغاء طارئ"
+                              title="تقديم طلب إلغاء طارئ للإدارة"
                             >
-                              <span>⚠️ إلغاء طارئ</span>
+                              <span>⚠️ طلب إلغاء طارئ</span>
                             </button>
                           )}
                         </td>
@@ -1264,38 +1276,48 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                         >
                           <option value="جديد">جديد</option>
                           <option value="انتظار">انتظار</option>
-                          <option value="مؤكد @">مؤكد</option>
+                          <option value="مؤكد">مؤكد</option>
                           <option value="منفذ">منفذ</option>
-                          <option value="ملغي">ملغي</option>
+                          {userRole === 'admin' && <option value="ملغي">ملغي</option>}
                         </select>
-                        <select
-                          value={b.paymentStatus}
-                          onChange={(e) => setBookings(bookings.map((bk: any) => bk.id === b.id ? { ...bk, paymentStatus: e.target.value } : bk))}
-                          className={`text-[10px] font-bold py-1 px-1.5 border rounded-lg focus:outline-none bg-slate-50 cursor-pointer ${getStatusColor(b.paymentStatus)}`}
-                        >
-                          <option value="مدفوع">مدفوع</option>
-                          <option value="جزئي">جزئي</option>
-                          <option value="غير مدفوع">غير مدفوع</option>
-                          <option value="مسترجع">مسترجع</option>
-                        </select>
+                        {userRole === 'admin' ? (
+                          <select
+                            value={b.paymentStatus}
+                            onChange={(e) => setBookings(bookings.map((bk: any) => bk.id === b.id ? { ...bk, paymentStatus: e.target.value } : bk))}
+                            className={`text-[10px] font-bold py-1 px-1.5 border rounded-lg focus:outline-none bg-slate-50 cursor-pointer ${getStatusColor(b.paymentStatus)}`}
+                          >
+                            <option value="مدفوع">مدفوع</option>
+                            <option value="جزئي">جزئي</option>
+                            <option value="غير مدفوع">غير مدفوع</option>
+                            <option value="مسترجع">مسترجع</option>
+                          </select>
+                        ) : (
+                          <span className={`text-[10px] font-bold py-1 px-2 border rounded-lg ${getStatusColor(b.paymentStatus)}`}>
+                            {b.paymentStatus}
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-1 flex-wrap">
-                        <button onClick={() => setSelectedBookingForOperations(b)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all shadow-sm flex items-center gap-1 shrink-0 cursor-pointer" title="لوحة التحكم التشغيلية للحجز وإعادة الجدولة">
+                        <button onClick={() => setSelectedBookingForOperations(b)} className="bg-amber-500 hover:bg-amber-600 text-slate-900 px-2.5 py-1 rounded-lg text-[10px] font-black transition-all shadow-sm flex items-center gap-1 shrink-0 cursor-pointer" title="لوحة التحكم التشغيلية للحجز وتفاصيل التجهيز">
                           <Activity className="w-3.5 h-3.5" />
                           <span>تشغيل ⚡</span>
                         </button>
                         <button onClick={() => { setViewingBooking(b); setIsBookingViewModalOpen(true); }} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors border border-slate-100" title="عرض التفاصيل">
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button onClick={() => { setEditingItem(b); setBookingForm(b); setIsBookingModalOpen(true); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors border border-slate-100" title="تعديل">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setInvoiceBookingToPrint(b)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors border border-slate-100" title="إصدار فاتورة">
+                        {userRole === 'admin' && (
+                          <button onClick={() => { setEditingItem(b); setBookingForm(b); setIsBookingModalOpen(true); }} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors border border-slate-100" title="تعديل">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => setInvoiceBookingToPrint(b)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors border border-slate-100" title="طباعة الفاتورة / أمر التشغيل">
                           <FileText className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setDeleteData({ id: b.id, type: "bookings", name: `حجز #${b.id}` })} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-100" title="حذف">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {userRole === 'admin' && (
+                          <button onClick={() => setDeleteData({ id: b.id, type: "bookings", name: `حجز #${b.id}` })} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-slate-100" title="حذف">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                         {isEligibleForForceMajeureButton(b) && (
                           <button
                             id={`btn-apply-force-majeure-mobile-${b.id}`}
@@ -1306,9 +1328,9 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                               setIsForceMajeureModalOpen(true);
                             }}
                             className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded-lg text-[10px] font-black border border-red-200 transition-colors flex items-center gap-1 shrink-0"
-                            title="تقديم طلب إلغاء طارئ"
+                            title="تقديم طلب إلغاء طارئ للإدارة"
                           >
-                            <span>⚠️ إلغاء طارئ</span>
+                            <span>⚠️ طلب إلغاء طارئ</span>
                           </button>
                         )}
                       </div>
