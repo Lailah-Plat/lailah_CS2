@@ -20,7 +20,8 @@ import {
   Star, Crown, ShieldCheck, Map, Smartphone, 
   Percent, ThumbsUp, Headset, MessageCircle, AlertCircle, X
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import LPASPublicPage from './LPASPublicPage';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import Header from '../components/Header';
@@ -71,6 +72,13 @@ const getPartnerImage = (name: string): string | undefined => {
 };
 
 export default function HomePage() {
+  const [searchParams] = useSearchParams();
+  const lpasParam = searchParams.get('lpas_page') || searchParams.get('lpas_slug') || searchParams.get('landing_page');
+
+  if (lpasParam) {
+    return <LPASPublicPage />;
+  }
+
   /**
    * قائمة المناطق والمدن من مخزن البيانات المحلي (Regions & Cities Datastore)
    * Local storage state synchronized with admin system datastore

@@ -31,6 +31,7 @@ import { BookingsManagement } from './components/BookingsManagement';
 import { ReviewsManagement } from './components/ReviewsManagement';
 import { AdminHeaderNotificationBell } from './components/AdminHeaderNotificationBell';
 import { Toaster } from 'react-hot-toast';
+import { UnifiedPartnerCockpit } from './components/provider/cockpit/UnifiedPartnerCockpit';
 
 // Resilient dynamic code splitting helper with fallback retry
 function safeLazy<T extends React.ComponentType<any>>(
@@ -301,10 +302,19 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
 
+  const [searchParams] = useSearchParams();
+
   const [publicLpasSlug, setPublicLpasSlug] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('lpas_page') || params.get('lpas_slug') || params.get('landing_page') || null;
   });
+
+  useEffect(() => {
+    const slug = searchParams.get('lpas_page') || searchParams.get('lpas_slug') || searchParams.get('landing_page') || null;
+    if (slug !== publicLpasSlug) {
+      setPublicLpasSlug(slug);
+    }
+  }, [searchParams]);
 
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const profileContainerRef = React.useRef<HTMLDivElement>(null);
@@ -463,7 +473,7 @@ export default function App() {
   const visibleTabs = useMemo(() => {
     if (userRole === 'admin') {
       return TABS.filter(tab => 
-        ['overview', 'urgent_alerts', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'financial_settings', 'technical_diagnostics', 'marketing', 'feature_adoption', 'users', 'customers', 'providers', 'staff', 'support', 'reviews', 'messages', 'settings', 'staff_profile', 'roadmap_phases'].includes(tab.id)
+        ['overview', 'cockpit', 'urgent_alerts', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'financial_settings', 'technical_diagnostics', 'marketing', 'feature_adoption', 'users', 'customers', 'providers', 'staff', 'support', 'reviews', 'messages', 'settings', 'staff_profile', 'roadmap_phases'].includes(tab.id)
       );
     }
     if (userRole === 'agency') {
@@ -472,7 +482,7 @@ export default function App() {
       );
     }
     return TABS.filter(tab => 
-      ['overview', 'bookings', 'halls', 'services', 'finance', 'marketing', 'support', 'reviews', 'provider_profile'].includes(tab.id)
+      ['overview', 'cockpit', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'marketing', 'support', 'reviews', 'provider_profile'].includes(tab.id)
     );
   }, [userRole]);
 
@@ -493,6 +503,25 @@ export default function App() {
         return (
           <Suspense fallback={<LoadingSpinner />}>
             <AdminDashboard {...anyState} activeSection={activeSection} setActiveSection={setActiveSection} />
+          </Suspense>
+        );
+
+      case 'cockpit':
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <UnifiedPartnerCockpit
+              currentProviderName={state.currentProviderName || state.currentUser?.name || 'شركة القاعات المتميزة'}
+              currentUserName={state.currentUser?.name || 'مدير المنشأة'}
+              myBookings={state.bookings || []}
+              mySupportRequests={state.supportServiceRequests || []}
+              halls={state.halls || []}
+              showNotification={state.showNotification || (() => {})}
+              onUpdateBookingStage={(id, stage) => {
+                if (state.setBookings) {
+                  state.setBookings((prev: any[]) => prev.map(b => b.id === id ? { ...b, stage } : b));
+                }
+              }}
+            />
           </Suspense>
         );
 

@@ -40,7 +40,7 @@ export interface ProviderCapabilities {
   hasAdvancedAnalytics: boolean;
   /** ميزة الإدارة الشاملة للحجوزات والخدمات */
   hasComprehensiveManagement: boolean;
-  /** ميزة مساحة تشغيل الأعمال المتقدمة في مساحة عمل المزود الموحدة */
+  /** ميزة مساحة تشغيل الأعمال المتقدمة في بوابة المزود الموحدة */
   hasBOSWorkspace: boolean;
   /** الحد الأقصى للقاعات والمنشآت المسموح بإضافتها */
   hallsLimit: number | 'unlimited';   

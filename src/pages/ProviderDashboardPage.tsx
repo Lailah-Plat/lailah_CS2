@@ -26,7 +26,19 @@ import {
   MessageCircle,
   Sparkles,
   HelpCircle,
-  Briefcase
+  Briefcase,
+  Activity,
+  CheckSquare,
+  Inbox,
+  Boxes,
+  Truck,
+  Wallet,
+  Award,
+  Megaphone,
+  Star,
+  ShieldAlert,
+  Users,
+  FileSpreadsheet
 } from 'lucide-react';
 
 // Dashboard Components
@@ -45,6 +57,7 @@ import { ProviderGrowthCenter } from '../components/provider/ProviderGrowthCente
 
 // Direct component imports for stability
 import { ProviderDashboard } from '../components/provider/ProviderDashboard';
+import { UnifiedPartnerCockpit } from '../components/provider/cockpit/UnifiedPartnerCockpit';
 import FinanceDashboard from '../components/FinanceDashboard';
 import { InventoryDashboard } from '../components/InventoryDashboard';
 import { SuppliersDashboard } from '../components/SuppliersDashboard';
@@ -256,27 +269,45 @@ export function ProviderDashboardContent() {
     if (state.setIsMapModalOpen) state.setIsMapModalOpen(false);
   };
 
-  // All provider tabs available in the unified control dashboard
-  const visibleTabs = useMemo(() => {
-    const providerTabIds = [
-      'overview',
-      'bookings',
-      'halls',
-      'services',
-      'inventory',
-      'suppliers',
-      'finance',
-      'subscriptions',
-      'reviews',
-      'messages',
-      'provider_profile',
-      'activity_log',
-      'marketing',
-      'provider_staff',
-      'support'
+  // Categorized Sidebar Groups for Provider Dashboard
+  const categorizedSidebarGroups = useMemo(() => {
+    return [
+      {
+        title: '⚡ العمليات والقيادة',
+        items: [
+          { id: 'overview', label: 'مركز القيادة والعمليات الموحد', icon: Activity },
+          { id: 'bookings', label: 'إدارة الحجوزات والطلبات', icon: CheckSquare },
+        ]
+      },
+      {
+        title: '🏢 إدارة المنشأة والخدمات',
+        items: [
+          { id: 'halls', label: 'إدارة القاعات والكتالوج', icon: Building2 },
+          { id: 'services', label: 'الخدمات المساندة والمستقلة', icon: Inbox },
+          { id: 'inventory', label: 'إدارة المخزون الميداني', icon: Boxes },
+          { id: 'suppliers', label: 'إدارة الموردين والتوريد', icon: Truck },
+        ]
+      },
+      {
+        title: '💰 المركز المالي والأداء',
+        items: [
+          { id: 'finance', label: 'المركز المالي وحساب الضمان', icon: Wallet },
+          { id: 'subscriptions', label: 'باقات الاشتراك والعمولة', icon: Award },
+          { id: 'marketing', label: 'التقييمات والتسويق والنمو', icon: Megaphone },
+          { id: 'reviews', label: 'تقييمات وآراء العملاء', icon: Star },
+        ]
+      },
+      {
+        title: '💬 التواصل والدعم',
+        items: [
+          { id: 'messages', label: 'الرسائل والدردشة المباشرة', icon: MessageSquare },
+          { id: 'support', label: 'الدعم الفني وتذاكر المساعدة', icon: ShieldAlert },
+          { id: 'provider_profile', label: 'بيانات المنشأة والهوية', icon: User },
+          { id: 'provider_staff', label: 'إدارة الكوادر والموظفين', icon: Users },
+          { id: 'activity_log', label: 'التقارير الشاملة وسجل النشاط', icon: FileSpreadsheet },
+        ]
+      }
     ];
-
-    return TABS.filter(tab => providerTabIds.includes(tab.id));
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -321,9 +352,25 @@ export function ProviderDashboardContent() {
 
     switch (activeTab) {
       case 'overview':
+      case 'cockpit':
         return (
           <Suspense fallback={<LoadingSpinner />}>
-            <ProviderDashboard {...anyState} activeSection={activeSection} setActiveSection={setActiveSection} />
+            <UnifiedPartnerCockpit
+              currentProviderName={currentProviderName}
+              currentUserName={state.currentUser?.name || 'مدير المنشأة'}
+              myBookings={state.bookings || []}
+              mySupportRequests={state.supportServiceRequests || []}
+              halls={state.halls || []}
+              showNotification={state.showNotification || (() => {})}
+              onUpdateBookingStage={(id, stage) => {
+                if (state.setBookings) {
+                  state.setBookings((prev: any[]) => prev.map(b => b.id === id ? { ...b, stage } : b));
+                }
+              }}
+              onOpenChat={() => {
+                handleTabChange('messages');
+              }}
+            />
           </Suspense>
         );
 
@@ -541,44 +588,51 @@ export function ProviderDashboardContent() {
             </AnimatePresence>
           </div>
 
-          {/* Sidebar Scrollable Links */}
-          <nav className="flex-grow overflow-y-auto px-4 py-2 space-y-1 scrollbar-thin scrollbar-thumb-slate-800">
-            {visibleTabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              const isEntitled = canAccessTab(tab.id);
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-xs font-bold rounded-xl transition-all duration-200 text-right cursor-pointer ${
-                    isActive
-                      ? 'bg-gradient-to-l from-amber-500/20 to-orange-500/10 text-amber-400 border-r-4 border-amber-500 shadow-md'
-                      : 'text-slate-300 hover:bg-slate-900/40 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 truncate">
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
-                    <span className="truncate">{tab.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!isEntitled && (
-                      <span className="p-1 rounded-md bg-amber-500/10 text-amber-400/80 text-[10px]" title="ميزة متقدمة تتطلب ترقية الباقة">
-                        <Lock className="w-3 h-3" />
-                      </span>
-                    )}
-                    {tab.id === 'messages' && unreadMessagesCount > 0 && (
-                      <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                        {unreadMessagesCount}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+          {/* Sidebar Scrollable Links Grouped */}
+          <nav className="flex-grow overflow-y-auto px-3 py-2 space-y-5 scrollbar-thin scrollbar-thumb-slate-800">
+            {categorizedSidebarGroups.map((group, gIdx) => (
+              <div key={gIdx} className="space-y-1">
+                <div className="px-3 pb-1 text-[11px] font-black text-amber-400/90 tracking-wide uppercase flex items-center justify-between border-b border-slate-800/60 mb-1.5">
+                  <span>{group.title}</span>
+                </div>
+                {group.items.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id || (activeTab === 'cockpit' && item.id === 'overview');
+                  const isEntitled = canAccessTab(item.id);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        handleTabChange(item.id);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-xs font-bold rounded-xl transition-all duration-200 text-right cursor-pointer ${
+                        isActive
+                          ? 'bg-gradient-to-l from-amber-500/25 via-amber-500/15 to-transparent text-amber-300 border-r-4 border-amber-500 shadow-lg font-black'
+                          : 'text-slate-300 hover:bg-slate-900/60 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-400'}`} />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isEntitled && (
+                          <span className="p-1 rounded-md bg-amber-500/10 text-amber-400/80 text-[10px]" title="ميزة متقدمة تتطلب ترقية الباقة">
+                            <Lock className="w-3 h-3" />
+                          </span>
+                        )}
+                        {item.id === 'messages' && unreadMessagesCount > 0 && (
+                          <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                            {unreadMessagesCount}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {/* Sidebar Footer Controls */}

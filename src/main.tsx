@@ -13,7 +13,6 @@ import ContactPage from './pages/ContactPage';
 import BookingsPage from './pages/BookingsPage';
 import FavoritesPage from './pages/FavoritesPage';
 import ProfilePage from './pages/ProfilePage';
-import ServiceRequestsPage from './pages/ServiceRequestsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsPage from './pages/TermsPage';
 import FaqPage from './pages/FaqPage';
@@ -30,6 +29,7 @@ import EventBudgetPlannerPage from './pages/EventBudgetPlannerPage';
 import BundledPackagesPage from './pages/BundledPackagesPage';
 import MapExplorerPage from './pages/MapExplorerPage';
 import ProviderTrustProfilePage from './pages/ProviderTrustProfilePage';
+import LPASPublicPage from './pages/LPASPublicPage';
 import { RoleRouteGuard } from './components/RoleGuard';
 import ProviderRealtimeChatNotifier from './components/ProviderRealtimeChatNotifier';
 import './index.css';
@@ -62,6 +62,36 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <HomePage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/landing/:slug",
+    element: <LPASPublicPage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/landing",
+    element: <LPASPublicPage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/lp/:slug",
+    element: <LPASPublicPage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/lp",
+    element: <LPASPublicPage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/lpas/:slug",
+    element: <LPASPublicPage />,
+    errorElement: <RouteErrorPage />
+  },
+  {
+    path: "/lpas",
+    element: <LPASPublicPage />,
     errorElement: <RouteErrorPage />
   },
   {
@@ -126,7 +156,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/service-requests",
-    element: <ServiceRequestsPage />,
+    element: <Navigate to="/bookings?tab=services" replace />,
     errorElement: <RouteErrorPage />
   },
   {
