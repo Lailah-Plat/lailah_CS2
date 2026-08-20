@@ -543,7 +543,7 @@ router.all('/legacy/bos/*', (req: Request, res: Response) => {
   res.status(301).json({
     success: true,
     decommissioned: true,
-    message: 'نظام تشغيل BOS القديم تم إيقافه تماماً وإحالته للتقاعد. يرجى استخدام مساحة عمل المزود الموحدة والمتكيفة.',
+    message: 'النظام القديم تم إيقافه تماماً. يرجى استخدام بوابة المزود الموحدة الحديثة (Next-Gen Provider Portal).',
     redirectTo: '/provider-dashboard'
   });
 });
@@ -552,7 +552,7 @@ router.all('/legacy/lite/*', (req: Request, res: Response) => {
   res.status(301).json({
     success: true,
     decommissioned: true,
-    message: 'واجهة المزود المبسطة القديمة تم دمجها بالكامل في مساحة عمل المزود الموحدة والمتكيفة.',
+    message: 'الواجهة القديمة تم دمجها بالكامل في بوابة المزود الموحدة الحديثة.',
     redirectTo: '/provider-dashboard'
   });
 });
