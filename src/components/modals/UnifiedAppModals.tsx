@@ -101,6 +101,7 @@ interface UnifiedAppModalsProps {
   bookings?: any[];
   supportServiceRequests?: any[];
   halls?: any[];
+  promotions?: any[];
 
   // Pledge Details Modal Props
   isPledgeModalOpen: boolean;
@@ -342,6 +343,8 @@ export const UnifiedAppModals: React.FC<UnifiedAppModalsProps> = (props) => {
         supportRequests={props.supportServiceRequests}
         halls={props.halls}
         services={services}
+        promotions={props.promotions}
+        campaigns={campaigns}
       />
 
       {/* Pledge Details Modal */}

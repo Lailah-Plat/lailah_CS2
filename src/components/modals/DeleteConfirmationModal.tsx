@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Trash2, AlertTriangle, Archive, ShieldCheck, Calendar, User, Clock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Trash2, AlertTriangle, Archive, ShieldCheck, Calendar, User, Clock, CheckCircle2, ShieldAlert, Sparkles, Megaphone, Tag } from 'lucide-react';
 
 interface DeleteConfirmationModalProps {
   deleteData: any;
@@ -9,6 +9,8 @@ interface DeleteConfirmationModalProps {
   supportRequests?: any[];
   halls?: any[];
   services?: any[];
+  promotions?: any[];
+  campaigns?: any[];
 }
 
 export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
@@ -17,6 +19,8 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
   handleDelete,
   bookings: propBookings,
   supportRequests: propSupportRequests,
+  promotions: propPromotions,
+  campaigns: propCampaigns
 }) => {
   if (!deleteData) return null;
 
@@ -39,11 +43,32 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
     return [];
   }, [propSupportRequests]);
 
+  const allPromotions = useMemo(() => {
+    if (propPromotions && propPromotions.length > 0) return propPromotions;
+    try {
+      const stored = localStorage.getItem('PROMOTIONS');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [];
+  }, [propPromotions]);
+
+  const allCampaigns = useMemo(() => {
+    if (propCampaigns && propCampaigns.length > 0) return propCampaigns;
+    try {
+      const stored = localStorage.getItem('layla_campaigns');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [];
+  }, [propCampaigns]);
+
   const isHall = deleteData.type === 'hall' || deleteData.type === 'halls';
   const isService = deleteData.type === 'service' || deleteData.type === 'services';
 
   // Analyze lifecycle metrics
   const analysis = useMemo(() => {
+    let linkedPromos: any[] = [];
+    let linkedCamps: any[] = [];
+
     if (isHall) {
       const related = allBookings.filter((b: any) => 
         String(b.hallId) === String(deleteData.id) || 
@@ -51,6 +76,15 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
       );
       const active = related.filter((b: any) => !['ملغي', 'مكتمل', 'منفذ'].includes(b.status));
       const past = related.filter((b: any) => ['ملغي', 'مكتمل', 'منفذ'].includes(b.status));
+
+      linkedPromos = allPromotions.filter((p: any) => 
+        p.status === 'active' && p.targetIds && p.targetIds.map(String).includes(String(deleteData.id))
+      );
+
+      linkedCamps = allCampaigns.filter((c: any) => 
+        c.status === 'active' && (c.title?.includes(deleteData.name) || c.hallId === deleteData.id)
+      );
+
       return {
         totalCount: related.length,
         activeCount: active.length,
@@ -58,7 +92,9 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
         activeItems: active,
         isBlocked: active.length > 0,
         isArchivable: past.length > 0 && active.length === 0,
-        isCleanDelete: related.length === 0
+        isCleanDelete: related.length === 0,
+        linkedPromos,
+        linkedCamps
       };
     }
 
@@ -69,6 +105,11 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
       );
       const active = related.filter((r: any) => !['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status));
       const past = related.filter((r: any) => ['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status));
+
+      linkedPromos = allPromotions.filter((p: any) => 
+        p.status === 'active' && p.applyTo === 'services' && p.targetIds && p.targetIds.map(String).includes(String(deleteData.id))
+      );
+
       return {
         totalCount: related.length,
         activeCount: active.length,
@@ -76,7 +117,9 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
         activeItems: active,
         isBlocked: active.length > 0,
         isArchivable: past.length > 0 && active.length === 0,
-        isCleanDelete: related.length === 0
+        isCleanDelete: related.length === 0,
+        linkedPromos,
+        linkedCamps: []
       };
     }
 
@@ -87,9 +130,11 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
       activeItems: [],
       isBlocked: false,
       isArchivable: false,
-      isCleanDelete: true
+      isCleanDelete: true,
+      linkedPromos: [],
+      linkedCamps: []
     };
-  }, [deleteData, isHall, isService, allBookings, allSupportRequests]);
+  }, [deleteData, isHall, isService, allBookings, allSupportRequests, allPromotions, allCampaigns]);
 
   // Case 1: Blocked by active commitments
   if (analysis.isBlocked) {
@@ -194,6 +239,27 @@ export const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = (
                 <span>إمكانية استعادة وتفعيل العنصر في أي وقت من تبويب «الأرشيف».</span>
               </div>
             </div>
+
+            {/* Linked Promotions & Campaigns Interlock Badges */}
+            {analysis.linkedPromos.length > 0 && (
+              <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3.5 flex items-start gap-2.5 text-xs text-amber-900">
+                <Tag className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block mb-0.5">عروض ترويجية نشطة مرتبطة:</span>
+                  <span>يوجد ({analysis.linkedPromos.length}) عرض ترويجي نشط مرتبط بهذا الأصل؛ سيتم إيقافها وتعليقها تلقائياً عند الأرشفة.</span>
+                </div>
+              </div>
+            )}
+
+            {analysis.linkedCamps.length > 0 && (
+              <div className="bg-blue-50/80 border border-blue-200/80 rounded-2xl p-3.5 flex items-start gap-2.5 text-xs text-blue-900">
+                <Megaphone className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block mb-0.5">حملات تسويقية نشطة:</span>
+                  <span>يوجد ({analysis.linkedCamps.length}) حملة تسويقية جارية؛ سيتم إخطار وكالة التسويق بالأرشفة.</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-slate-50 p-5 border-t border-slate-100 flex gap-3">

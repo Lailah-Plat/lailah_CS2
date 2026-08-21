@@ -19,6 +19,7 @@ import { useCalendar } from '../context/CalendarContext';
 import { formatDateWithHijri, formatSmartDate, getFullDateInfo } from '../utils/dateUtils';
 import { toast } from 'react-hot-toast';
 import { ReviewModal } from '../components/modals/ReviewModal';
+import { AdBanner } from '../components/AdBanner';
 
 // Helper for invoice request (Bookings)
 const handleRequestInvoice = (bookingId: string) => {
@@ -1385,6 +1386,15 @@ export default function BookingsPage() {
                 })}
               </div>
             )}
+
+            {/* Ad Banner - أسفل تفاصيل الحجز */}
+            <div className="pt-6">
+              <AdBanner 
+                placement="أسفل تفاصيل الحجز" 
+                layout="card" 
+                className="w-full shadow-sm hover:shadow-md transition-shadow" 
+              />
+            </div>
 
           </div>
         )}

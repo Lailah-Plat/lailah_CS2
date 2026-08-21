@@ -33,6 +33,26 @@ export const InternalAdsManagement = ({
   internalAds: InternalAd[]; 
   setInternalAds: React.Dispatch<React.SetStateAction<InternalAd[]>> 
 }) => {
+  // Real-time synchronization with ad tracker events
+  React.useEffect(() => {
+    const handleLiveAdUpdate = (e: any) => {
+      if (e.detail?.adId && e.detail?.updatedAd) {
+        setInternalAds(prev => 
+          prev.map(ad => 
+            String(ad.id) === String(e.detail.adId) 
+              ? { ...ad, views: e.detail.updatedAd.views ?? ad.views, clicks: e.detail.updatedAd.clicks ?? ad.clicks } 
+              : ad
+          )
+        );
+      }
+    };
+
+    window.addEventListener('layla_internal_ads_updated', handleLiveAdUpdate);
+    return () => {
+      window.removeEventListener('layla_internal_ads_updated', handleLiveAdUpdate);
+    };
+  }, [setInternalAds]);
+
   // Search, Filter & Sort State
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -356,9 +376,22 @@ export const InternalAdsManagement = ({
             >
               <option value="all">كل المساحات الإعلانية</option>
               <option value="أعلى الصفحة الرئيسية">أعلى الصفحة الرئيسية</option>
+              <option value="شريط الهيدر الإعلاني المصغر">شريط الهيدر الإعلاني المصغر</option>
+              <option value="بين بطاقات القاعات في صفحة الاستكشاف">بين بطاقات القاعات في صفحة الاستكشاف</option>
               <option value="شريط جانبي في قائمة الخدمات">شريط جانبي في قائمة الخدمات</option>
               <option value="أسفل تفاصيل الحجز">أسفل تفاصيل الحجز</option>
+              <option value="أسفل الفاتورة وتأكيد الحجز">أسفل الفاتورة وتأكيد الحجز</option>
               <option value="نافذة منبثقة (Popup)">نافذة منبثقة (Popup)</option>
+              <option value="صفحة باقات الاشتراك للمزودين">صفحة باقات الاشتراك للمزودين</option>
+              <option value="صفحة خريطة استكشاف الأماكن والقاعات">صفحة خريطة استكشاف الأماكن والقاعات</option>
+              <option value="صفحة حاسبة ميزانية المناسبة">صفحة حاسبة ميزانية المناسبة</option>
+              <option value="صفحة التقويم الذكي">صفحة التقويم الذكي</option>
+              <option value="شريط الإعلانات العلوي - يمين">شريط الإعلانات العلوي - يمين</option>
+              <option value="شريط الإعلانات العلوي - وسط">شريط الإعلانات العلوي - وسط</option>
+              <option value="شريط الإعلانات العلوي - يسار">شريط الإعلانات العلوي - يسار</option>
+              <option value="شريط الإعلانات السفلي - يمين">شريط الإعلانات السفلي - يمين</option>
+              <option value="شريط الإعلانات السفلي - وسط">شريط الإعلانات السفلي - وسط</option>
+              <option value="شريط الإعلانات السفلي - يسار">شريط الإعلانات السفلي - يسار</option>
             </select>
           </div>
 
@@ -627,9 +660,16 @@ export const InternalAdsManagement = ({
                     {(() => {
                       const defaults = [
                         'أعلى الصفحة الرئيسية', 
+                        'شريط الهيدر الإعلاني المصغر',
+                        'بين بطاقات القاعات في صفحة الاستكشاف',
                         'شريط جانبي في قائمة الخدمات', 
                         'أسفل تفاصيل الحجز', 
+                        'أسفل الفاتورة وتأكيد الحجز',
                         'نافذة منبثقة (Popup)',
+                        'صفحة باقات الاشتراك للمزودين',
+                        'صفحة خريطة استكشاف الأماكن والقاعات',
+                        'صفحة حاسبة ميزانية المناسبة',
+                        'صفحة التقويم الذكي',
                         'شريط الإعلانات العلوي - يمين',
                         'شريط الإعلانات العلوي - وسط',
                         'شريط الإعلانات العلوي - يسار',

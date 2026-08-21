@@ -41,8 +41,15 @@ import {
   Coins,
   MessageCircle,
   LayoutDashboard,
-  Camera
+  Camera,
+  PauseCircle,
+  PlayCircle,
+  History,
+  GitBranch,
+  Layers,
+  AlertCircle
 } from 'lucide-react';
+import { AuditLog } from '../types';
 import { 
   getStoredHalls, 
   saveStoredHalls, 
@@ -671,6 +678,47 @@ export default function HallsServicesPortalPage() {
 
   const [isHallImageUploading, setIsHallImageUploading] = useState(false);
   const [isServiceImageUploading, setIsServiceImageUploading] = useState(false);
+
+  // Catalog Versioning, Pause/Resume & Audit Log States
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [selectedAuditEntity, setSelectedAuditEntity] = useState<{ type: 'hall' | 'service'; id: number | string; name: string } | null>(null);
+  const [auditLogsList, setAuditLogsList] = useState<AuditLog[]>(() => {
+    try {
+      const stored = localStorage.getItem('layla_audit_logs');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [isImpactModalOpen, setIsImpactModalOpen] = useState(false);
+  const [impactModalData, setImpactModalData] = useState<{
+    entityName: string;
+    entityType: 'hall' | 'service';
+    version: number;
+    previousPrice?: number;
+    newPrice?: number;
+    activeBookingsCount: number;
+    isPreSave?: boolean;
+  } | null>(null);
+
+  const recordAuditLog = (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
+    try {
+      const raw = localStorage.getItem('layla_audit_logs');
+      const logs: AuditLog[] = raw ? JSON.parse(raw) : [];
+      const newEntry: AuditLog = {
+        ...entry,
+        id: `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString()
+      };
+      logs.unshift(newEntry);
+      localStorage.setItem('layla_audit_logs', JSON.stringify(logs));
+      setAuditLogsList(logs);
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error('Error saving audit log:', e);
+    }
+  };
 
   // Custom Package Builder Modal States
   const [isPkgModalOpen, setIsPkgModalOpen] = useState(false);
@@ -1320,8 +1368,8 @@ export default function HallsServicesPortalPage() {
     return true;
   };
 
-  const handleSaveHall = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveHall = async (e?: React.FormEvent, confirmedPreSave = false) => {
+    if (e) e.preventDefault();
     if (!canGoToNextStep()) return;
 
     if (!hallForm.pledge) {
@@ -1341,8 +1389,49 @@ export default function HallsServicesPortalPage() {
       );
     }
 
+    const isPriceOrCapacityChanged = editingHall && (
+      Number(editingHall.nightPrice) !== Number(hallForm.nightPrice) ||
+      Number(editingHall.fullDayPrice) !== Number(hallForm.fullDayPrice) ||
+      Number(editingHall.morningPrice) !== Number(hallForm.morningPrice) ||
+      Number(editingHall.capacity) !== Number(hallForm.capacity)
+    );
+
+    const currentVersion = editingHall ? (editingHall.version || 1) : 1;
+    const newVersion = isPriceOrCapacityChanged ? currentVersion + 1 : currentVersion;
+
+    // Check for active bookings to trigger Pre-Save Impact Notification
+    if (editingHall && isPriceOrCapacityChanged && !confirmedPreSave) {
+      let activeBookings = 0;
+      try {
+        const raw = localStorage.getItem('ais_bookings_v2') || localStorage.getItem('layla_bookings');
+        if (raw) {
+          const bList = JSON.parse(raw);
+          activeBookings = bList.filter((b: any) => 
+            (String(b.hallId) === String(editingHall.id) || b.hall === editingHall.name) && 
+            !['ملغي', 'مكتمل', 'منفذ'].includes(b.status)
+          ).length;
+        }
+      } catch (e) {}
+
+      if (activeBookings > 0) {
+        setImpactModalData({
+          entityName: hallForm.name,
+          entityType: 'hall',
+          version: newVersion,
+          previousPrice: Number(editingHall.nightPrice),
+          newPrice: Number(hallForm.nightPrice),
+          activeBookingsCount: activeBookings,
+          isPreSave: true
+        });
+        setIsImpactModalOpen(true);
+        return;
+      }
+    }
+
     const payload = {
       ...hallForm,
+      version: newVersion,
+      lastPriceUpdate: isPriceOrCapacityChanged ? new Date().toISOString() : (editingHall?.lastPriceUpdate || new Date().toISOString()),
       city: finalCity,
       image: mainCoverImage,
       description: hallForm.about || hallForm.name,
@@ -1386,13 +1475,141 @@ export default function HallsServicesPortalPage() {
 
       saveStoredHalls(updatedHallsList);
       setIsHallModalOpen(false);
+      setIsImpactModalOpen(false);
+
+      // Versioning & Impact audit trail
+      if (editingHall && isPriceOrCapacityChanged) {
+        let activeBookings = 0;
+        try {
+          const raw = localStorage.getItem('ais_bookings_v2') || localStorage.getItem('layla_bookings');
+          if (raw) {
+            const bList = JSON.parse(raw);
+            activeBookings = bList.filter((b: any) => 
+              (String(b.hallId) === String(editingHall.id) || b.hall === editingHall.name) && 
+              !['ملغي', 'مكتمل', 'منفذ'].includes(b.status)
+            ).length;
+          }
+        } catch (e) {}
+
+        recordAuditLog({
+          entityType: 'hall',
+          entityId: editingHall.id,
+          entityName: hallForm.name,
+          action: 'update',
+          actorName: currentUser?.name || currentProviderName || 'المزود',
+          actorRole: userRole,
+          previousValues: { nightPrice: editingHall.nightPrice, fullDayPrice: editingHall.fullDayPrice, capacity: editingHall.capacity, version: currentVersion },
+          newValues: { nightPrice: hallForm.nightPrice, fullDayPrice: hallForm.fullDayPrice, capacity: hallForm.capacity, version: newVersion },
+          details: `تحديث البنود المالية والتعاقدية وترقية الإصدار إلى (v${newVersion})`,
+          impactSummary: `حماية (${activeBookings}) حجز نشط سابق بالسعر المجمّد القديم؛ سريان v${newVersion} على الحجوزات المستقبلية فورياً.`
+        });
+      } else if (!editingHall) {
+        recordAuditLog({
+          entityType: 'hall',
+          entityId: savedHall?.id || Date.now(),
+          entityName: hallForm.name,
+          action: 'create',
+          actorName: currentUser?.name || currentProviderName || 'المزود',
+          actorRole: userRole,
+          newValues: { nightPrice: hallForm.nightPrice, fullDayPrice: hallForm.fullDayPrice, capacity: hallForm.capacity, version: 1 },
+          details: 'إدراج قاعة جديدة لأول مرة بالإصدار الأساسي (v1)',
+          impactSummary: 'إدراج جديد بانتظار الاعتماد الإداري والتشغيل'
+        });
+      }
     } catch (err: any) {
       setFormError('خطأ في مزامنة البيانات الخارجية: ' + err.message);
     }
   };
 
+  const handleTogglePauseHall = (hallId: number | string) => {
+    const target = halls.find(h => String(h.id) === String(hallId));
+    if (!target) return;
+    const isCurrentlyPaused = target.activationStatus === 'موقوف' || target.isPaused;
+    const newActivationStatus = isCurrentlyPaused ? 'نشط' : 'موقوف';
+    const newIsPaused = !isCurrentlyPaused;
+
+    const updatedHalls = halls.map(h => {
+      if (String(h.id) === String(hallId)) {
+        return {
+          ...h,
+          activationStatus: newActivationStatus,
+          isPaused: newIsPaused,
+          pauseReason: newIsPaused ? 'إيقاف مؤقت للصيانة والتجديد الدوري' : undefined,
+          pausedAt: newIsPaused ? new Date().toISOString() : undefined
+        };
+      }
+      return h;
+    });
+
+    saveStoredHalls(updatedHalls);
+    setHalls(updatedHalls);
+
+    recordAuditLog({
+      entityType: 'hall',
+      entityId: hallId,
+      entityName: target.name,
+      action: 'status_change',
+      actorName: currentUser?.name || currentProviderName || 'المزود',
+      actorRole: userRole,
+      previousValues: { activationStatus: target.activationStatus || 'نشط', isPaused: !!target.isPaused },
+      newValues: { activationStatus: newActivationStatus, isPaused: newIsPaused },
+      details: newIsPaused ? 'إيقاف مؤقت للقاعة (صيانة/تجديدات) مع إغلاق التقويم وبقاء الاعتماد سارياً' : 'استئناف تشغيل القاعة وفتح تقويم الحجز للعملاء بعد انتهاء الصيانة',
+      impactSummary: newIsPaused ? 'إغلاق التقويم مؤقتاً دون الحاجة لإعادة طلب اعتماد جديد عند الاستئناف' : 'فتح التقويم فورياً للحجوزات الجديدة'
+    });
+
+    if (newIsPaused) {
+      alert(`⏸️ تم إيقاف استقبال الحجوزات مؤقتاً لقاعة "${target.name}".\n\nتظل القاعة معتمدة وتاريخها محفوظ، مع إغلاق التقويم للعملاء مؤقتاً للصيانة. يمكنك إعادة تفعيلها بضغطة زر في أي وقت.`);
+    } else {
+      alert(`🟢 تم استئناف استقبال الحجوزات لقاعة "${target.name}" وفتح التقويم فورياً للعملاء.`);
+    }
+  };
+
   const handleDeleteHall = async (id: number) => {
-    if (window.confirm('هل أنت متأكد من حذف هذه القاعة بشكل نهائي؟')) {
+    const targetHall = halls.find(h => h.id === id);
+    const hallName = targetHall?.name || '';
+
+    // Check related bookings from storage
+    let storedBookings: any[] = [];
+    try {
+      const raw = localStorage.getItem('ais_bookings_v2') || localStorage.getItem('layla_bookings');
+      if (raw) storedBookings = JSON.parse(raw);
+    } catch (e) {}
+
+    const related = storedBookings.filter(b => 
+      String(b.hallId) === String(id) || 
+      (hallName && (b.hall === hallName || b.hallName === hallName))
+    );
+    const active = related.filter(b => !['ملغي', 'مكتمل', 'منفذ'].includes(b.status));
+
+    if (active.length > 0) {
+      alert(`⚠️ حظر الإيقاف أو الحذف: يوجد (${active.length}) حجز مستقبلي نشط مرتبط بالقاعة. يجب استكمال التشغيل أو إلغاء الحجز عبر الإدارة أولاً.`);
+      return;
+    }
+
+    if (related.length > 0) {
+      // Historical bookings exist -> Soft Delete / Archival
+      if (window.confirm(`تحتوي هذه القاعة على (${related.length}) حجز تاريخي منفذ وفواتير سابقة. سيتم نقل القاعة للأرشيف وإلغاؤها من العرض العام مع الحفاظ على سلامة كافة الفواتير والتقارير المالية. هل ترغب في المتابعة؟`)) {
+        const updated = halls.map(h => {
+          if (h.id === id) {
+            return {
+              ...h,
+              isArchived: true,
+              archivedAt: new Date().toISOString(),
+              status: 'مؤرشفة',
+              activationStatus: 'موقوف'
+            };
+          }
+          return h;
+        });
+        saveStoredHalls(updated);
+        setHalls(updated);
+        alert('📦 تم نقل القاعة إلى الأرشيف وإلغاء إدراجها بنجاح مع حفظ سلامة السجلات المالية التاريخية.');
+      }
+      return;
+    }
+
+    // Zero bookings -> Clean direct delete
+    if (window.confirm('هل أنت متأكد من حذف هذه القاعة الجديدة بشكل نهائي؟')) {
       try {
         const res = await fetch(`/api/bookings/halls/${id}`, {
           method: 'DELETE'
@@ -1400,6 +1617,7 @@ export default function HallsServicesPortalPage() {
         if (!res.ok) throw new Error('فشل الحذف من قاعدة البيانات الخارجية');
         const updated = halls.filter(h => h.id !== id);
         saveStoredHalls(updated);
+        setHalls(updated);
       } catch (err: any) {
         alert('خطأ في حذف البيانات: ' + err.message);
       }
@@ -1525,8 +1743,8 @@ export default function HallsServicesPortalPage() {
     return true;
   };
 
-  const handleSaveService = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveService = async (e?: React.FormEvent, confirmedPreSave = false) => {
+    if (e) e.preventDefault();
     
     // Step 1 Validation
     if (!serviceForm.name.trim()) {
@@ -1549,8 +1767,45 @@ export default function HallsServicesPortalPage() {
 
     const mainCoverImage = serviceForm.images.length > 0 ? serviceForm.images[0] : (serviceForm.image || 'https://images.unsplash.com/photo-1541532713592-79a0317b6b77?w=500&q=60');
 
+    const isServicePriceChanged = editingService && (
+      Number(editingService.price) !== Number(serviceForm.price)
+    );
+
+    const currentServiceVersion = editingService ? (editingService.version || 1) : 1;
+    const newServiceVersion = isServicePriceChanged ? currentServiceVersion + 1 : currentServiceVersion;
+
+    // Check for active service requests to trigger Pre-Save Impact Notification
+    if (editingService && isServicePriceChanged && !confirmedPreSave) {
+      let activeRequests = 0;
+      try {
+        const raw = localStorage.getItem('layla_service_requests') || localStorage.getItem('ais_service_requests_v2');
+        if (raw) {
+          const reqList = JSON.parse(raw);
+          activeRequests = reqList.filter((r: any) => 
+            (String(r.serviceId) === String(editingService.id) || r.serviceName === editingService.name) && 
+            !['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status)
+          ).length;
+        }
+      } catch (e) {}
+
+      if (activeRequests > 0) {
+        setImpactModalData({
+          entityName: serviceForm.name,
+          entityType: 'service',
+          version: newServiceVersion,
+          previousPrice: Number(editingService.price),
+          newPrice: Number(serviceForm.price),
+          activeBookingsCount: activeRequests,
+          isPreSave: true
+        });
+        setIsImpactModalOpen(true);
+        return;
+      }
+    }
+
     const payload = {
       ...serviceForm,
+      version: newServiceVersion,
       image: mainCoverImage,
       provider: currentProviderName,
       status: userRole === 'admin' ? ((serviceForm as any).status || 'approved') : 'pending',
@@ -1598,12 +1853,139 @@ export default function HallsServicesPortalPage() {
       saveServices(updatedServicesList);
       setServices(updatedServicesList);
       setIsServiceModalOpen(false);
+      setIsImpactModalOpen(false);
+
+      if (editingService && isServicePriceChanged) {
+        let activeRequests = 0;
+        try {
+          const raw = localStorage.getItem('layla_service_requests') || localStorage.getItem('ais_service_requests_v2');
+          if (raw) {
+            const reqList = JSON.parse(raw);
+            activeRequests = reqList.filter((r: any) => 
+              (String(r.serviceId) === String(editingService.id) || r.serviceName === editingService.name) && 
+              !['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status)
+            ).length;
+          }
+        } catch (e) {}
+
+        recordAuditLog({
+          entityType: 'service',
+          entityId: editingService.id,
+          entityName: serviceForm.name,
+          action: 'update',
+          actorName: currentUser?.name || currentProviderName || 'المزود',
+          actorRole: userRole,
+          previousValues: { price: editingService.price, version: currentServiceVersion },
+          newValues: { price: serviceForm.price, version: newServiceVersion },
+          details: `تحديث سعر باقة الخدمة وترقية الإصدار إلى (v${newServiceVersion})`,
+          impactSummary: `حماية (${activeRequests}) طلب خدمة قائم مسبقاً بالسعر القديم المجمّد؛ سريان v${newServiceVersion} على الطلبات الجديدة فورياً.`
+        });
+      } else if (!editingService) {
+        recordAuditLog({
+          entityType: 'service',
+          entityId: savedService?.id || Date.now(),
+          entityName: serviceForm.name,
+          action: 'create',
+          actorName: currentUser?.name || currentProviderName || 'المزود',
+          actorRole: userRole,
+          newValues: { price: serviceForm.price, version: 1 },
+          details: 'إدراج باقة خدمة جديدة لأول مرة بالإصدار الأساسي (v1)',
+          impactSummary: 'إدراج جديد بانتظار الاعتماد الإداري والتشغيل'
+        });
+      }
     } catch (err: any) {
       setServiceFormError('خطأ في مزامنة البيانات الخارجية: ' + err.message);
     }
   };
 
+  const handleTogglePauseService = (serviceId: number | string) => {
+    const target = services.find(s => String(s.id) === String(serviceId));
+    if (!target) return;
+    const isCurrentlyPaused = target.serviceStatus === 'موقوف' || target.isPaused;
+    const newStatus = isCurrentlyPaused ? 'نشط' : 'موقوف';
+    const newIsPaused = !isCurrentlyPaused;
+
+    const updatedServices = services.map(s => {
+      if (String(s.id) === String(serviceId)) {
+        return {
+          ...s,
+          serviceStatus: newStatus,
+          isPaused: newIsPaused,
+          pauseReason: newIsPaused ? 'إيقاف مؤقت للتجهيز والتحديث' : undefined,
+          pausedAt: newIsPaused ? new Date().toISOString() : undefined
+        };
+      }
+      return s;
+    });
+
+    saveServices(updatedServices);
+    setServices(updatedServices);
+
+    recordAuditLog({
+      entityType: 'service',
+      entityId: serviceId,
+      entityName: target.name,
+      action: 'status_change',
+      actorName: currentUser?.name || currentProviderName || 'المزود',
+      actorRole: userRole,
+      previousValues: { serviceStatus: target.serviceStatus || 'نشط', isPaused: !!target.isPaused },
+      newValues: { serviceStatus: newStatus, isPaused: newIsPaused },
+      details: newIsPaused ? 'إيقاف مؤقت للخدمة مع إغلاق استقبال الطلبات مؤقتاً' : 'استئناف استقبال طلبات الخدمة فورياً',
+      impactSummary: newIsPaused ? 'إيقاف مؤقت دون الحاجة لإعادة طلب اعتماد جديد' : 'فتح الطلب فورياً للعملاء'
+    });
+
+    if (newIsPaused) {
+      alert(`⏸️ تم إيقاف استقبال طلبات خدمة "${target.name}" مؤقتاً.`);
+    } else {
+      alert(`🟢 تم استئناف استقبال طلبات خدمة "${target.name}" فورياً.`);
+    }
+  };
+
   const handleDeleteService = async (id: number) => {
+    const targetService = services.find(s => s.id === id);
+    const sName = targetService?.name || '';
+
+    // Check related service requests from storage
+    let storedRequests: any[] = [];
+    try {
+      const raw = localStorage.getItem('layla_service_requests') || localStorage.getItem('ais_service_requests_v2');
+      if (raw) storedRequests = JSON.parse(raw);
+    } catch (e) {}
+
+    const related = storedRequests.filter(r => 
+      String(r.serviceId) === String(id) || 
+      (sName && (r.serviceName === sName || r.name === sName))
+    );
+    const active = related.filter(r => !['ملغي', 'مكتمل', 'تم التنفيذ'].includes(r.status));
+
+    if (active.length > 0) {
+      alert(`⚠️ حظر الإيقاف أو الحذف: يوجد (${active.length}) طلب خدمة قائم لم يتم تنفيذه بعد.`);
+      return;
+    }
+
+    if (related.length > 0) {
+      // Historical requests exist -> Soft Delete / Archival
+      if (window.confirm(`تحتوي هذه الخدمة على (${related.length}) طلب وعملية تاريخية سابقة وفواتير مسجلة. سيتم نقل الخدمة للأرشيف وإلغاؤها من العرض العام مع حفظ كافة السجلات المالية. هل ترغب في المتابعة؟`)) {
+        const updated = services.map(s => {
+          if (s.id === id) {
+            return {
+              ...s,
+              isArchived: true,
+              archivedAt: new Date().toISOString(),
+              serviceStatus: 'مؤرشفة',
+              adminStatus: 'مؤرشفة'
+            };
+          }
+          return s;
+        });
+        saveServices(updated);
+        setServices(updated);
+        alert('📦 تم نقل الخدمة إلى الأرشيف وإلغاء إدراجها بنجاح مع حفظ كافة السجلات المالية التاريخية.');
+      }
+      return;
+    }
+
+    // Zero requests -> Clean direct delete
     if (window.confirm('هل أنت متأكد من حذف باقة الخدمة هذه بشكل نهائي؟')) {
       try {
         const res = await fetch(`/api/services/${id}`, {
@@ -1974,16 +2356,29 @@ export default function HallsServicesPortalPage() {
               {displayedHalls.map((hall) => (
                 <div 
                   key={hall.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group relative"
+                  className={`bg-white rounded-3xl overflow-hidden border shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group relative ${
+                    hall.activationStatus === 'موقوف' || hall.isPaused ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'
+                  }`}
                   id={`hall-card-${hall.id}`}
                 >
                   {/* Status Badges */}
-                  <div className="absolute top-4 right-4 z-10 flex gap-1.5 font-sans">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
-                      (hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
-                    }`}>
-                      {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
+                  <div className="absolute top-4 right-4 z-10 flex flex-wrap gap-1.5 font-sans">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900/80 backdrop-blur-xs text-amber-300 border border-amber-400/30 flex items-center gap-1 shadow-xs" title="رقم إصدار الكتالوج">
+                      <GitBranch className="w-3 h-3 text-amber-300" />
+                      v{hall.version || 1}
                     </span>
+                    {(hall.activationStatus === 'موقوف' || hall.isPaused) ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs bg-amber-500 text-white flex items-center gap-1">
+                        <PauseCircle className="w-3 h-3" />
+                        موقوفة مؤقتاً
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
+                        (hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+                      }`}>
+                        {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
+                      </span>
+                    )}
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
                       hall.bookingStatus === 'محجوز' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'
                     }`}>
@@ -2054,19 +2449,44 @@ export default function HallsServicesPortalPage() {
 
                     {/* Footer Actions */}
                     <div className="flex items-center justify-between gap-2 pt-1 font-sans">
-                      <div className="flex gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditHall(hall)}
                           className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer"
-                          title="تعديل المنشأة"
+                          title="تعديل المنشأة والأسعار"
                           id={`edit-hall-btn-${hall.id}`}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleTogglePauseHall(hall.id)}
+                          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                            (hall.activationStatus === 'موقوف' || hall.isPaused)
+                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              : 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                          }`}
+                          title={(hall.activationStatus === 'موقوف' || hall.isPaused) ? 'استئناف استقبال الحجوزات وفتح التقويم' : 'إيقاف مؤقت للصيانة والتجديد الدوري'}
+                        >
+                          {(hall.activationStatus === 'موقوف' || hall.isPaused) ? (
+                            <PlayCircle className="w-4 h-4" />
+                          ) : (
+                            <PauseCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAuditEntity({ type: 'hall', id: hall.id, name: hall.name });
+                            setIsAuditModalOpen(true);
+                          }}
+                          className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer"
+                          title="سجل الإصدارات والتغييرات (Audit Log)"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteHall(hall.id)}
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
-                          title="حذف القاعة"
+                          title="حذف / أرشفة القاعة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2090,16 +2510,29 @@ export default function HallsServicesPortalPage() {
               {displayedHalls.map((hall) => (
                 <div 
                   key={hall.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-100 p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 relative group"
+                  className={`bg-white rounded-3xl overflow-hidden border p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 relative group ${
+                    hall.activationStatus === 'موقوف' || hall.isPaused ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'
+                  }`}
                   id={`hall-list-${hall.id}`}
                 >
                   {/* Status Badges */}
-                  <div className="absolute top-4 right-4 z-10 flex gap-1.5 font-sans">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
-                      (hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
-                    }`}>
-                      {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
+                  <div className="absolute top-4 right-4 z-10 flex flex-wrap gap-1.5 font-sans">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900/80 backdrop-blur-xs text-amber-300 border border-amber-400/30 flex items-center gap-1 shadow-xs">
+                      <GitBranch className="w-3 h-3 text-amber-300" />
+                      v{hall.version || 1}
                     </span>
+                    {(hall.activationStatus === 'موقوف' || hall.isPaused) ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs bg-amber-500 text-white flex items-center gap-1">
+                        <PauseCircle className="w-3 h-3" />
+                        موقوفة مؤقتاً
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
+                        (hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+                      }`}>
+                        {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
+                      </span>
+                    )}
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
                       hall.bookingStatus === 'محجوز' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'
                     }`}>
@@ -2152,7 +2585,7 @@ export default function HallsServicesPortalPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-1 mt-5 pt-4 border-t border-slate-50 font-sans">
-                      <div className="flex gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditHall(hall)}
                           className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer"
@@ -2161,9 +2594,34 @@ export default function HallsServicesPortalPage() {
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleTogglePauseHall(hall.id)}
+                          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                            (hall.activationStatus === 'موقوف' || hall.isPaused)
+                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              : 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                          }`}
+                          title={(hall.activationStatus === 'موقوف' || hall.isPaused) ? 'استئناف استقبال الحجوزات' : 'إيقاف مؤقت للصيانة'}
+                        >
+                          {(hall.activationStatus === 'موقوف' || hall.isPaused) ? (
+                            <PlayCircle className="w-4 h-4" />
+                          ) : (
+                            <PauseCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAuditEntity({ type: 'hall', id: hall.id, name: hall.name });
+                            setIsAuditModalOpen(true);
+                          }}
+                          className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer"
+                          title="سجل الإصدارات (Audit Log)"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteHall(hall.id)}
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
-                          title="حذف"
+                          title="حذف / أرشفة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2190,6 +2648,7 @@ export default function HallsServicesPortalPage() {
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold font-sans">
                         <th className="p-4">اسم المنشأة والقاعة</th>
+                        <th className="p-4 text-center">الإصدار</th>
                         <th className="p-4">التصنيف النوعي</th>
                         <th className="p-4">المدينة والمنطقة</th>
                         {userRole === 'admin' && <th className="p-4">المزود / المالك</th>}
@@ -2217,6 +2676,11 @@ export default function HallsServicesPortalPage() {
                               </button>
                             </div>
                           </td>
+                          <td className="p-4 text-center">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-900 text-amber-300">
+                              v{hall.version || 1}
+                            </span>
+                          </td>
                           <td className="p-4 text-slate-600">
                             <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">{hall.category || 'قاعة'}</span>
                           </td>
@@ -2231,14 +2695,39 @@ export default function HallsServicesPortalPage() {
                             </span>
                           </td>
                           <td className="p-4 text-center">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                              {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
-                            </span>
+                            {(hall.activationStatus === 'موقوف' || hall.isPaused) ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600">
+                                ⏸️ موقوفة للصيانة
+                              </span>
+                            ) : (
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${(hall.status === 'مفعل' || hall.status === 'نشط') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                {(hall.status === 'مفعل' || hall.status === 'نشط') ? 'مفعلة' : 'معطلة'}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 text-center">
-                            <div className="flex justify-center gap-1.5">
+                            <div className="flex justify-center items-center gap-1.5">
                               <button onClick={() => handleOpenEditHall(hall)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="تعديل"><Edit3 className="w-4 h-4" /></button>
-                              <button onClick={() => handleDeleteHall(hall.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                              <button 
+                                onClick={() => handleTogglePauseHall(hall.id)} 
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  (hall.activationStatus === 'موقوف' || hall.isPaused) ? 'text-emerald-700 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'
+                                }`} 
+                                title={(hall.activationStatus === 'موقوف' || hall.isPaused) ? 'استئناف التشغيل' : 'إيقاف مؤقت للصيانة'}
+                              >
+                                {(hall.activationStatus === 'موقوف' || hall.isPaused) ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setSelectedAuditEntity({ type: 'hall', id: hall.id, name: hall.name });
+                                  setIsAuditModalOpen(true);
+                                }} 
+                                className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer" 
+                                title="سجل الإصدارات (Audit Log)"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteHall(hall.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="حذف / أرشفة"><Trash2 className="w-4 h-4" /></button>
                               <button onClick={() => navigate(`/hall/${hall.id}`)} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer" title="معاينة"><Eye className="w-4 h-4" /></button>
                             </div>
                           </td>
@@ -2317,24 +2806,37 @@ export default function HallsServicesPortalPage() {
               {displayedServices.map((service) => (
                 <div 
                   key={service.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group relative"
+                  className={`bg-white rounded-3xl overflow-hidden border shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group relative ${
+                    service.isPaused || service.serviceStatus === 'موقوفة' ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'
+                  }`}
                   id={`service-card-${service.id}`}
                 >
                   {/* Status Badges */}
-                  <div className="absolute top-4 right-4 z-10 flex gap-1.5 font-sans">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
-                      (service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال') 
-                        ? 'bg-emerald-500 text-white' 
-                        : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره') 
-                          ? 'bg-amber-500 text-white' 
-                          : 'bg-red-500 text-white'
-                    }`}>
-                      {service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال'
-                        ? 'متاحة'
-                        : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره')
-                          ? 'غير متوفر حاليا'
-                          : service.serviceStatus || 'معطلة'}
+                  <div className="absolute top-4 right-4 z-10 flex flex-wrap gap-1.5 font-sans">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900/80 backdrop-blur-xs text-indigo-300 border border-indigo-400/30 flex items-center gap-1 shadow-xs" title="رقم إصدار الخدمة">
+                      <GitBranch className="w-3 h-3 text-indigo-300" />
+                      v{service.version || 1}
                     </span>
+                    {(service.isPaused || service.serviceStatus === 'موقوفة') ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs bg-amber-500 text-white flex items-center gap-1">
+                        <PauseCircle className="w-3 h-3" />
+                        موقوفة مؤقتاً
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
+                        (service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال') 
+                          ? 'bg-emerald-500 text-white' 
+                          : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره') 
+                            ? 'bg-amber-500 text-white' 
+                            : 'bg-red-500 text-white'
+                      }`}>
+                        {service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال'
+                          ? 'متاحة'
+                          : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره')
+                            ? 'غير متوفر حاليا'
+                            : service.serviceStatus || 'معطلة'}
+                      </span>
+                    )}
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
                       (service.adminStatus === 'موقوفة' || service.adminStatus === 'محظورة') ? 'bg-red-650 text-white' : 'bg-slate-800 text-white'
                     }`}>
@@ -2402,19 +2904,44 @@ export default function HallsServicesPortalPage() {
 
                     {/* Footer Actions */}
                     <div className="flex justify-between items-center pt-1 font-sans">
-                      <div className="flex gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditService(service)}
                           className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer"
-                          title="تعديل باقة الخدمة"
+                          title="تعديل باقة الخدمة والأسعار"
                           id={`edit-service-btn-${service.id}`}
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleTogglePauseService(service.id)}
+                          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                            (service.isPaused || service.serviceStatus === 'موقوفة')
+                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              : 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                          }`}
+                          title={(service.isPaused || service.serviceStatus === 'موقوفة') ? 'استئناف تقديم الخدمة' : 'إيقاف مؤقت للخدمة'}
+                        >
+                          {(service.isPaused || service.serviceStatus === 'موقوفة') ? (
+                            <PlayCircle className="w-4 h-4" />
+                          ) : (
+                            <PauseCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAuditEntity({ type: 'service', id: service.id, name: service.name });
+                            setIsAuditModalOpen(true);
+                          }}
+                          className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer"
+                          title="سجل الإصدارات والتغييرات (Audit Log)"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteService(service.id)}
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
-                          title="حذف الخدمة"
+                          title="حذف / أرشفة الخدمة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2438,24 +2965,37 @@ export default function HallsServicesPortalPage() {
               {displayedServices.map((service) => (
                 <div 
                   key={service.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-100 p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 relative group"
+                  className={`bg-white rounded-3xl overflow-hidden border p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col md:flex-row gap-6 relative group ${
+                    service.isPaused || service.serviceStatus === 'موقوفة' ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'
+                  }`}
                   id={`service-list-${service.id}`}
                 >
                   {/* Status Badges */}
-                  <div className="absolute top-4 right-4 z-10 flex gap-1.5 font-sans">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
-                      (service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال') 
-                        ? 'bg-emerald-500 text-white' 
-                        : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره') 
-                          ? 'bg-amber-500 text-white' 
-                          : 'bg-red-500 text-white'
-                    }`}>
-                      {service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال'
-                        ? 'متاحة'
-                        : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره')
-                          ? 'غير متوفر حاليا'
-                          : service.serviceStatus || 'معطلة'}
+                  <div className="absolute top-4 right-4 z-10 flex flex-wrap gap-1.5 font-sans">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-900/80 backdrop-blur-xs text-indigo-300 border border-indigo-400/30 flex items-center gap-1 shadow-xs">
+                      <GitBranch className="w-3 h-3 text-indigo-300" />
+                      v{service.version || 1}
                     </span>
+                    {(service.isPaused || service.serviceStatus === 'موقوفة') ? (
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs bg-amber-500 text-white flex items-center gap-1">
+                        <PauseCircle className="w-3 h-3" />
+                        موقوفة مؤقتاً
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
+                        (service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال') 
+                          ? 'bg-emerald-500 text-white' 
+                          : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره') 
+                            ? 'bg-amber-500 text-white' 
+                            : 'bg-red-500 text-white'
+                      }`}>
+                        {service.serviceStatus === 'متاحة' || service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال'
+                          ? 'متاحة'
+                          : (service.serviceStatus === 'غير متوفرة' || service.serviceStatus === 'غير متوفره')
+                            ? 'غير متوفر حاليا'
+                            : service.serviceStatus || 'معطلة'}
+                      </span>
+                    )}
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shadow-xs ${
                       (service.adminStatus === 'موقوفة' || service.adminStatus === 'محظورة') ? 'bg-red-650 text-white' : 'bg-slate-800 text-white'
                     }`}>
@@ -2505,7 +3045,7 @@ export default function HallsServicesPortalPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-1 mt-5 pt-4 border-t border-slate-50 font-sans">
-                      <div className="flex gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditService(service)}
                           className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors cursor-pointer"
@@ -2514,9 +3054,34 @@ export default function HallsServicesPortalPage() {
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
+                          onClick={() => handleTogglePauseService(service.id)}
+                          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                            (service.isPaused || service.serviceStatus === 'موقوفة')
+                              ? 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              : 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                          }`}
+                          title={(service.isPaused || service.serviceStatus === 'موقوفة') ? 'استئناف تقديم الخدمة' : 'إيقاف مؤقت للخدمة'}
+                        >
+                          {(service.isPaused || service.serviceStatus === 'موقوفة') ? (
+                            <PlayCircle className="w-4 h-4" />
+                          ) : (
+                            <PauseCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedAuditEntity({ type: 'service', id: service.id, name: service.name });
+                            setIsAuditModalOpen(true);
+                          }}
+                          className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer"
+                          title="سجل الإصدارات (Audit Log)"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => handleDeleteService(service.id)}
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer"
-                          title="حذف"
+                          title="حذف / أرشفة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2543,6 +3108,7 @@ export default function HallsServicesPortalPage() {
                     <thead>
                       <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold font-sans">
                         <th className="p-4">اسم باقة الخدمة المساندة</th>
+                        <th className="p-4 text-center">الإصدار</th>
                         <th className="p-4">نوع الخدمة</th>
                         <th className="p-4">نطاق التغطية</th>
                         {userRole === 'admin' && <th className="p-4">المزود المسؤول</th>}
@@ -2568,6 +3134,11 @@ export default function HallsServicesPortalPage() {
                               </button>
                             </div>
                           </td>
+                          <td className="p-4 text-center">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-900 text-indigo-300">
+                              v{service.version || 1}
+                            </span>
+                          </td>
                           <td className="p-4 text-slate-600">
                             <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">{service.category || 'باقة'}</span>
                           </td>
@@ -2580,14 +3151,39 @@ export default function HallsServicesPortalPage() {
                             </span>
                           </td>
                           <td className="p-4 text-center">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                              {service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال' ? 'نشط' : 'معطل'}
-                            </span>
+                            {(service.isPaused || service.serviceStatus === 'موقوفة') ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600">
+                                ⏸️ موقوفة مؤقتاً
+                              </span>
+                            ) : (
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال' || service.serviceStatus === 'متاحة' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                {service.serviceStatus === 'نشط' || service.serviceStatus === 'فعال' || service.serviceStatus === 'متاحة' ? 'متاحة' : 'معطلة'}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 text-center">
-                            <div className="flex justify-center gap-1.5">
+                            <div className="flex justify-center items-center gap-1.5">
                               <button onClick={() => handleOpenEditService(service)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer" title="تعديل"><Edit3 className="w-4 h-4" /></button>
-                              <button onClick={() => handleDeleteService(service.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                              <button 
+                                onClick={() => handleTogglePauseService(service.id)} 
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                  (service.isPaused || service.serviceStatus === 'موقوفة') ? 'text-emerald-700 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'
+                                }`} 
+                                title={(service.isPaused || service.serviceStatus === 'موقوفة') ? 'استئناف تقديم الخدمة' : 'إيقاف مؤقت للخدمة'}
+                              >
+                                {(service.isPaused || service.serviceStatus === 'موقوفة') ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setSelectedAuditEntity({ type: 'service', id: service.id, name: service.name });
+                                  setIsAuditModalOpen(true);
+                                }} 
+                                className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer" 
+                                title="سجل الإصدارات (Audit Log)"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteService(service.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="حذف / أرشفة"><Trash2 className="w-4 h-4" /></button>
                               <button onClick={() => navigate('/services')} className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer" title="معاينة"><Eye className="w-4 h-4" /></button>
                             </div>
                           </td>
@@ -4717,6 +5313,271 @@ export default function HallsServicesPortalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Impact Notification Modal for Lifecycle & Versioning Changes */}
+      {isImpactModalOpen && impactModalData && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300 font-sans">
+          <div 
+            className={`rounded-3xl max-w-xl w-full flex flex-col justify-between shadow-2xl border animate-in zoom-in-95 duration-200 text-right overflow-hidden ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-100 text-slate-800'
+            }`}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg shadow-amber-500/20">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-black">
+                      {impactModalData.entityType === 'hall' ? 'إشعار بتأثير تعديل بيانات القاعة' : 'إشعار بتأثير تعديل بيانات الخدمة'}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-amber-300 border border-amber-400/30">
+                      v{impactModalData.version}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{impactModalData.entityName}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsImpactModalOpen(false)}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+              {/* Mandatory Impact Warning Banner (Exact Requirement) */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-right space-y-2">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-black text-sm">
+                  <span className="text-base">⚠️</span>
+                  <span>تحذير إشعار بالتأثير (Impact Notification)</span>
+                </div>
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed bg-amber-50 dark:bg-slate-800/80 p-3 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                  "هذا التغيير ينطبق فقط على الحجوزات المستقبلية. لديك <span className="text-amber-700 dark:text-amber-400 font-extrabold text-sm underline decoration-amber-500 underline-offset-4">{impactModalData.activeBookingsCount}</span> من الحجوزات المؤكدة التي لم تتأثر بعد."
+                </p>
+              </div>
+
+              {/* Version & Pricing Diff Card */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                {impactModalData.previousPrice !== undefined && impactModalData.newPrice !== undefined && (
+                  <div>
+                    <span className="text-[10px] font-black text-slate-400 block mb-1">تحديث السعر الأساسي:</span>
+                    <div className="flex items-center gap-2 text-xs font-bold font-sans">
+                      <span className="text-slate-400 line-through">{impactModalData.previousPrice.toLocaleString('ar-SA')} ر.س</span>
+                      <span className="text-amber-500">←</span>
+                      <span className="text-emerald-700 dark:text-emerald-400 font-black">{impactModalData.newPrice.toLocaleString('ar-SA')} ر.س</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Immutable Snapshot Guarantee Banner */}
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500 text-white shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-emerald-900 dark:text-emerald-300">
+                    حماية العقود والحجوزات القائمة (Immutable Snapshots)
+                  </h4>
+                  <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-1 leading-relaxed">
+                    يضمن النظام تجميد كافة الحجوزات السابقة ({impactModalData.activeBookingsCount} حجز/طلب نشط) المسجلة على هذه المنشأة/الخدمة بالسعر والشروط السابقة دون أدنى مساس بالفواتير المعتمدة لعملائك أو التزاماتك المالية السابقة.
+                  </p>
+                </div>
+              </div>
+
+              {/* Impact Details Checklist */}
+              <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span>سيتم تدوين وحفظ هذه العملية تلقائياً في سجل التدقيق غير القابل للتعديل <strong>(Audit Log)</strong>.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  <span>التسعيرة والإصدار الجديد <strong>(v{impactModalData.version})</strong> يسري على جميع الحجوزات والطلبات الجديدة القادمة.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0"></span>
+                  <span>حماية قوائم الرغبات (Wishlists): يتم تحديث البطاقات تلقائياً مع الحفاظ على الروابط سليمة دون أي انقطاع.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-3">
+              {impactModalData.isPreSave ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsImpactModalOpen(false)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                    }`}
+                  >
+                    إلغاء والعودة للنموذج
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (impactModalData.entityType === 'hall') {
+                        handleSaveHall(undefined, true);
+                      } else {
+                        handleSaveService(undefined, true);
+                      }
+                    }}
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    تأكيد ومتابعة الحفظ وترقية الإصدار (v{impactModalData.version}) ⚡
+                  </button>
+                </>
+              ) : (
+                <div className="w-full flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsImpactModalOpen(false)}
+                    className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    فهمت واعتمدت التحديث
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Log / Versioning History Modal */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300 font-sans">
+          <div 
+            className={`rounded-3xl max-w-3xl w-full flex flex-col justify-between shadow-2xl border animate-in zoom-in-95 duration-200 text-right overflow-hidden ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-100 text-slate-800'
+            }`}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-purple-500/20 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-purple-600/20">
+                  <History className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-black">سجل التدقيق والتغييرات التاريخية (Audit Log)</h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                      حوكمة الأصول
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {selectedAuditEntity 
+                      ? `سجل التغييرات الكامل لـ: ${selectedAuditEntity.name}` 
+                      : 'سجل تدقيق شامل لجميع عمليات التعديل والإيقاف والأرشفة'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsAuditModalOpen(false);
+                  setSelectedAuditEntity(null);
+                }}
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Audit Logs Content */}
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[65vh]">
+              {(() => {
+                const logs = (() => {
+                  try {
+                    const raw = localStorage.getItem('layla_audit_logs');
+                    const parsed: AuditLog[] = raw ? JSON.parse(raw) : [];
+                    if (selectedAuditEntity) {
+                      return parsed.filter((l) => String(l.entityId) === String(selectedAuditEntity.id));
+                    }
+                    return parsed;
+                  } catch {
+                    return [];
+                  }
+                })();
+
+                if (logs.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-slate-400">
+                      <History className="w-10 h-10 mx-auto mb-2 opacity-40 text-purple-400" />
+                      <p className="text-xs font-bold">لا توجد سجلات تدقيق مسجلة بعد لهذا العنصر.</p>
+                      <p className="text-[10px] text-slate-400 mt-1">يتم إنشاء السجلات آلياً عند تعديل الأسعار، السعات، أو تبديل حالة التشغيل.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {logs.map((log) => (
+                      <div 
+                        key={log.id}
+                        className="p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50 flex flex-col gap-2 transition-all hover:border-purple-300 dark:hover:border-purple-700"
+                      >
+                        <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
+                              {log.action === 'create' ? 'إنشاء جديد' : log.action === 'update' ? 'تعديل بنود' : log.action === 'status_change' ? 'تغيير حالة التشغيل' : log.action}
+                            </span>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">{log.entityName}</span>
+                            {log.newValues?.version && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-900 text-amber-300">
+                                v{log.newValues.version}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-sans" dir="ltr">
+                            {new Date(log.timestamp).toLocaleString('ar-SA')}
+                          </span>
+                        </div>
+
+                        {/* Details diff */}
+                        <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 mt-1">
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{log.details}</p>
+                          {log.impactSummary && (
+                            <p className="text-[10px] text-emerald-800 dark:text-emerald-400 font-medium">{log.impactSummary}</p>
+                          )}
+                        </div>
+
+                        {/* Actor & Isolation note */}
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-200/40 dark:border-slate-800">
+                          <span>المنفذ: <strong>{log.actorName || 'المزود المسجل'}</strong> ({log.actorRole === 'admin' ? 'الإدارة' : 'المزود'})</span>
+                          <span className="text-emerald-700 dark:text-emerald-400 font-medium">سجل مؤكد ومشفّر</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+              <span className="text-[10px] text-slate-400">معايير حوكمة بيانات المنصات الضخمة (Enterprise Data Governance)</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAuditModalOpen(false);
+                  setSelectedAuditEntity(null);
+                }}
+                className="px-5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}

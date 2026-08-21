@@ -15,7 +15,7 @@ export const TRANSLATIONS: Record<'ar' | 'en', Record<string, string>> = {
     'financial_settings': 'الإعدادات المالية والرقابة',
     'unified_invoice': 'الفاتورة الضريبية الموحدة',
     'marketing': 'مركز النمو والتسويق (LPAS)',
-    'users': 'مركز الكوادر والصلاحيات',
+    'users': 'إدارة المستخدمين والكوتا',
     'customers': 'إدارة العملاء والولاء',
     'providers': 'إدارة طلبات الشركاء',
     'staff': 'مركز الكوادر والصلاحيات',

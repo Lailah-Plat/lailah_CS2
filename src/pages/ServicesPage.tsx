@@ -3,7 +3,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { AdBanner } from '../components/AdBanner';
 import { Search, MapPin, Filter, Star, Camera, Utensils, Music, Flower2, X, CheckCircle2, User, CreditCard, Info, MessageCircle, AlertTriangle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import ViewToggle, { ViewMode } from '../components/ViewToggle';
 import ProviderChatModal from '../components/ProviderChatModal';
 import { getServices, EventService, isProviderNameVisible } from '../data/mockData';
@@ -13,6 +13,7 @@ import RequestServiceModal from '../components/RequestServiceModal';
 import { ReviewModal } from '../components/modals/ReviewModal';
 
 export default function ServicesPage() {
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedService, setSelectedService] = useState<EventService | null>(null);
@@ -22,6 +23,31 @@ export default function ServicesPage() {
   const [serviceDate, setServiceDate] = useState('');
   const [allServices, setAllServices] = useState(getServices());
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+
+  // Capture and persist referral / ambassador attribution code
+  const refParam = searchParams.get('ref') || searchParams.get('ambassador') || searchParams.get('affiliate');
+  useEffect(() => {
+    if (refParam) {
+      try {
+        localStorage.setItem('layla_referral_code', refParam);
+        localStorage.setItem('layla_ambassador_ref', refParam);
+        localStorage.setItem('layla_affiliate_id', refParam);
+      } catch (e) {}
+    }
+  }, [refParam]);
+
+  // Target service query param
+  const targetServiceId = searchParams.get('serviceId') || searchParams.get('service');
+  const targetDirectService = useMemo(() => {
+    if (!targetServiceId) return null;
+    return allServices.find(s => String(s.id) === String(targetServiceId)) || null;
+  }, [allServices, targetServiceId]);
+
+  const isTargetArchivedOrPaused = useMemo(() => {
+    if (!targetDirectService) return false;
+    const sAny = targetDirectService as any;
+    return sAny.isArchived === true || sAny.status === 'مؤرشفة' || sAny.activationStatus === 'موقوف';
+  }, [targetDirectService]);
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [serviceForDetails, setServiceForDetails] = useState<EventService | null>(null);
@@ -296,6 +322,38 @@ export default function ServicesPage() {
         <h1 className="text-4xl font-bold text-blue-950 mb-2 border-r-4 border-amber-500 pr-4">خدمات المناسبات</h1>
         <p className="text-slate-500 pr-5 mb-8">كل ما تحتاجه لتنظيم مناسبتك المثالية في مكان واحد</p>
 
+        {/* Smart Redirect / Archived Service Landing Banner */}
+        {targetDirectService && isTargetArchivedOrPaused && (
+          <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-purple-500/10 border border-amber-300 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-black text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                  الخدمة مؤرشفة أو غير متاحة مؤقتاً
+                </span>
+                <h3 className="text-base font-black text-slate-900 mt-1">
+                  الخدمة المطلوبة ({targetDirectService.name}) غير متاحة للطلب المباشر حالياً
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                  تم حفظ وتأكيد كود إحالة السفير/الشريك لضمان حقوق العمولات. يمكنك استعراض وطلب خدمات بديلة نشطة بنفس الفئة أدناه.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (targetDirectService.category) {
+                  setSelectedCategory(targetDirectService.category);
+                }
+              }}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-sm transition-all cursor-pointer"
+            >
+              عرض بدائل في فئة {targetDirectService.category || 'الخدمات'}
+            </button>
+          </div>
+        )}
+
         {/* Categories Quick Select */}
         <div className="flex flex-wrap gap-4 mb-8">
           <button 
@@ -333,143 +391,178 @@ export default function ServicesPage() {
           <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
         </div>
 
-        <AdBanner placement="نتائج البحث (صفحة استكشاف)" layout="card" className="mb-8" />
+        {/* Main Content Area with Services List & Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Main Services Results Column */}
+          <div className="lg:col-span-3 space-y-6">
+            <AdBanner placement="نتائج البحث (صفحة استكشاف)" layout="card" className="mb-6" />
 
-        {/* Results */}
-        {filteredServices.length > 0 ? (
-          viewMode === 'table' ? (
-            <div className="overflow-x-auto bg-white rounded-2xl shadow-sm border border-slate-100">
-              <table className="w-full text-right text-sm text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-100 text-slate-800">
-                  <tr>
-                    <th className="px-6 py-4 font-bold">الاسم</th>
-                    <th className="px-6 py-4 font-bold">الفئة</th>
-                    <th className="px-6 py-4 font-bold">مقدم الخدمة</th>
-                    <th className="px-6 py-4 font-bold">السعر</th>
-                    <th className="px-6 py-4 font-bold text-center">التقييم</th>
-                    <th className="px-6 py-4 font-bold text-center">الإجراء</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredServices.map(service => (
-                    <tr key={service.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="px-6 py-4 font-bold text-blue-950 flex items-center gap-3">
-                        <img 
-                          src={service.image} 
-                          alt={service.name} 
-                          className="w-12 h-12 rounded-lg object-cover cursor-pointer hover:scale-110 transition-transform duration-300 shadow-sm border border-slate-100" 
-                          onClick={() => handleOpenDetails(service)}
-                          title="عرض تفاصيل الخدمة الفاخرة"
-                        />
+            {filteredServices.length > 0 ? (
+              viewMode === 'table' ? (
+                <div className="overflow-x-auto bg-white rounded-2xl shadow-sm border border-slate-100">
+                  <table className="w-full text-right text-sm text-slate-600">
+                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-800">
+                      <tr>
+                        <th className="px-6 py-4 font-bold">الاسم</th>
+                        <th className="px-6 py-4 font-bold">الفئة</th>
+                        <th className="px-6 py-4 font-bold">مقدم الخدمة</th>
+                        <th className="px-6 py-4 font-bold">السعر</th>
+                        <th className="px-6 py-4 font-bold text-center">التقييم</th>
+                        <th className="px-6 py-4 font-bold text-center">الإجراء</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredServices.map(service => (
+                        <tr key={service.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-bold text-blue-950 flex items-center gap-3">
+                            <img 
+                              src={service.image} 
+                              alt={service.name} 
+                              className="w-12 h-12 rounded-lg object-cover cursor-pointer hover:scale-110 transition-transform duration-300 shadow-sm border border-slate-100" 
+                              onClick={() => handleOpenDetails(service)}
+                              title="عرض تفاصيل الخدمة الفاخرة"
+                            />
+                            <div className="flex items-center gap-2">
+                              <span>{service.name}</span>
+                              <button onClick={(e) => openProviderChat(e, service.provider, service.name)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="مراسلة مزود الخدمة">
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 flex items-center gap-1">{getCategoryIcon(service.category)} {service.category}</td>
+                          <td className="px-6 py-4">
+                            {isProviderNameVisible(service.provider) ? (
+                              <Link 
+                                to={`/provider-profile/${encodeURIComponent(service.provider)}`}
+                                className="font-bold text-blue-950 hover:text-amber-600 underline decoration-amber-400 decoration-1 underline-offset-2 transition-colors"
+                              >
+                                {service.provider}
+                              </Link>
+                            ) : (
+                              "مزود خدمة معتمد"
+                            )}
+                          </td>
+                          <td className="px-6 py-4 font-bold text-orange-500">{service.price} ر.س</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center gap-1 font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded">
+                              <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {service.rating}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <button onClick={() => handleRequestService(service)} className="bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                              طلب خدمة
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+              <div className={viewMode === 'list' ? "flex flex-col gap-6" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
+                {filteredServices.map(service => (
+                  <div key={service.id} className={`bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
+                    <div className={`relative ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-48'} overflow-hidden`}>
+                      <img 
+                        src={service.image} 
+                        alt={service.name} 
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500" 
+                        onClick={() => handleOpenDetails(service)}
+                        title="عرض تفاصيل الخدمة الفاخرة"
+                      />
+                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-sm font-bold text-amber-600 flex items-center gap-1.5 shadow-sm">
+                        {getCategoryIcon(service.category)} {service.category}
+                      </div>
+                    </div>
+                    <div className="p-5 flex-grow flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-xl font-bold text-blue-950 truncate">{service.name}</h3>
+                            <button onClick={(e) => openProviderChat(e, service.provider, service.name)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex-shrink-0" title="مراسلة مزود الخدمة">
+                              <MessageCircle className="w-5 h-5" />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm font-bold text-slate-700">
+                            <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> {service.rating}
+                          </div>
+                        </div>
+                        <p className="text-slate-500 text-sm mb-4">
+                          بواسطة: {isProviderNameVisible(service.provider) ? (
+                            <Link 
+                              to={`/provider-profile/${encodeURIComponent(service.provider)}`}
+                              className="font-bold text-blue-950 hover:text-amber-600 underline decoration-amber-400 decoration-1 underline-offset-2 transition-colors inline-block mr-1"
+                            >
+                              {service.provider}
+                            </Link>
+                          ) : (
+                            "مزود خدمة معتمد"
+                          )}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-slate-600 mb-6">
+                          <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-slate-400" /> {service.city}</span>
+                        </div>
+                      </div>
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
+                        <span className="text-orange-500 font-bold">{service.price} ر.س</span>
                         <div className="flex items-center gap-2">
-                          <span>{service.name}</span>
-                          <button onClick={(e) => openProviderChat(e, service.provider, service.name)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="مراسلة مزود الخدمة">
-                            <MessageCircle className="w-4 h-4" />
+                          <button 
+                            onClick={() => handleOpenReview(service, 'service')}
+                            className="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
+                            title="أضف تقييمك لهذه الخدمة"
+                          >
+                            ⭐ تقييم
+                          </button>
+                          <button 
+                            onClick={() => handleRequestService(service)}
+                            className="text-blue-950 font-bold hover:text-amber-500 transition-colors"
+                          >
+                            طلب الخدمة
                           </button>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 flex items-center gap-1">{getCategoryIcon(service.category)} {service.category}</td>
-                      <td className="px-6 py-4">
-                        {isProviderNameVisible(service.provider) ? (
-                          <Link 
-                            to={`/provider-profile/${encodeURIComponent(service.provider)}`}
-                            className="font-bold text-blue-950 hover:text-amber-600 underline decoration-amber-400 decoration-1 underline-offset-2 transition-colors"
-                          >
-                            {service.provider}
-                          </Link>
-                        ) : (
-                          "مزود خدمة معتمد"
-                        )}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-orange-500">{service.price} ر.س</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className="inline-flex items-center gap-1 font-bold bg-amber-50 text-amber-700 px-2 py-1 rounded">
-                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {service.rating}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleRequestService(service)} className="bg-amber-100 text-amber-700 hover:bg-amber-200 font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
-                          طلب خدمة
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-          <div className={viewMode === 'list' ? "flex flex-col gap-6" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
-            {filteredServices.map(service => (
-              <div key={service.id} className={`bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-all flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
-                <div className={`relative ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-48'} overflow-hidden`}>
-                  <img 
-                    src={service.image} 
-                    alt={service.name} 
-                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500" 
-                    onClick={() => handleOpenDetails(service)}
-                    title="عرض تفاصيل الخدمة الفاخرة"
-                  />
-                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-sm font-bold text-amber-600 flex items-center gap-1.5 shadow-sm">
-                    {getCategoryIcon(service.category)} {service.category}
-                  </div>
-                </div>
-                <div className="p-5 flex-grow flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xl font-bold text-blue-950 truncate">{service.name}</h3>
-                        <button onClick={(e) => openProviderChat(e, service.provider, service.name)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors flex-shrink-0" title="مراسلة مزود الخدمة">
-                          <MessageCircle className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm font-bold text-slate-700">
-                        <Star className="w-4 h-4 fill-amber-500 text-amber-500" /> {service.rating}
                       </div>
                     </div>
-                    <p className="text-slate-500 text-sm mb-4">
-                      بواسطة: {isProviderNameVisible(service.provider) ? (
-                        <Link 
-                          to={`/provider-profile/${encodeURIComponent(service.provider)}`}
-                          className="font-bold text-blue-950 hover:text-amber-600 underline decoration-amber-400 decoration-1 underline-offset-2 transition-colors inline-block mr-1"
-                        >
-                          {service.provider}
-                        </Link>
-                      ) : (
-                        "مزود خدمة معتمد"
-                      )}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-slate-600 mb-6">
-                      <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-slate-400" /> {service.city}</span>
-                    </div>
                   </div>
-                  <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center gap-2">
-                    <span className="text-orange-500 font-bold">{service.price} ر.س</span>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleOpenReview(service, 'service')}
-                        className="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors cursor-pointer"
-                        title="أضف تقييمك لهذه الخدمة"
-                      >
-                        ⭐ تقييم
-                      </button>
-                      <button 
-                        onClick={() => handleRequestService(service)}
-                        className="text-blue-950 font-bold hover:text-amber-500 transition-colors"
-                      >
-                        طلب الخدمة
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+              )
+            ) : (
+              <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
+                <p className="text-slate-500 text-lg">لم يتم العثور على خدمات مطابقة.</p>
+              </div>
+            )}
           </div>
-          )
-        ) : (
-          <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
-            <p className="text-slate-500 text-lg">لم يتم العثور على خدمات مطابقة.</p>
-          </div>
-        )}
+
+          {/* Dedicated Services Sidebar with Ad Placement */}
+          <aside className="lg:col-span-1 space-y-6">
+            {/* Sidebar Ad Placement */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">
+                مساحة إعلانية مخصصة
+              </span>
+              <AdBanner 
+                placement="شريط جانبي في قائمة الخدمات" 
+                layout="card" 
+                className="w-full shadow-sm hover:shadow-md transition-shadow" 
+              />
+            </div>
+
+            {/* Quick Guarantees / Service Trust Box */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm space-y-3">
+              <h4 className="font-bold text-sm text-blue-950 flex items-center gap-2">
+                <span>🛡️</span>
+                <span>ضمان منصة ليلة للخدمات</span>
+              </h4>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                جميع مزودي الخدمات المساندة معتمدون ومفحوصون وفق معايير جودة صارمة لضمان مناسبة خالية من المفاجآت.
+              </p>
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-amber-600 font-bold">
+                <span>حماية المدفوعات 100%</span>
+                <span>دعم مباشر 24/7</span>
+              </div>
+            </div>
+          </aside>
+        </div>
 
         {/* Request Service Modal */}
         <RequestServiceModal

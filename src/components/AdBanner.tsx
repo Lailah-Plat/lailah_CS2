@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { matchAdPlacement, recordAdView, recordAdClick } from '../utils/adTracker';
 
 interface AdInfo {
-  id: number;
+  id: number | string;
   advertiser: string;
   title: string;
   content: string;
@@ -20,13 +21,13 @@ interface AdInfo {
 interface AdBannerProps {
   placement: string;
   className?: string;
-  layout?: 'simple' | 'overlay' | 'card' | 'banner';
+  layout?: 'simple' | 'overlay' | 'card' | 'banner' | 'native_hall' | 'announcement';
 }
 
 export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", layout = 'simple' }) => {
   const [ad, setAd] = useState<AdInfo | null>(null);
 
-  useEffect(() => {
+  const loadAd = useCallback(() => {
     try {
       const stored = localStorage.getItem('GLOBAL_ADS');
       const internalStored = localStorage.getItem('internal_ads');
@@ -42,6 +43,9 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
         if (p.includes('وسط')) return 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80';
         if (p.includes('يسار')) return 'https://images.unsplash.com/photo-1549488344-1f9b8d2bd1f3?w=800&q=80';
         if (p.includes('أعلى')) return 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=1600&q=80';
+        if (p.includes('خدمات') || p.includes('جانبي')) return 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80';
+        if (p.includes('حجز') || p.includes('تفاصيل')) return 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&q=80';
+        if (p.includes('منبثقة') || p.includes('Popup')) return 'https://images.unsplash.com/photo-1532712938310-34cb3982ef74?w=800&q=80';
         return 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=800&q=80';
       };
 
@@ -62,16 +66,16 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
           const internalAds: any[] = JSON.parse(internalStored);
           mappedInternal = internalAds.map((ia: any) => ({
             id: ia.id,
-            advertiser: ia.providerName || '',
-            title: ia.name || '',
+            advertiser: ia.providerName || 'مزود معتمد',
+            title: ia.name || ia.title || 'إعلان ترويجي',
             content: ia.content || '',
-            placement: ia.location || '',
+            placement: ia.location || ia.placement || '',
             startDate: ia.startDate || '',
             endDate: ia.endDate || '',
             value: ia.revenue || 0,
             views: ia.views || 0,
             clicks: ia.clicks || 0,
-            status: ia.status === 'نشط' ? 'فعّال' : 'متوقف',
+            status: (ia.status === 'نشط' || ia.status === 'فعّال') ? 'فعّال' : 'متوقف',
             linkUrl: ia.linkUrl || '#',
             imageUrl: extractImageUrl(ia.content || '', ia.location || ''),
             isInternal: true
@@ -83,33 +87,11 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
 
       const allAds = [...ads, ...mappedInternal];
       const today = new Date().toISOString().split('T')[0];
-      
-      // Map any equivalent location aliases so both naming patterns work seamlessly
-      const getAliases = (p: string): string[] => {
-        const aliasMap: Record<string, string[]> = {
-          'الإعلان العلوي الأول - الأيمن': ['الإعلان العلوي الأول - الأيمن', 'شريط الإعلانات العلوي - يمين'],
-          'الإعلان العلوي الثاني - الأوسط': ['الإعلان العلوي الثاني - الأوسط', 'شريط الإعلانات العلوي - وسط'],
-          'الإعلان العلوي الثالث - الأيسر': ['الإعلان العلوي الثالث - الأيسر', 'شريط الإعلانات العلوي - يسار'],
-          'الإعلان السفلي الأول - الأيمن': ['الإعلان السفلي الأول - الأيمن', 'شريط الإعلانات السفلي - يمين'],
-          'الإعلان السفلي الثاني - الأوسط': ['الإعلان السفلي الثاني - الأوسط', 'شريط الإعلانات السفلي - وسط'],
-          'الإعلان السفلي الثالث - الأيسر': ['الإعلان السفلي الثالث - الأيسر', 'شريط الإعلانات السفلي - يسار'],
 
-          'شريط الإعلانات العلوي - يمين': ['الإعلان العلوي الأول - الأيمن', 'شريط الإعلانات العلوي - يمين'],
-          'شريط الإعلانات العلوي - وسط': ['الإعلان العلوي الثاني - الأوسط', 'شريط الإعلانات العلوي - وسط'],
-          'شريط الإعلانات العلوي - يسار': ['الإعلان العلوي الثالث - الأيسر', 'شريط الإعلانات العلوي - يسار'],
-          'شريط الإعلانات السفلي - يمين': ['الإعلان السفلي الأول - الأيمن', 'شريط الإعلانات السفلي - يمين'],
-          'شريط الإعلانات السفلي - وسط': ['الإعلان السفلي الثاني - الأوسط', 'شريط الإعلانات السفلي - وسط'],
-          'شريط الإعلانات السفلي - يسار': ['الإعلان السفلي الثالث - الأيسر', 'شريط الإعلانات السفلي - يسار'],
-        };
-        return aliasMap[p] || [p];
-      };
-
-      const allowedPlacements = getAliases(placement);
-
-      // Find ads matching placement, status, and date range
+      // Find ads matching placement with dual alias mapping, active status, and date range
       const activeAds = allAds.filter(a => 
-        allowedPlacements.includes(a.placement) && 
-        a.status === 'فعّال' &&
+        matchAdPlacement(a.placement, placement) && 
+        (a.status === 'فعّال' || a.status === 'نشط') &&
         (!a.startDate || today >= a.startDate) &&
         (!a.endDate || today <= a.endDate)
       );
@@ -119,64 +101,38 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
         const selected = activeAds[Math.floor(Math.random() * activeAds.length)];
         setAd(selected);
         
-        // Increment view count directly without causing loops across tabs
-        if (selected.isInternal) {
-          if (internalStored) {
-            try {
-              const internalAds: any[] = JSON.parse(internalStored);
-              const updatedInternal = internalAds.map((ia: any) => {
-                if (ia.id === selected.id) {
-                  return { ...ia, views: (ia.views || 0) + 1 };
-                }
-                return ia;
-              });
-              localStorage.setItem('internal_ads', JSON.stringify(updatedInternal));
-            } catch {}
-          }
-        } else {
-          const updated = ads.map(a => {
-            if (a.id === selected.id) {
-              return { ...a, views: (a.views || 0) + 1 };
-            }
-            return a;
-          });
-          localStorage.setItem('GLOBAL_ADS', JSON.stringify(updated));
-        }
+        // Record performance metric (view) and update database in real-time
+        recordAdView(selected.id, selected.isInternal ?? true);
+      } else {
+        setAd(null);
       }
     } catch (err) {
       console.error("Error fetching ad for placement:", placement, err);
     }
   }, [placement]);
 
+  useEffect(() => {
+    loadAd();
+
+    // Listen to real-time ad updates if necessary
+    const handleUpdate = (e: any) => {
+      if (e.detail?.adId && ad && String(e.detail.adId) === String(ad.id)) {
+        if (e.detail.updatedAd) {
+          setAd(prev => prev ? { ...prev, views: e.detail.updatedAd.views ?? prev.views, clicks: e.detail.updatedAd.clicks ?? prev.clicks } : null);
+        }
+      }
+    };
+
+    window.addEventListener('layla_internal_ads_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('layla_internal_ads_updated', handleUpdate);
+    };
+  }, [loadAd, placement]);
+
   const handleAdClick = () => {
     if (ad) {
-      try {
-        if (ad.isInternal) {
-          const internalStored = localStorage.getItem('internal_ads');
-          if (internalStored) {
-            const internalAds: any[] = JSON.parse(internalStored);
-            const updatedInternal = internalAds.map((ia: any) => {
-              if (ia.id === ad.id) {
-                return { ...ia, clicks: (ia.clicks || 0) + 1 };
-              }
-              return ia;
-            });
-            localStorage.setItem('internal_ads', JSON.stringify(updatedInternal));
-          }
-        } else {
-          const stored = localStorage.getItem('GLOBAL_ADS');
-          if (stored) {
-            const ads: AdInfo[] = JSON.parse(stored);
-            const updated = ads.map(a => {
-              if (a.id === ad.id) {
-                return { ...a, clicks: (a.clicks || 0) + 1 };
-              }
-              return a;
-            });
-            localStorage.setItem('GLOBAL_ADS', JSON.stringify(updated));
-          }
-        }
-      } catch {}
+      // Record real-time click and persist to database & storage
+      recordAdClick(ad.id, ad.isInternal ?? true);
     }
   };
 
@@ -199,6 +155,73 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
             <p className="text-white/80 text-xs line-clamp-1">{ad.content}</p>
           </div>
         </div>
+      </a>
+    );
+  }
+
+  if (layout === 'native_hall') {
+    return (
+      <a 
+        href={ad.linkUrl || '#'} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        onClick={handleAdClick}
+        className={`bg-gradient-to-br from-amber-500/10 via-white to-amber-500/5 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border-2 border-amber-400/60 group flex flex-col justify-between relative ${className}`}
+      >
+        <div className="relative h-60 overflow-hidden">
+          <img src={ad.imageUrl} alt={ad.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none" />
+          <div className="absolute top-4 right-4 bg-amber-500 text-slate-950 px-3 py-1 rounded-full text-xs font-black shadow-md flex items-center gap-1.5 z-10 animate-pulse">
+            <span>✨</span>
+            <span>عرض مميز / شريك معتمد</span>
+          </div>
+          <div className="absolute bottom-3 right-4 left-4 text-white z-10">
+            <span className="text-[10px] bg-slate-900/80 px-2 py-0.5 rounded text-amber-300 font-bold">إعلان مدعوم من منصة ليلة</span>
+          </div>
+        </div>
+        <div className="p-6 flex-grow flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-xl font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
+                {ad.title}
+              </h3>
+              <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">
+                خصم حصري
+              </span>
+            </div>
+            <p className="text-slate-600 text-sm mb-4 line-clamp-3 leading-relaxed">
+              {ad.content}
+            </p>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-between text-xs text-slate-500 mb-3">
+              <span>المعلن: <strong className="text-slate-800 font-bold">{ad.advertiser}</strong></span>
+              <span className="text-amber-600 font-bold font-mono">سعر خاص للزوار ⭐</span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center pt-3 border-t border-amber-100/60 mt-2">
+            <span className="text-xs font-bold text-amber-700">عرض استثنائي عبر ليلة</span>
+            <span className="bg-amber-500 group-hover:bg-amber-600 text-slate-950 px-5 py-2 rounded-xl text-xs font-black transition-all shadow-sm">
+              استكشف العرض ↗
+            </span>
+          </div>
+        </div>
+      </a>
+    );
+  }
+
+  if (layout === 'announcement') {
+    return (
+      <a 
+        href={ad.linkUrl || '#'} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        onClick={handleAdClick}
+        className={`w-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 flex items-center justify-center gap-3 text-xs font-black shadow-inner transition-all hover:brightness-105 ${className}`}
+      >
+        <span className="bg-slate-950 text-amber-300 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">عاجل وحصري</span>
+        <span className="truncate">{ad.title} — {ad.content}</span>
+        <span className="hidden md:inline-flex items-center gap-1 bg-white/40 hover:bg-white/60 text-slate-950 px-2.5 py-0.5 rounded-lg text-[11px] font-bold">
+          تفاصيل العرض ↗
+        </span>
       </a>
     );
   }

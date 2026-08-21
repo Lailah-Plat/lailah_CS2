@@ -32,6 +32,7 @@ import { ReviewsManagement } from './components/ReviewsManagement';
 import { AdminHeaderNotificationBell } from './components/AdminHeaderNotificationBell';
 import { Toaster } from 'react-hot-toast';
 import { UnifiedPartnerCockpit } from './components/provider/cockpit/UnifiedPartnerCockpit';
+import { PopupAdModal } from './components/PopupAdModal';
 
 // Resilient dynamic code splitting helper with fallback retry
 function safeLazy<T extends React.ComponentType<any>>(
@@ -1092,6 +1093,9 @@ export default function App() {
           },
         }}
       />
+
+      {/* Global Client Popup Ad Modal */}
+      <PopupAdModal />
 
       {/* 2. Custom floating state.notification for App state triggers */}
       <AnimatePresence>

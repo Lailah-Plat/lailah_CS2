@@ -4,7 +4,7 @@ import {
   Wallet, TrendingUp, TrendingDown, FileText, Briefcase, 
   Download, Plus, Filter, Calendar as CalendarIcon, PieChart as PieChartIcon,
   X, Check, Heart, Sparkles, Lock, Paperclip, Calculator, Percent,
-  Activity, CreditCard, Users, RefreshCw, Bell, ShieldAlert, Landmark
+  Activity, CreditCard, Users, RefreshCw, Bell, ShieldAlert, Landmark, History
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -23,6 +23,7 @@ import VarianceAlertsManager from './VarianceAlertsManager';
 import TreasuryManagement from './TreasuryManagement';
 import { KpiSkeleton, TableSkeleton, ChartSkeleton } from './common/Skeleton';
 import { PromotionsManagement } from './MarketingComponents';
+import { EnterpriseAuditLog } from './admin/EnterpriseAuditLog';
 
 const html2canvasSafe = async (element: HTMLElement, options?: any) => {
   const originalGetComputedStyle = window.getComputedStyle;
@@ -189,7 +190,7 @@ export default function FinanceDashboard({
   setPromotions?: (p: any[]) => void,
   services?: any[]
 }) {
-  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts' | 'treasury'>(() => {
+  const [activeSubTab, setActiveSubTab] = useState<'reports' | 'revenues' | 'expenses' | 'invoices' | 'providers' | 'wallet' | 'seasons' | 'forecast' | 'bank_transfers' | 'customer_ledgers' | 'refunds' | 'settlements' | 'ledger' | 'variance_alerts' | 'treasury' | 'audit_log'>(() => {
     return userRole === 'provider' ? 'wallet' : 'reports';
   });
   const [seasonsInternalTab, setSeasonsInternalTab] = useState<'seasons' | 'promotions'>('seasons');
@@ -3832,6 +3833,7 @@ export default function FinanceDashboard({
           { id: 'bank_transfers', label: 'الدفع والحولات 🧾', title: 'سجلات الدفع والحوالات البنكية', icon: CreditCard },
           { id: 'settlements', label: 'تسويات الشركاء 🤝', title: 'سجل تسويات مستحقات الشركاء وعمولات المنصة', icon: Briefcase },
           { id: 'ledger', label: 'القيود اليومية الموحدة 📖', title: 'سجل القيود الدفترية المحاسبية الموحد والمطابقة المالية العامة', icon: FileText },
+          ...(userRole === 'admin' ? [{ id: 'audit_log', label: 'سجل التدقيق والمطابقة 📜', title: 'سجل تدقيق العمليات والحوكمة المؤسسية وتتبع تعديلات الأسعار والإصدارات', icon: History }] : []),
         ].map(tab => {
           const IconComponent = tab.icon;
           return (
@@ -6466,6 +6468,12 @@ export default function FinanceDashboard({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeSubTab === 'audit_log' && (
+        <div className="animate-in fade-in space-y-6">
+          <EnterpriseAuditLog userRole={userRole || 'admin'} />
         </div>
       )}
 

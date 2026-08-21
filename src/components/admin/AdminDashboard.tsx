@@ -10,7 +10,8 @@ import {
   Percent, Megaphone, ChevronDown, ChevronUp, Star, Filter, 
   Eye, RefreshCw, AlertCircle, Calendar, Sparkles, Settings,
   AlertTriangle, CheckCircle, ShieldCheck, Compass, ShieldAlert, Zap, Briefcase, Search, Edit3,
-  BarChart3, PieChart as PieChartIcon, DollarSign, FileText, Download, CheckCircle2, MapPin, Layers, Receipt
+  BarChart3, PieChart as PieChartIcon, DollarSign, FileText, Download, CheckCircle2, MapPin, Layers, Receipt,
+  History
 } from 'lucide-react';
 import { 
   ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, 
@@ -18,6 +19,7 @@ import {
   PieChart, Pie, Cell, BarChart
 } from 'recharts';
 import { GlobalPeakSeasonalPricingSection } from './GlobalPeakSeasonalPricingSection';
+import { EnterpriseAuditLog } from './EnterpriseAuditLog';
 
 interface AdminDashboardProps {
   currentUserName: string;
@@ -102,7 +104,7 @@ export function AdminDashboard({
   const [analyticsCategoryFilter, setAnalyticsCategoryFilter] = useState<string>('all');
 
   // Lifecycles OS local interactive states
-  const [lifecycleSubTab, setLifecycleSubTab] = useState<'workflow' | 'users_providers' | 'occasions' | 'governance'>('workflow');
+  const [lifecycleSubTab, setLifecycleSubTab] = useState<'workflow' | 'users_providers' | 'occasions' | 'governance' | 'audit_log'>('workflow');
 
   // Interactive mock list of providers with their 3 separated statuses
   const [localProviders, setLocalProviders] = useState<any[]>(() => {
@@ -1998,6 +2000,13 @@ export function AdminDashboard({
                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
                 🛡️ مركز الحوكمة والامتثال والجودة (Risk & Compliance)
               </button>
+              <button
+                onClick={() => setLifecycleSubTab('audit_log')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${lifecycleSubTab === 'audit_log' ? 'bg-white text-slate-900 shadow-sm font-black' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <History className="w-4 h-4 text-purple-600" />
+                📜 سجل التدقيق المؤسسي الموحد (Enterprise Audit Log)
+              </button>
             </div>
 
             {/* 3. LIFECYCLE WORKSPACE SWITCHER */}
@@ -2794,6 +2803,13 @@ export function AdminDashboard({
                     </div>
                   </div>
 
+                </div>
+              )}
+
+              {/* SUB-TAB 5: Enterprise Audit Log & Governance Trail */}
+              {lifecycleSubTab === 'audit_log' && (
+                <div className="space-y-6 animate-in fade-in duration-300 text-right">
+                  <EnterpriseAuditLog userRole="admin" />
                 </div>
               )}
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Wallet, Clock, FileText } from 'lucide-react';
 import { formatCurrency, getStatusColor } from '../../data/dashboardConstants';
 import { formatBookingId } from '../../utils/idUtils';
+import { AdBanner } from '../AdBanner';
 
 interface BookingViewModalProps {
   isOpen: boolean;
@@ -193,6 +194,15 @@ export const BookingViewModal: React.FC<BookingViewModalProps> = ({
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Ad Banner - أسفل تفاصيل الحجز */}
+            <div className="sm:col-span-2 pt-2">
+              <AdBanner 
+                placement="أسفل تفاصيل الحجز" 
+                layout="card" 
+                className="w-full border border-slate-200/80 dark:border-slate-800 shadow-sm" 
+              />
             </div>
           </div>
         </div>

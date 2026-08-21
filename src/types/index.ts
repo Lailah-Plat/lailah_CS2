@@ -69,6 +69,10 @@ export interface Hall {
   hasPendingEdits?: boolean;
   pendingChanges?: any;
   pendingPayload?: any;
+  version?: number;
+  isPaused?: boolean;
+  pausedAt?: string;
+  pauseReason?: string;
   isArchived?: boolean;
   archivedAt?: string;
   archivedBy?: string;
@@ -122,6 +126,7 @@ export interface Booking {
   externalServices?: any[];
   paymentMethod?: string;
   appliedPromotionSnapshot?: AppliedPromotionSnapshot;
+  contractSnapshot?: ContractSnapshot;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -341,16 +346,58 @@ export interface ProviderReceivable {
 export interface ClientReceivable {
   id: string | number;
   receivableNumber: string; // REV-YY-XXXXXXXXXX
+  clientId?: number | string;
+  clientName?: string;
+  customerId?: number | string;
+  customerName?: string;
   bookingId?: string | number;
-  customerId: number | string;
-  customerName: string;
+  bookingNumber?: string;
+  paymentType?: string;
   amount: number;
-  paymentType: 'pay_on_arrival' | 'deferred_installments';
-  status: 'outstanding' | 'collected' | 'overdue';
+  reason?: 'remaining_balance' | 'damage_deposit' | 'addon_service' | 'other' | string;
+  status: 'outstanding' | 'partially_paid' | 'collected' | 'written_off';
   dueDate: string;
   ageingDays: number;
   notes?: string;
   createdAt: string;
+}
+
+export interface ContractSnapshot {
+  version: number;
+  hallName?: string;
+  serviceName?: string;
+  basePrice: number;
+  taxRate: number; // e.g. 0.15
+  taxAmount: number;
+  depositAmount: number;
+  commissionRate: number;
+  commissionAmount: number;
+  netProviderAmount: number;
+  providerId: number | string;
+  providerName: string;
+  capacity?: number;
+  bookingType?: string;
+  packageName?: string;
+  selectedAddons?: any[];
+  contractTerms?: string;
+  cancellationPeriod?: number;
+  capturedAt: string;
+}
+
+export interface AuditLog {
+  id: string | number;
+  entityType: 'hall' | 'service' | 'promotion' | 'campaign' | 'booking' | 'system';
+  entityId: string | number;
+  entityName: string;
+  action: 'create' | 'update' | 'archive' | 'restore' | 'delete' | 'status_change';
+  actorId?: string | number;
+  actorName: string;
+  actorRole: string;
+  previousValues?: any;
+  newValues?: any;
+  details: string;
+  impactSummary?: string;
+  timestamp: string;
 }
 
 

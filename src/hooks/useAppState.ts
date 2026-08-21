@@ -193,7 +193,7 @@ import {
   BarChart, Bar, Legend, LineChart, Line, PieChart, Pie, Cell, ComposedChart
 } from 'recharts';
 
-import { Promotion } from '../types';
+import { Promotion, AuditLog, ContractSnapshot } from '../types';
 import {
   TABS,
   sectionTabsMap,
@@ -1516,6 +1516,42 @@ export function useAppState() {
   useEffect(() => {
     safeSetLocalStorage('PROMOTIONS', promotions);
   }, [promotions]);
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const stored = localStorage.getItem('layla_audit_logs');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [
+      {
+        id: 'LOG-INIT-01',
+        entityType: 'system',
+        entityId: 'SYS-01',
+        entityName: 'النظام والرقابة والحوكمة',
+        action: 'status_change',
+        actorName: 'نظام الحوكمة الرقمية',
+        actorRole: 'admin',
+        details: 'تفعيل نظام اللقطات التعاقدية المجمّدة والأرشفة الذكية لحماية الإقرارات المالية والضريبية',
+        impactSummary: 'حوكمة 100% للعمليات التاريخية ومنع تعديل الفواتير',
+        timestamp: new Date().toISOString()
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      safeSetLocalStorage('layla_audit_logs', auditLogs);
+    } catch (e) {}
+  }, [auditLogs]);
+
+  const addAuditLog = (entry: Omit<AuditLog, 'id' | 'timestamp'>) => {
+    const newLog: AuditLog = {
+      ...entry,
+      id: `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      timestamp: new Date().toISOString()
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+  };
   const [services, setServicesState] = useState(() => {
     const raw = getServices();
     return raw.map((item: any) => {
@@ -5401,6 +5437,37 @@ export function useAppState() {
         }
         return h;
       }));
+
+      // Automatically deactivate exclusive promotions linked to this archived hall
+      setPromotions((prevPromos: Promotion[]) => {
+        let promoCount = 0;
+        const updated = prevPromos.map(p => {
+          if (p.targetIds && p.targetIds.map(String).includes(String(id)) && p.status === 'active') {
+            promoCount++;
+            return { ...p, status: 'expired' as const };
+          }
+          return p;
+        });
+        if (promoCount > 0) {
+          showNotification('info', `تم إيقاف (${promoCount}) عرض ترويجي مرتبط بالقاعة تلقائياً.`);
+        }
+        return updated;
+      });
+
+      // Record Audit Trail
+      addAuditLog({
+        entityType: 'hall',
+        entityId: id,
+        entityName: hallName || `قاعة #${id}`,
+        action: 'archive',
+        actorName: currentUser?.name || 'مدير الحساب',
+        actorRole: userRole,
+        previousValues: { status: targetHall?.status, activationStatus: targetHall?.activationStatus },
+        newValues: { status: 'مؤرشفة', activationStatus: 'موقوف', isArchived: true },
+        details: `أرشفة وإلغاء إدراج القاعة مع وجود (${relatedBookings.length}) حجز/عملية تاريخية سابقة محفوظة محاسبياً.`,
+        impactSummary: 'إخفاء من العرض العام مع بقاء السجلات والفواتير غير قابلة للتعديل'
+      });
+
       showNotification('info', '📦 تم نقل القاعة إلى الأرشيف وإلغاء إدراجها من العرض العام بنجاح، مع حفظ كافة السجلات المالية التاريخية.');
       return true;
     }
@@ -5410,11 +5477,27 @@ export function useAppState() {
     try {
       fetch(`/api/bookings/halls/${id}`, { method: 'DELETE' }).catch(() => {});
     } catch (e) {}
+
+    // Record Audit Trail
+    addAuditLog({
+      entityType: 'hall',
+      entityId: id,
+      entityName: hallName || `قاعة #${id}`,
+      action: 'delete',
+      actorName: currentUser?.name || 'مدير الحساب',
+      actorRole: userRole,
+      details: 'حذف سجل القاعة الجديد نهائياً وتنظيف السجلات لعدم وجود أي عمليات أو فواتير سابقة.',
+      impactSummary: 'حذف تام ونظيف'
+    });
+
     showNotification('success', '🗑️ تم حذف القاعة الجديدة نهائياً وتنظيف السجل لعدم وجود أي عمليات سابقة.');
     return true;
   };
 
   const handleRestoreHall = (id: any) => {
+    const targetHall = halls.find(h => String(h.id) === String(id));
+    const hallName = targetHall?.name || '';
+
     setHalls((prev: any[]) => prev.map(h => {
       if (String(h.id) === String(id)) {
         return {
@@ -5427,6 +5510,19 @@ export function useAppState() {
       }
       return h;
     }));
+
+    // Record Audit Trail
+    addAuditLog({
+      entityType: 'hall',
+      entityId: id,
+      entityName: hallName || `قاعة #${id}`,
+      action: 'restore',
+      actorName: currentUser?.name || 'مدير الحساب',
+      actorRole: userRole,
+      details: 'استعادة القاعة من الأرشيف وإعادة تفعيلها وإدراجها في الكتالوج النشط.',
+      impactSummary: 'إعادة إتاحة القاعة للحجوزات الجديدة'
+    });
+
     showNotification('success', '♻️ تم استعادة القاعة من الأرشيف وإعادة تفعيلها بنجاح.');
   };
 
@@ -5467,6 +5563,37 @@ export function useAppState() {
         } catch (e) {}
         return updated;
       });
+
+      // Deactivate linked promotions
+      setPromotions((prevPromos: Promotion[]) => {
+        let promoCount = 0;
+        const updated = prevPromos.map(p => {
+          if (p.applyTo === 'services' && p.targetIds && p.targetIds.map(String).includes(String(id)) && p.status === 'active') {
+            promoCount++;
+            return { ...p, status: 'expired' as const };
+          }
+          return p;
+        });
+        if (promoCount > 0) {
+          showNotification('info', `تم إيقاف (${promoCount}) عرض ترويجي مرتبط بالخدمة تلقائياً.`);
+        }
+        return updated;
+      });
+
+      // Record Audit Trail
+      addAuditLog({
+        entityType: 'service',
+        entityId: id,
+        entityName: sName || `خدمة #${id}`,
+        action: 'archive',
+        actorName: currentUser?.name || 'مدير الحساب',
+        actorRole: userRole,
+        previousValues: { serviceStatus: targetService?.serviceStatus, adminStatus: targetService?.adminStatus },
+        newValues: { serviceStatus: 'مؤرشفة', adminStatus: 'مؤرشفة', isArchived: true },
+        details: `أرشفة وإلغاء إدراج الخدمة مع وجود (${relatedRequests.length}) طلب/حركة تاريخية سابقة محفوظة محاسبياً.`,
+        impactSummary: 'إخفاء من الكتالوج مع حماية طلبات العملاء السابقة'
+      });
+
       showNotification('info', '📦 تم نقل الخدمة إلى الأرشيف وإلغاء إدراجها من العرض العام بنجاح، مع حفظ كافة السجلات المالية التاريخية.');
       return true;
     }
@@ -5486,11 +5613,27 @@ export function useAppState() {
     } catch (err) {
       console.warn('Backend API delete note:', err);
     }
+
+    // Record Audit Trail
+    addAuditLog({
+      entityType: 'service',
+      entityId: id,
+      entityName: sName || `خدمة #${id}`,
+      action: 'delete',
+      actorName: currentUser?.name || 'مدير الحساب',
+      actorRole: userRole,
+      details: 'حذف سجل الخدمة الجديد نهائياً وتنظيف السجلات لعدم وجود أي طلبات أو فواتير سابقة.',
+      impactSummary: 'حذف تام ونظيف'
+    });
+
     showNotification('success', '🗑️ تم حذف الخدمة الجديدة نهائياً وتنظيف السجل لعدم وجود أي عمليات سابقة.');
     return true;
   };
 
   const handleRestoreService = (id: any) => {
+    const targetService = services.find(s => String(s.id) === String(id));
+    const sName = targetService?.name || '';
+
     setServices((prev: any[]) => {
       const updated = prev.map(s => {
         if (String(s.id) === String(id)) {
@@ -5509,6 +5652,19 @@ export function useAppState() {
       } catch (e) {}
       return updated;
     });
+
+    // Record Audit Trail
+    addAuditLog({
+      entityType: 'service',
+      entityId: id,
+      entityName: sName || `خدمة #${id}`,
+      action: 'restore',
+      actorName: currentUser?.name || 'مدير الحساب',
+      actorRole: userRole,
+      details: 'استعادة الخدمة من الأرشيف وإعادة تفعيلها وإدراجها في الكتالوج النشط.',
+      impactSummary: 'إعادة إتاحة الخدمة للطلب'
+    });
+
     showNotification('success', '♻️ تم استعادة الخدمة من الأرشيف وإعادة تفعيلها بنجاح.');
   };
 
@@ -6055,6 +6211,9 @@ export function useAppState() {
     adminProvidersSubTab,
     adminSubscriptionsTab,
     adminUsersSection,
+    auditLogs,
+    setAuditLogs,
+    addAuditLog,
     agentName,
     agentStatus,
     alertComposeBody,

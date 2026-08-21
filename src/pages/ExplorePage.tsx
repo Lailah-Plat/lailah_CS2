@@ -728,89 +728,98 @@ export default function ExplorePage() {
               </div>
             ) : (
               <div className={viewMode === 'list' ? "flex flex-col gap-6" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"}>
-                {filteredHalls.map((hall) => {
+                {filteredHalls.map((hall, index) => {
                   const providerData = providers.find(p => p.name === hall.provider);
                   const partnerLevel = providerData ? getPartnerLevel(providerData.bookingsCount, providerData.rating, isEnabled, providerData.packageName, providerData.packageDuration) : null;
                   return (
-                    <div key={hall.id} className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
-                      <div className={`relative overflow-hidden ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-60'}`}>
-                        <img src={hall.image} alt={hall.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <FavoriteHeartButton hallId={hall.id} />
-                        <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
-                        {hall.featured && (
-                          <div className="absolute top-4 right-20 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-sm z-10">
-                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
+                    <React.Fragment key={hall.id}>
+                      <div className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
+                        <div className={`relative overflow-hidden ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-60'}`}>
+                          <img src={hall.image} alt={hall.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <FavoriteHeartButton hallId={hall.id} />
+                          <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
+                          {hall.featured && (
+                            <div className="absolute top-4 right-20 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-sm z-10">
+                              <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
+                            </div>
+                          )}
+                          <div className="absolute top-4 left-4 flex flex-col gap-2 items-start z-10 pl-14">
+                            <div className="bg-blue-950/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1">
+                              {hall.category}
+                            </div>
+                            <PricingPatternBadge bookingType={hall.bookingType} />
+                            {partnerLevel && (
+                              <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
+                                {partnerLevel.icon} {partnerLevel.name}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="absolute top-4 left-4 flex flex-col gap-2 items-start z-10 pl-14">
-                          <div className="bg-blue-950/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1">
-                            {hall.category}
-                          </div>
-                          <PricingPatternBadge bookingType={hall.bookingType} />
-                          {partnerLevel && (
-                            <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
-                              {partnerLevel.icon} {partnerLevel.name}
+                          {nearMe && (
+                            <div className="absolute bottom-4 right-4 bg-emerald-500/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 z-10">
+                              <MapPin className="w-3.5 h-3.5" /> تبعد {hall.mockDistance} كم
                             </div>
                           )}
                         </div>
-                        {nearMe && (
-                          <div className="absolute bottom-4 right-4 bg-emerald-500/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 z-10">
-                            <MapPin className="w-3.5 h-3.5" /> تبعد {hall.mockDistance} كم
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-6 flex-grow flex flex-col justify-between">
-                        <div>
-                          <div className="flex justify-between items-start mb-3">
-                            <h3 className="text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2">
-                               {hall.name}
-                               {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
-                                 <button onClick={(e) => openProviderChat(e, hall.provider, hall.name)} className="text-amber-500 hover:text-amber-600 transition-colors bg-amber-50 p-1.5 rounded-lg" title="مراسلة المزود">
-                                    <MessageCircle className="w-5 h-5" />
-                                 </button>
-                               )}
-                            </h3>
-                            <div className="flex items-center gap-1 text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
-                              <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                              {hall.rating}
+                        <div className="p-6 flex-grow flex flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between items-start mb-3">
+                              <h3 className="text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2">
+                                 {hall.name}
+                                 {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
+                                   <button onClick={(e) => openProviderChat(e, hall.provider, hall.name)} className="text-amber-500 hover:text-amber-600 transition-colors bg-amber-50 p-1.5 rounded-lg" title="مراسلة المزود">
+                                      <MessageCircle className="w-5 h-5" />
+                                   </button>
+                                 )}
+                              </h3>
+                              <div className="flex items-center gap-1 text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
+                                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                                {hall.rating}
+                              </div>
                             </div>
-                          </div>
-                          <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
-                            <MapPin className="w-4 h-4 text-amber-500" /> {hall.city}
-                          </p>
-                          {hall.showProvider !== false && isProviderNameVisible(hall.provider) && (
-                            <div className="bg-slate-50 rounded-lg p-2.5 mb-2 flex items-center justify-between border border-slate-100">
-                               <div className="flex items-center gap-2 overflow-hidden">
-                                  <span className="text-xs text-slate-400 shrink-0">مقدم الخدمة:</span>
-                                  <Link 
+                            <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
+                              <MapPin className="w-4 h-4 text-amber-500" /> {hall.city}
+                            </p>
+                            {hall.showProvider !== false && isProviderNameVisible(hall.provider) && (
+                              <div className="bg-slate-50 rounded-lg p-2.5 mb-2 flex items-center justify-between border border-slate-100">
+                                 <div className="flex items-center gap-2 overflow-hidden">
+                                    <span className="text-xs text-slate-400 shrink-0">مقدم الخدمة:</span>
+                                    <Link 
+                                      to={`/provider-profile/${encodeURIComponent(hall.provider)}`} 
+                                      className="text-xs font-bold text-blue-950 hover:text-amber-600 transition-colors truncate underline decoration-amber-400 decoration-1 underline-offset-2"
+                                      title="عرض ملف الشريك والموثوقية"
+                                    >
+                                      {hall.provider}
+                                    </Link>
+                                 </div>
+                                 <Link 
                                     to={`/provider-profile/${encodeURIComponent(hall.provider)}`} 
-                                    className="text-xs font-bold text-blue-950 hover:text-amber-600 transition-colors truncate underline decoration-amber-400 decoration-1 underline-offset-2"
-                                    title="عرض ملف الشريك والموثوقية"
-                                  >
-                                    {hall.provider}
-                                  </Link>
-                               </div>
-                               <Link 
-                                  to={`/provider-profile/${encodeURIComponent(hall.provider)}`} 
-                                  className="text-[10px] font-extrabold text-amber-800 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded-full transition-colors shrink-0 flex items-center gap-1"
-                               >
-                                  <span>ملف الشريك</span>
-                                  <span>💎</span>
-                               </Link>
-                            </div>
-                          )}
+                                    className="text-[10px] font-extrabold text-amber-800 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded-full transition-colors shrink-0 flex items-center gap-1"
+                                 >
+                                    <span>ملف الشريك</span>
+                                    <span>💎</span>
+                                 </Link>
+                              </div>
+                            )}
 
-                          {/* 3 Shift Pricing and Compare Box */}
-                          <HallPricingAndCompare hall={hall} />
-                        </div>
-                        <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
-                          <HallCapacityLabel capacity={hall.capacity} />
-                          <Link to={`/hall/${hall.id}${selectedDateFilter ? `?date=${selectedDateFilter}` : ''}`} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all">
-                            التفاصيل
-                          </Link>
+                            {/* 3 Shift Pricing and Compare Box */}
+                            <HallPricingAndCompare hall={hall} />
+                          </div>
+                          <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
+                            <HallCapacityLabel capacity={hall.capacity} />
+                            <Link to={`/hall/${hall.id}${selectedDateFilter ? `?date=${selectedDateFilter}` : ''}`} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all">
+                              التفاصيل
+                            </Link>
+                          </div>
                         </div>
                       </div>
-                    </div>
+
+                      {/* In-feed Ad after every 3 items */}
+                      {(index === 2 || (index > 2 && (index + 1) % 6 === 0)) && (
+                        <div className={viewMode === 'list' ? "w-full my-2" : "col-span-1"}>
+                          <AdBanner placement="بين بطاقات القاعات في صفحة الاستكشاف" layout={viewMode === 'list' ? 'banner' : 'native_hall'} className="h-full" />
+                        </div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </div>

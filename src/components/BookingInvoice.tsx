@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
+import { AdBanner } from './AdBanner';
 import { 
   Printer, 
   Download, 
@@ -1358,6 +1359,25 @@ export default function BookingInvoice(props: InvoiceProps) {
 
         </div>
 
+      </div>
+
+      {/* Post-Booking / Complementary Services Ad Banner */}
+      <div className="print:hidden mt-8 max-w-4xl mx-auto w-full">
+        <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent p-4 rounded-2xl border border-amber-200 mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-lg shadow-sm">
+              🎁
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-800">خدمات وعروض مقترحة لمناسبتك القادمة</h4>
+              <p className="text-xs text-slate-500">استكمل متطلبات مناسبتك مع شركائنا المعتمدين بأسعار تفضيلية لعملاء ليلة</p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+            عروض حصرية
+          </span>
+        </div>
+        <AdBanner placement="أسفل الفاتورة وتأكيد الحجز" layout="card" className="w-full" />
       </div>
     </div>
   );

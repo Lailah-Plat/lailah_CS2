@@ -188,31 +188,121 @@ export default function HallDetailsPage() {
     }
   }, [isBookingModalOpen, paymentSettings, paymentMethod]);
 
+  const refParam = searchParams.get('ref') || searchParams.get('ambassador') || searchParams.get('affiliate');
+  useEffect(() => {
+    if (refParam) {
+      try {
+        localStorage.setItem('layla_referral_code', refParam);
+        localStorage.setItem('layla_ambassador_ref', refParam);
+      } catch (e) {}
+    }
+  }, [refParam]);
+
   const isApproved = currentHall && (
     currentHall.status === 'approved' ||
     currentHall.status === 'مفعل' ||
     currentHall.status === 'active' ||
     currentHall.status === 'نشط' ||
     currentHall.status === undefined
-  );
+  ) && !currentHall.isArchived && currentHall.status !== 'مؤرشفة';
 
   const isSuspended = currentHall && (
     currentHall.activationStatus === 'موقوف' ||
     currentHall.bookingStatus === 'موقوفة' ||
-    currentHall.bookingStatus === 'موقوف'
+    currentHall.bookingStatus === 'موقوف' ||
+    currentHall.isArchived === true
   );
 
+  // Alternative recommendations if unavailable
+  const alternativeHalls = useMemo(() => {
+    const activeOnes = hallsList.filter(h => 
+      String(h.id) !== String(id) && 
+      !h.isArchived && 
+      h.status !== 'مؤرشفة' && 
+      h.activationStatus !== 'موقوف'
+    );
+    if (currentHall?.city) {
+      const sameCity = activeOnes.filter(h => h.city === currentHall.city);
+      if (sameCity.length > 0) return sameCity.slice(0, 3);
+    }
+    return activeOnes.slice(0, 3);
+  }, [hallsList, currentHall, id]);
+
   if (!currentHall || !isApproved || isSuspended) {
+    const isArchived = currentHall?.isArchived || currentHall?.status === 'مؤرشفة';
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col pt-12" dir="rtl">
         <Header />
-        <div className="flex-1 max-w-2xl mx-auto flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-4">
-            <AlertTriangle className="w-8 h-8 animate-bounce" />
+        <div className="flex-1 max-w-4xl mx-auto w-full flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 bg-amber-100 text-amber-700 rounded-3xl flex items-center justify-center mb-4 shadow-sm border border-amber-200">
+            <AlertTriangle className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-slate-800 mb-2">المنشأة غير متاحة حالياً</h2>
-          <p className="text-slate-500 text-sm mb-6">لقد تم إيقاف حجز أو عرض هذه المنشأة من قبل الإدارة أو الشريك المسؤول.</p>
-          <Link to="/explore" className="bg-blue-950 hover:bg-blue-900 text-white font-bold px-6 py-3 rounded-xl transition-all">الرجوع لشاشة الاستكشاف</Link>
+          <span className="text-xs font-black text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full mb-3">
+            {isArchived ? 'هذه المنشأة مؤرشفة حالياً' : 'المنشأة غير متاحة حالياً'}
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 mb-2">
+            {isArchived ? 'تمت أرشفة هذه القاعة ولا تقبل حجوزات جديدة' : 'القاعة المطلوبة غير متاحة للحجز حالياً'}
+          </h2>
+          <p className="text-slate-600 text-sm max-w-lg mb-8 leading-relaxed">
+            {isArchived 
+              ? 'تم حفظ وأرشفة هذه القاعة التزاماً بمعايير الحوكمة المالية وحفظ العقود السابقة. يمكنك استعراض قاعات ومرافق مميزة أخرى بديلة أدناه.'
+              : 'لقد تم إيقاف عرض هذه المنشأة مؤقتاً من قبل الإدارة أو الشريك. تفضل باكتشاف بدائل مطابقة بنفس المواصفات.'}
+          </p>
+
+          {/* Alternative Recommendations Grid */}
+          {alternativeHalls.length > 0 && (
+            <div className="w-full text-right mb-8">
+              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                قاعات بديلة مقترحة ومتاحة للحجز الفوري:
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {alternativeHalls.map((alt) => (
+                  <Link
+                    key={alt.id}
+                    to={`/hall/${alt.id}${refParam ? `?ref=${encodeURIComponent(refParam)}` : ''}`}
+                    className="bg-white border border-slate-200 hover:border-amber-400 rounded-2xl overflow-hidden p-3 text-right group transition-all hover:shadow-md block"
+                  >
+                    <div className="h-32 rounded-xl overflow-hidden bg-slate-100 mb-2.5 relative">
+                      <img 
+                        src={alt.image || '/placeholder.jpg'} 
+                        alt={alt.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded-md font-bold">
+                        {alt.city || 'الرياض'}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-xs mb-1 line-clamp-1 group-hover:text-amber-700 transition-colors">
+                      {alt.name}
+                    </h4>
+                    <div className="flex items-center justify-between text-xs text-slate-500">
+                      <span>السعة: {alt.capacity || alt.guests || 200}</span>
+                      <span className="font-bold text-slate-900 font-mono">
+                        {alt.price ? `${alt.price.toLocaleString()} ر.س` : 'حسب الباقة'}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Link 
+              to="/explore" 
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-6 py-3 rounded-xl transition-all shadow-md"
+            >
+              استعراض كافة القاعات والخدمات
+            </Link>
+            <Link 
+              to="/" 
+              className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs px-6 py-3 rounded-xl transition-all"
+            >
+              الرئيسية
+            </Link>
+          </div>
         </div>
         <Footer />
       </div>
@@ -1958,6 +2048,15 @@ export default function HallDetailsPage() {
                         <span>المبلغ المطلوب الإجمالي (شامل الضريبة)</span>
                         <span className="text-orange-500">{bookingDetails.total} ر.س</span>
                       </div>
+                    </div>
+
+                    {/* Ad Banner - أسفل تفاصيل الحجز */}
+                    <div className="pt-2">
+                      <AdBanner 
+                        placement="أسفل تفاصيل الحجز" 
+                        layout="card" 
+                        className="w-full shadow-sm" 
+                      />
                     </div>
                   </div>
                 </>

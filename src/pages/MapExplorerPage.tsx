@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { AdBanner } from '../components/AdBanner';
 import { 
   MapPin, Search, Filter, Layers, Building2, Users, Star, ArrowRight, 
   Sparkles, CheckCircle2, ChevronLeft, Eye, ShieldCheck, Compass, Sliders,
@@ -473,6 +474,11 @@ export default function MapExplorerPage() {
                 اختر قاعة من الخريطة لاستعراض تفاصيلها
               </div>
             )}
+
+            {/* Map & Location Sponsored Ad */}
+            <div className="pt-2">
+              <AdBanner placement="صفحة خريطة استكشاف الأماكن والقاعات" layout="card" className="w-full" />
+            </div>
           </div>
         </div>
       </main>

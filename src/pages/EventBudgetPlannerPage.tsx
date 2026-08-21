@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { AdBanner } from '../components/AdBanner';
 import { 
   Calculator, Sparkles, Building2, Utensils, Camera, Music, ArrowRight, 
   CheckCircle2, DollarSign, Users, Calendar, Info, Layers, ChevronLeft,
@@ -417,6 +418,11 @@ export default function EventBudgetPlannerPage() {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Budget & Planning Sponsored Offer Banner */}
+            <div className="pt-2">
+              <AdBanner placement="صفحة حاسبة ميزانية المناسبة" layout="card" className="w-full shadow-sm" />
             </div>
           </div>
         </div>

@@ -83,7 +83,7 @@ export const TABS: TabList[] = [
   { id: 'marketing', label: 'مركز النمو والتسويق (LPAS)', icon: Megaphone },
   { id: 'lpas_studio', label: 'محرك صفحات الهبوط (LPAS) 🎯', icon: Sparkles },
   { id: 'feature_adoption', label: 'تحليلات استخدام المزايا 📈', icon: Sparkles },
-  { id: 'users', label: 'مركز الكوادر والصلاحيات', icon: Users },
+  { id: 'users', label: 'إدارة المستخدمين والكوتا', icon: Users },
   { id: 'customers', label: 'إدارة العملاء والولاء', icon: Users },
   { id: 'providers', label: 'إدارة طلبات الشركاء', icon: Briefcase },
   { id: 'staff', label: 'مركز الكوادر والصلاحيات', icon: UserCog },

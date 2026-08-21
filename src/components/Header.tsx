@@ -33,6 +33,7 @@ import LoginModal from "./LoginModal";
 import FavoriteCompareManager from "./FavoriteCompareManager";
 import { useTheme } from "../context/ThemeContext";
 import { getActiveProviderCapabilities, getPlanCapabilities } from "../utils/capabilityEngine";
+import { AdBanner } from "./AdBanner";
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -1034,9 +1035,7 @@ export default function Header() {
       )}
 
       {/* Top Premium Ad Banner */}
-      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white py-2 text-center text-sm font-medium">
-        🎉 عرض خاص: خصم 20% على جميع قاعات الأفراح عند الحجز المبكر هذا الأسبوع!
-      </div>
+      <AdBanner placement="شريط الهيدر الإعلاني المصغر" layout="announcement" />
 
       {/* Header / Navbar */}
       <header className="bg-blue-950 text-white sticky top-0 z-50 shadow-md w-full">

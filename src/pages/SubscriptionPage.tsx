@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { safeSetLocalStorage } from '../utils/safeStorage';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import { AdBanner } from '../components/AdBanner';
 import { Check, CheckCircle2, Upload, CreditCard, Wallet, FileText, ArrowRight, ArrowLeft, Loader2, Landmark, Settings, Sliders, AlignCenter, Columns, Grid } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -570,6 +571,11 @@ export function SubscriptionFlow({
                             </button>
                         </div>
                     ))}
+                </div>
+
+                {/* Promotional / Partner Ad Banner */}
+                <div className="mt-12 max-w-4xl mx-auto w-full">
+                    <AdBanner placement="صفحة باقات الاشتراك للمزودين" layout="card" className="w-full shadow-sm" />
                 </div>
             </div>
         )}

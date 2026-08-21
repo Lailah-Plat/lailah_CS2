@@ -707,6 +707,11 @@ export default function CalendarPage() {
               </div>
             )}
 
+            {/* Smart Calendar Sponsored Ad */}
+            <div className="pt-2">
+              <AdBanner placement="صفحة التقويم الذكي" layout="card" className="w-full shadow-sm" />
+            </div>
+
           </div>
 
         </div>

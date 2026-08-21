@@ -34,6 +34,7 @@ import {
   Plus
 } from 'lucide-react';
 import { OutboxInboxService, OutboxEvent } from '../services/OutboxInboxService';
+import { EnterpriseAuditLog } from './admin/EnterpriseAuditLog';
 
 interface DiagnosticsDashboardProps {
   halls?: any[];
@@ -54,7 +55,7 @@ export function DiagnosticsDashboard({
   setSupportServiceRequests = (() => {}) as any,
   showNotification = (() => {}) as any
 }: DiagnosticsDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'halls_e2e' | 'services_e2e' | 'policy_simulation' | 'outbox_queue' | 'sre_observability'>('halls_e2e');
+  const [activeTab, setActiveTab] = useState<'halls_e2e' | 'services_e2e' | 'policy_simulation' | 'outbox_queue' | 'sre_observability' | 'audit_log'>('halls_e2e');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('SOUND_ALERTS_ENABLED');
     return saved ? saved === 'true' : true;
@@ -524,6 +525,19 @@ export function DiagnosticsDashboard({
         >
           <Gauge className="w-4 h-4 text-indigo-400" />
           <span>مؤشرات الموثوقية والرصد التشغيلي (SRE Metrics)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('audit_log')}
+          className={`pb-3 text-xs md:text-sm font-black relative px-4 transition-all flex items-center gap-2 shrink-0 ${
+            activeTab === 'audit_log' 
+              ? 'text-purple-400 border-b-2 border-purple-500 font-black' 
+              : 'text-slate-400 hover:text-slate-300'
+          }`}
+          id="tab-enterprise-audit-trigger"
+        >
+          <History className="w-4 h-4 text-purple-400" />
+          <span>سجل التدقيق والحوكمة المالية (Enterprise Audit Log)</span>
         </button>
       </div>
 
@@ -1321,6 +1335,13 @@ export function DiagnosticsDashboard({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* --- TAB 6: ENTERPRISE AUDIT LOG & GOVERNANCE --- */}
+      {activeTab === 'audit_log' && (
+        <div className="animate-in fade-in duration-300">
+          <EnterpriseAuditLog userRole="admin" />
         </div>
       )}
     </div>
