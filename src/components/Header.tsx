@@ -1035,7 +1035,10 @@ export default function Header() {
       )}
 
       {/* Top Premium Ad Banner */}
-      <AdBanner placement="شريط الهيدر الإعلاني المصغر" layout="announcement" />
+      <AdBanner 
+        placement="شريط الهيدر الإعلاني المصغر" 
+        layout="announcement" 
+      />
 
       {/* Header / Navbar */}
       <header className="bg-blue-950 text-white sticky top-0 z-50 shadow-md w-full">

@@ -103,13 +103,30 @@ export const AdBanner: React.FC<AdBannerProps> = ({ placement, className = "", l
         
         // Record performance metric (view) and update database in real-time
         recordAdView(selected.id, selected.isInternal ?? true);
+      } else if (layout === 'announcement') {
+        // Default announcement fallback for top header bar
+        setAd({
+          id: 'default-announcement',
+          advertiser: 'منصة ليلة',
+          title: '🎉 عرض خاص للمناسبات',
+          content: 'خصم 20% على جميع قاعات الأفراح وباقات الخدمات عند الحجز المبكر هذا الأسبوع!',
+          imageUrl: '',
+          placement: 'شريط الهيدر الإعلاني المصغر',
+          startDate: '',
+          endDate: '',
+          value: 0,
+          views: 0,
+          clicks: 0,
+          status: 'فعّال',
+          linkUrl: '/explore'
+        });
       } else {
         setAd(null);
       }
     } catch (err) {
       console.error("Error fetching ad for placement:", placement, err);
     }
-  }, [placement]);
+  }, [placement, layout]);
 
   useEffect(() => {
     loadAd();
