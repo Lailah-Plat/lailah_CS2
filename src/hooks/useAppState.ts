@@ -5431,7 +5431,7 @@ export function useAppState() {
   };
 
   const handleDeleteService = async (id: any) => {
-    const targetService = servicesState.find(s => String(s.id) === String(id));
+    const targetService = services.find(s => String(s.id) === String(id));
     const sName = targetService?.name || '';
     
     // Check related service requests
@@ -5449,7 +5449,7 @@ export function useAppState() {
     
     if (relatedRequests.length > 0) {
       // Soft delete / Archival
-      setServicesState((prev: any[]) => {
+      setServices((prev: any[]) => {
         const updated = prev.map(s => {
           if (String(s.id) === String(id)) {
             return {
@@ -5472,7 +5472,7 @@ export function useAppState() {
     }
     
     // Clean delete
-    setServicesState((prev: any[]) => {
+    setServices((prev: any[]) => {
       const updated = prev.filter(s => String(s.id) !== String(id));
       try {
         localStorage.setItem('layla_services', JSON.stringify(updated));
@@ -5491,7 +5491,7 @@ export function useAppState() {
   };
 
   const handleRestoreService = (id: any) => {
-    setServicesState((prev: any[]) => {
+    setServices((prev: any[]) => {
       const updated = prev.map(s => {
         if (String(s.id) === String(id)) {
           return {

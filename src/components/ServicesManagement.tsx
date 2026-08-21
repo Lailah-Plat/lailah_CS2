@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Building2, Sparkles, Search, Table, List, LayoutGrid, Eye, 
   Plus, Power, Trash2, Layers, Star, Edit, ShieldCheck, ShieldAlert, 
-  X, CheckCircle2, Ban, AlertTriangle, Lock
+  X, CheckCircle2, Ban, AlertTriangle, Lock, Archive, RotateCcw
 } from 'lucide-react';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { ItemQrCodeButton } from './common/ItemQrCodeModal';
@@ -28,6 +28,7 @@ interface ServicesManagementProps {
   setDeleteData: (item: any) => void;
   formatCurrency: (val: number) => string;
   hideHeader?: boolean;
+  handleRestoreService?: (id: any) => void;
 }
 
 export default function ServicesManagement({
@@ -50,7 +51,8 @@ export default function ServicesManagement({
   setIsServiceViewModalOpen,
   setDeleteData,
   formatCurrency,
-  hideHeader = false
+  hideHeader = false,
+  handleRestoreService
 }: ServicesManagementProps) {
   // Services Filters (Migrated to be fully encapsulated inside ServicesManagement)
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
@@ -84,7 +86,20 @@ export default function ServicesManagement({
                         (s.cities || '').toLowerCase().includes(servicesSearchQuery.toLowerCase());
     const matchRegion = !servicesFilterRegion || (s.regions || '').includes(servicesFilterRegion);
     const matchProvider = !servicesFilterProvider || s.provider === servicesFilterProvider;
-    const matchStatus = !servicesFilterStatus || s.serviceStatus === servicesFilterStatus;
+    
+    let matchStatus = true;
+    if (servicesFilterStatus === 'مؤرشفة') {
+      matchStatus = Boolean(s.isArchived) || s.serviceStatus === 'مؤرشفة' || s.adminStatus === 'مؤرشفة';
+    } else if (servicesFilterStatus === 'نشط') {
+      matchStatus = !s.isArchived && (s.serviceStatus === 'نشط' || s.serviceStatus === 'active');
+    } else if (servicesFilterStatus === 'متوقف') {
+      matchStatus = !s.isArchived && (s.serviceStatus === 'متوقف' || s.serviceStatus === 'معطل');
+    } else if (servicesFilterStatus === 'محجوزة كاملة') {
+      matchStatus = !s.isArchived && s.serviceStatus === 'محجوزة كاملة';
+    } else if (!servicesFilterStatus) {
+      matchStatus = true;
+    }
+    
     return matchSearch && matchRegion && matchProvider && matchStatus;
   });
 
@@ -273,6 +288,7 @@ export default function ServicesManagement({
               <option value="نشط">نشط</option>
               <option value="متوقف">متوقف</option>
               <option value="محجوزة كاملة">محجوزة كاملة</option>
+              <option value="مؤرشفة">📦 مؤرشفة (خارج العرض)</option>
             </select>
           </div>
 
@@ -360,9 +376,16 @@ export default function ServicesManagement({
 
                       {/* Status Badges */}
                       <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${service.serviceStatus === 'نشط' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-950'}`}>
-                          {service.serviceStatus}
-                        </span>
+                        {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-900/90 text-amber-400 backdrop-blur-xs flex items-center gap-1 border border-amber-400/30">
+                            <Archive className="w-3 h-3 text-amber-400" />
+                            مؤرشفة
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${service.serviceStatus === 'نشط' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-950'}`}>
+                            {service.serviceStatus}
+                          </span>
+                        )}
                         {service.adminStatus === 'محظورة' && (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-600 text-white animate-pulse">
                             محظورة إدارياً
@@ -409,28 +432,46 @@ export default function ServicesManagement({
                           <Eye className="w-4 h-4 text-blue-500" />
                           تفاصيل
                         </button>
-                        
-                        <button
-                          onClick={() => {
-                            setEditingItem(service);
-                            setServiceForm({
-                              name: service.name || '', description: service.description || '', provider: service.provider || '',
-                              providerId: service.providerId || '',
-                              quantity: service.quantity || '', price: service.price || 0,
-                              regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
-                              serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
-                              cancellationPeriod: service.cancellationPeriod || '',
-                              images: service.images || [], hostName: service.hostName || currentUserName,
-                              unit: service.unit || 'مرة واحدة',
-                              unitPrice: service.unitPrice || service.price || 0
-                            });
-                            setIsServiceModalOpen(true);
-                          }}
-                          className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold p-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-purple-100 cursor-pointer"
-                        >
-                          <Edit className="w-4 h-4" />
-                          تعديل
-                        </button>
+
+                        {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                          <button
+                            onClick={() => {
+                              if (handleRestoreService) {
+                                handleRestoreService(service.id);
+                              } else {
+                                setServices(prev => prev.map(s => s.id === service.id ? { ...s, isArchived: false, serviceStatus: 'نشط', adminStatus: 'معتمد' } : s));
+                                showNotification('success', '♻️ تم استعادة الخدمة من الأرشيف بنجاح.');
+                              }
+                            }}
+                            className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold p-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-emerald-200 cursor-pointer shadow-xs"
+                            title="استعادة الخدمة من الأرشيف"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            استعادة
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingItem(service);
+                              setServiceForm({
+                                name: service.name || '', description: service.description || '', provider: service.provider || '',
+                                providerId: service.providerId || '',
+                                quantity: service.quantity || '', price: service.price || 0,
+                                regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
+                                serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
+                                cancellationPeriod: service.cancellationPeriod || '',
+                                images: service.images || [], hostName: service.hostName || currentUserName,
+                                unit: service.unit || 'مرة واحدة',
+                                unitPrice: service.unitPrice || service.price || 0
+                              });
+                              setIsServiceModalOpen(true);
+                            }}
+                            className="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold p-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-purple-100 cursor-pointer"
+                          >
+                            <Edit className="w-4 h-4" />
+                            تعديل
+                          </button>
+                        )}
 
                         <button
                           onClick={() => {
@@ -441,7 +482,7 @@ export default function ServicesManagement({
                             });
                           }}
                           className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-xl text-xs flex items-center justify-center transition-colors border border-red-100 cursor-pointer"
-                          title="حذف الخدمة"
+                          title="حذف أو أرشفة الخدمة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -496,10 +537,17 @@ export default function ServicesManagement({
                         <td className="p-4 text-slate-500 font-medium text-right">{service.regions || 'باقي المناطق'}</td>
                         <td className="p-4 font-black text-slate-900 font-mono text-sm text-right">{formatCurrency(service.price)}</td>
                         <td className="p-4 text-right">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 w-fit ${service.serviceStatus === 'نشط' ? 'bg-emerald-5-0 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${service.serviceStatus === 'نشط' ? 'bg-emerald-550 animate-pulse' : 'bg-amber-550'}`}></span>
-                            <span>{service.serviceStatus}</span>
-                          </span>
+                          {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-900 text-amber-400 border border-amber-400/30 flex items-center gap-1.5 w-fit">
+                              <Archive className="w-3.5 h-3.5 text-amber-400" />
+                              <span>مؤرشفة</span>
+                            </span>
+                          ) : (
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 w-fit ${service.serviceStatus === 'نشط' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${service.serviceStatus === 'نشط' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                              <span>{service.serviceStatus}</span>
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-right">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 w-fit ${service.adminStatus === 'فعالة' ? 'bg-sky-50 text-sky-800 border border-sky-200' : 'bg-red-50 text-red-800 border border-red-200 animate-pulse'}`}>
@@ -518,32 +566,51 @@ export default function ServicesManagement({
                                 setViewingService(service);
                                 setIsServiceViewModalOpen(true);
                               }}
-                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-550/10 rounded-xl transition-all border border-slate-100 hover:border-blue-200 cursor-pointer shadow-xs"
+                              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-500/10 rounded-xl transition-all border border-slate-100 hover:border-blue-200 cursor-pointer shadow-xs"
                               title="عرض التفاصيل"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => {
-                                setEditingItem(service);
-                                setServiceForm({
-                                  name: service.name || '', description: service.description || '', provider: service.provider || '',
-                              providerId: service.providerId || '',
-                                  quantity: service.quantity || '', price: service.price || 0,
-                                  regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
-                                  serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
-                                  cancellationPeriod: service.cancellationPeriod || '',
-                                  images: service.images || [], hostName: service.hostName || currentUserName,
-                                  unit: service.unit || 'مرة واحدة',
-                                  unitPrice: service.unitPrice || service.price || 0
-                                });
-                                setIsServiceModalOpen(true);
-                              }}
-                              className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all border border-slate-100 hover:border-amber-200 cursor-pointer shadow-xs"
-                              title="تعديل الخدمة"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
+                            
+                            {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                              <button
+                                onClick={() => {
+                                  if (handleRestoreService) {
+                                    handleRestoreService(service.id);
+                                  } else {
+                                    setServices(prev => prev.map(s => s.id === service.id ? { ...s, isArchived: false, serviceStatus: 'نشط', adminStatus: 'معتمد' } : s));
+                                    showNotification('success', '♻️ تم استعادة الخدمة من الأرشيف بنجاح.');
+                                  }
+                                }}
+                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-emerald-200 hover:border-emerald-300 cursor-pointer shadow-xs"
+                                title="استعادة الخدمة"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setEditingItem(service);
+                                  setServiceForm({
+                                    name: service.name || '', description: service.description || '', provider: service.provider || '',
+                                    providerId: service.providerId || '',
+                                    quantity: service.quantity || '', price: service.price || 0,
+                                    regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
+                                    serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
+                                    cancellationPeriod: service.cancellationPeriod || '',
+                                    images: service.images || [], hostName: service.hostName || currentUserName,
+                                    unit: service.unit || 'مرة واحدة',
+                                    unitPrice: service.unitPrice || service.price || 0
+                                  });
+                                  setIsServiceModalOpen(true);
+                                }}
+                                className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all border border-slate-100 hover:border-amber-200 cursor-pointer shadow-xs"
+                                title="تعديل الخدمة"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            )}
+
                             <button
                               onClick={() => {
                                 setDeleteData({
@@ -553,7 +620,7 @@ export default function ServicesManagement({
                                 });
                               }}
                               className="p-2 text-slate-500 hover:text-red-650 hover:bg-red-50 rounded-xl transition-all border border-slate-100 hover:border-red-200 cursor-pointer shadow-xs"
-                              title="حذف الخدمة"
+                              title="حذف أو أرشفة الخدمة"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -593,9 +660,16 @@ export default function ServicesManagement({
                       
                       {/* Status Check badge */}
                       <div className="absolute top-2 right-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${service.serviceStatus === 'نشط' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-950'}`}>
-                          {service.serviceStatus}
-                        </span>
+                        {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-900/90 text-amber-400 backdrop-blur-xs flex items-center gap-1 border border-amber-400/30">
+                            <Archive className="w-2.5 h-2.5 text-amber-400" />
+                            مؤرشفة
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${service.serviceStatus === 'نشط' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-950'}`}>
+                            {service.serviceStatus}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -630,27 +704,45 @@ export default function ServicesManagement({
                           <span>تفاصيل</span>
                         </button>
                         
-                        <button
-                          onClick={() => {
-                            setEditingItem(service);
-                            setServiceForm({
-                              name: service.name || '', description: service.description || '', provider: service.provider || '',
-                              providerId: service.providerId || '',
-                              quantity: service.quantity || '', price: service.price || 0,
-                              regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
-                              serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
-                              cancellationPeriod: service.cancellationPeriod || '',
-                              images: service.images || [], hostName: service.hostName || currentUserName,
-                              unit: service.unit || 'مرة واحدة',
-                              unitPrice: service.unitPrice || service.price || 0
-                            });
-                            setIsServiceModalOpen(true);
-                          }}
-                          className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors border border-purple-100 cursor-pointer"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>تعديل</span>
-                        </button>
+                        {service.isArchived || service.serviceStatus === 'مؤرشفة' ? (
+                          <button
+                            onClick={() => {
+                              if (handleRestoreService) {
+                                handleRestoreService(service.id);
+                              } else {
+                                setServices(prev => prev.map(s => s.id === service.id ? { ...s, isArchived: false, serviceStatus: 'نشط', adminStatus: 'معتمد' } : s));
+                                showNotification('success', '♻️ تم استعادة الخدمة من الأرشيف بنجاح.');
+                              }
+                            }}
+                            className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-colors border border-emerald-200 cursor-pointer shadow-xs"
+                            title="استعادة الخدمة"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>استعادة الخدمة</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingItem(service);
+                              setServiceForm({
+                                name: service.name || '', description: service.description || '', provider: service.provider || '',
+                                providerId: service.providerId || '',
+                                quantity: service.quantity || '', price: service.price || 0,
+                                regions: service.regions || '', cities: service.cities || '', terms: service.terms || '',
+                                serviceStatus: service.serviceStatus || 'نشط', adminStatus: service.adminStatus || 'فعالة',
+                                cancellationPeriod: service.cancellationPeriod || '',
+                                images: service.images || [], hostName: service.hostName || currentUserName,
+                                unit: service.unit || 'مرة واحدة',
+                                unitPrice: service.unitPrice || service.price || 0
+                              });
+                              setIsServiceModalOpen(true);
+                            }}
+                            className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-xs flex items-center gap-1 transition-colors border border-purple-100 cursor-pointer"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>تعديل</span>
+                          </button>
+                        )}
 
                         <button
                           onClick={() => {
@@ -661,7 +753,7 @@ export default function ServicesManagement({
                             });
                           }}
                           className="bg-red-50 hover:bg-red-100 text-red-650 p-2 rounded-lg text-xs flex items-center justify-center transition-colors border border-red-100 cursor-pointer"
-                          title="حذف الخدمة"
+                          title="حذف أو أرشفة الخدمة"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
