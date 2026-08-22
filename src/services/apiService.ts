@@ -17,6 +17,11 @@ export const fetchWithRetry = async (url: string, retries = 3, delay = 1000, opt
     const finalOptions = { ...options };
     const customHeaders = { ...(finalOptions.headers || {}) } as Record<string, string>;
     
+    // Explicitly demand JSON
+    if (!customHeaders['Accept']) {
+      customHeaders['Accept'] = 'application/json, text/plain, */*';
+    }
+
     // إرفاق هيدرات رتبة واسم المستخدم النشط من التخزين المحلي
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       try {
@@ -31,6 +36,9 @@ export const fetchWithRetry = async (url: string, retries = 3, delay = 1000, opt
           }
           if (!customHeaders['x-user-name']) {
             customHeaders['x-user-name'] = encodeURIComponent(parsedUser.name || '');
+          }
+          if (!customHeaders['x-user-id'] && parsedUser.id) {
+            customHeaders['x-user-id'] = String(parsedUser.id);
           }
         }
       } catch (e) {}
@@ -49,7 +57,8 @@ export const fetchWithRetry = async (url: string, retries = 3, delay = 1000, opt
     const text = await res.text();
     if (text.trim().startsWith('<')) {
       // If we received an HTML document (e.g. server starting up or transitional response), allow retry
-      throw new Error('تم استلام استجابة HTML بدلاً من تنسيق JSON.');
+      const htmlErr = new Error('تم استلام استجابة HTML بدلاً من تنسيق JSON.') as any;
+      throw htmlErr;
     }
     return text ? JSON.parse(text) : { success: true };
   } catch (err: any) {

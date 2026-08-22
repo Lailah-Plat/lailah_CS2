@@ -4,12 +4,14 @@ import {
   Building2, Sparkles, Search, Filter, Table, List, LayoutGrid, Eye, 
   Settings2, RefreshCw, Pencil, Plus, Power, Trash2, Layers, Star, 
   Edit, ShieldCheck, ShieldAlert, BadgePercent, X, MapPin, UploadCloud, 
-  ScrollText, Landmark, Info, Coins, HelpCircle, Camera, Archive, RotateCcw
+  ScrollText, Landmark, Info, Coins, HelpCircle, Camera, Archive, RotateCcw,
+  ShoppingBag
 } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import { AddServiceModal } from './AddServiceModal';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { MediaStandardsGuideModal, MediaStandardsGuideTrigger } from './MediaStandardsGuideModal';
+import { VenueStoreManagerModal } from './modals/VenueStoreManagerModal';
 import GoogleMapsModal from './common/GoogleMapsModal';
 import { CrNumberInput, TaxNumberInput, PhoneInput } from './common/ValidationInputs';
 import { getFullDateInfo } from '../utils/dateUtils';
@@ -103,6 +105,8 @@ export default function HallsManagement({
   const [isHallViewModalOpen, setIsHallViewModalOpen] = useState(false);
   const [managingHall, setManagingHall] = useState<any>(null);
   const [isHallServicesModalOpen, setIsHallServicesModalOpen] = useState(false);
+  const [isVenueStoreModalOpen, setIsVenueStoreModalOpen] = useState(false);
+  const [storeModalHall, setStoreModalHall] = useState<any>(null);
   const [isServiceViewModalOpen, setIsServiceViewModalOpen] = useState(false);
   const [viewingService, setViewingService] = useState<any>(null);
 
@@ -717,6 +721,14 @@ export default function HallsManagement({
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            onClick={() => { setStoreModalHall(h); setIsVenueStoreModalOpen(true); }}
+                            className="p-1.5 text-amber-800 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-300 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-bold text-[10px]"
+                            title="إدارة متجر المستلزمات والمنتجات المصغر 🛍️"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
+                            <span className="hidden xl:inline">المتجر 🛍️</span>
+                          </button>
+                          <button
                             onClick={() => { setManagingHall(h); setIsHallServicesModalOpen(true); }}
                             className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                             title="إدارة وتوريد الخدمات"
@@ -843,6 +855,13 @@ export default function HallsManagement({
                           item={{ id: h.id, name: h.name, type: 'hall', provider: h.provider, city: h.city, image: h.images?.[0] }}
                           variant="badge"
                         />
+                        <button
+                          onClick={() => { setStoreModalHall(h); setIsVenueStoreModalOpen(true); }}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="إدارة وتخصيص المتجر المصغر 🛍️"
+                        >
+                          <ShoppingBag className="w-3 h-3 text-amber-600" /> المتجر 🛍️
+                        </button>
                         <button
                           onClick={() => { setViewingHall(h); setIsHallViewModalOpen(true); }}
                           className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors flex items-center gap-1"
@@ -2182,6 +2201,32 @@ export default function HallsManagement({
               {/* Step 4: Features and Extra Services */}
               {hallModalStep === 4 && (
                 <div className="space-y-4 animate-in fade-in duration-150">
+                  {/* Mini-Store Management Card in Step 4 */}
+                  <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-50 p-4 rounded-2xl border border-amber-300/80 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                          <ShoppingBag className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-black text-slate-900">متجر المستلزمات والمنتجات المصغر للقاعة 🛍️</h5>
+                          <p className="text-[10px] text-slate-500">تخصيص مستلزمات الضيافة، المشروبات، الأثاث، والمخزون المعروض للعملاء أثناء حجز هذه القاعة</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStoreModalHall(editingItem || hallForm);
+                          setIsVenueStoreModalOpen(true);
+                        }}
+                        className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95 border border-amber-400"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>إدارة وتخصيص المتجر المصغر 🛍️</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block mb-1 font-bold text-xs text-slate-800">باقة الخدمات الإضافية التكميلية المدرجة للقاعة</label>
                     <div className="grid grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -3361,6 +3406,22 @@ export default function HallsManagement({
         isOpen={isMediaGuideOpen}
         onClose={() => setIsMediaGuideOpen(false)}
         defaultTab={mediaGuideTab}
+      />
+
+      {/* Venue Store Manager Modal */}
+      <VenueStoreManagerModal
+        isOpen={isVenueStoreModalOpen}
+        onClose={() => setIsVenueStoreModalOpen(false)}
+        hall={storeModalHall}
+        onSaveProducts={(hallId, updatedProducts) => {
+          setHalls(prev => prev.map(hall => {
+            if (hall.id === hallId) {
+              return { ...hall, productsList: updatedProducts };
+            }
+            return hall;
+          }));
+        }}
+        showNotification={showNotification}
       />
     </div>
   );

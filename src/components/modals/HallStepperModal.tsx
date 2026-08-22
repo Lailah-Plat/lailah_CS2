@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Info, FileText, Coins, CheckSquare, UploadCloud, X, 
-  MapPin, Check, Plus, Edit, Trash2, ShieldCheck, Video
+  MapPin, Check, Plus, Edit, Trash2, ShieldCheck, Video, ShoppingBag
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PhoneInput, CrNumberInput, TaxNumberInput, NationalIdInput } from '../common/ValidationInputs';
 import { validateHallOrServiceImage, validateHallOrServiceVideo } from '../../utils/mediaValidator';
 import { MediaDimensionsHelperModal } from '../common/MediaDimensionsHelperModal';
+import { VenueStoreManagerModal } from './VenueStoreManagerModal';
 
 interface HallStepperModalProps {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
   const [extraServiceQuantity, setExtraServiceQuantity] = useState<number | ''>(1);
   const [extraServicePrice, setExtraServicePrice] = useState<number | ''>(0);
   const [editingExtraServiceId, setEditingExtraServiceId] = useState<string | null>(null);
+  const [isStoreManagerOpen, setIsStoreManagerOpen] = useState(false);
   
   // Image upload state
   const [isUploadingHallImages, setIsUploadingHallImages] = useState(false);
@@ -887,6 +889,29 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Mini-Store Management Card in Step 4 */}
+                  <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-50 p-3.5 rounded-xl border border-amber-300/80 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                          <ShoppingBag className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-black text-slate-900">متجر المستلزمات والمنتجات المصغر للقاعة 🛍️</h5>
+                          <p className="text-[10px] text-slate-500">تخصيص مستلزمات الضيافة، المشروبات، الأثاث، والمخزون المعروض للعملاء أثناء حجز هذه القاعة</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsStoreManagerOpen(true)}
+                        className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all active:scale-95 border border-amber-400"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>إدارة وتخصيص المتجر المصغر 🛍️</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Services Panel */}
                   <div className="border border-slate-150 bg-slate-50/10 p-3.5 rounded-xl space-y-3.5 mt-3">
                     <div className="flex items-center gap-2 border-r-4 border-amber-500 pr-2">
@@ -1466,6 +1491,23 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
         <MediaDimensionsHelperModal 
           isOpen={showMediaGuideModal} 
           onClose={() => setShowMediaGuideModal(false)} 
+        />
+
+        {/* Venue Store Manager Modal */}
+        <VenueStoreManagerModal 
+          isOpen={isStoreManagerOpen}
+          onClose={() => setIsStoreManagerOpen(false)}
+          hall={editingItem || hallForm}
+          onSaveProducts={(hallId, updatedProducts) => {
+            setHallForm((prev: any) => ({
+              ...prev,
+              productsList: updatedProducts
+            }));
+            if (setHalls) {
+              setHalls(prev => prev.map(h => h.id === hallId ? { ...h, productsList: updatedProducts } : h));
+            }
+          }}
+          showNotification={showNotification}
         />
       </div>
     </div>

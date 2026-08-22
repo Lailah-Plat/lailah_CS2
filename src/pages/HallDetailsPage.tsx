@@ -8,13 +8,18 @@ import {
   MapPin, Users, Star, MessageSquare, CheckCircle2, ChevronRight, Info, X, Map, 
   CreditCard, MessageCircle, Crown, Shield, AlertTriangle, Check, Play, Compass, 
   ImageIcon, ShieldCheck, ChevronDown, Award, Sparkles, Building, Layers, Eye,
-  ArrowLeft, ArrowRight, ExternalLink, Calendar, Clock
+  ArrowLeft, ArrowRight, ExternalLink, Calendar, Clock, ShoppingBag, Store, ChevronLeft
 } from 'lucide-react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { getPartnerLevel, providers, getStoredHalls, isProviderNameVisible } from '../data/mockData';
 import { SubscriptionFlow } from './SubscriptionPage';
 import { getFullDateInfo } from '../utils/dateUtils';
 import { ReviewModal } from '../components/modals/ReviewModal';
+import { 
+  VenueProductsStoreModal, 
+  DEFAULT_VENUE_PRODUCTS, 
+  SelectedProductCart 
+} from '../components/VenueProductsStoreModal';
 
 export default function HallDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -56,6 +61,7 @@ export default function HallDetailsPage() {
   const [toDate, setToDate] = useState(urlDate || '');
   const [period, setPeriod] = useState('evening');
   const [services, setServices] = useState<string[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProductCart>({});
   const [notes, setNotes] = useState('');
   
   // Custom states for progressive decision making
@@ -74,6 +80,7 @@ export default function HallDetailsPage() {
   const [activePackageDetail, setActivePackageDetail] = useState<any | null>(null);
   const [selectedExternalServices, setSelectedExternalServices] = useState<string[]>([]);
   const [isExternalModalOpen, setIsExternalModalOpen] = useState(false);
+  const [isVenueStoreModalOpen, setIsVenueStoreModalOpen] = useState(false);
 
   const EXTERNAL_PARTNERS_SERVICES = [
     { id: 'ext-cater', name: 'خدمات ضيافة بوفيه ملكي (شريك خارجي)', price: 4500, desc: 'بوفيه طعام فاخر ومشروبات ساخنة وباردة تحت إشراف طهاة دوليين.' },
@@ -440,7 +447,21 @@ export default function HallDetailsPage() {
       if (extSrv) externalServicesPrice += extSrv.price;
     });
 
-    const total = basePrice + servicesPrice + externalServicesPrice;
+    let productsPrice = 0;
+    const currentProductsList = (currentHall.productsList && currentHall.productsList.length > 0)
+      ? currentHall.productsList
+      : DEFAULT_VENUE_PRODUCTS;
+
+    Object.entries(selectedProducts).forEach(([prodId, qty]) => {
+      if (qty > 0) {
+        const prod = currentProductsList.find((p: any) => p.id === prodId);
+        if (prod) {
+          productsPrice += prod.price * qty;
+        }
+      }
+    });
+
+    const total = basePrice + servicesPrice + externalServicesPrice + productsPrice;
     const subTotal = total;
     const baseAmount = Math.round((total / 1.15) * 100) / 100;
     const taxAmount = Math.round((total - baseAmount) * 100) / 100;
@@ -453,6 +474,7 @@ export default function HallDetailsPage() {
       basePrice,
       servicesPrice,
       externalServicesPrice,
+      productsPrice,
       subTotal,
       baseAmount,
       taxAmount,
@@ -527,6 +549,7 @@ export default function HallDetailsPage() {
       bookingType: bType,
       packageName: chosenPkg ? chosenPkg.name : null,
       selectedAddons: JSON.stringify(services),
+      selectedProducts: JSON.stringify(selectedProducts),
       externalServices: JSON.stringify(selectedExternalServices),
       subTotal: bookingDetails.subTotal,
       taxAmount: bookingDetails.taxAmount,
@@ -1497,6 +1520,35 @@ export default function HallDetailsPage() {
                     </div>
                   )}
 
+                  {/* 4) Quick Link to Venue Products Store (متجر مستلزمات وإضافات المكان) */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsVenueStoreModalOpen(true)}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 hover:border-emerald-300 transition-all group text-right cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                          🛍️
+                        </div>
+                        <div>
+                          <div className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                            <span>متجر مستلزمات وضيافة المكان</span>
+                            {Object.values(selectedProducts).reduce((a, b) => a + b, 0) > 0 && (
+                              <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.2 rounded-full font-bold">
+                                {Object.values(selectedProducts).reduce((a, b) => a + b, 0)} محدد ({bookingDetails.productsPrice} ر.س)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-emerald-700 block font-medium">عشاء، مشروبات، طاولات، كراسي، ودلال قهوة</span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-emerald-700 group-hover:translate-x-[-2px] transition-transform shrink-0">
+                        فتح المتجر ←
+                      </span>
+                    </button>
+                  </div>
+
                 </div>
 
                 {/* Notes Input */}
@@ -1526,6 +1578,13 @@ export default function HallDetailsPage() {
                     <div className="flex justify-between text-slate-600">
                       <span>الخدمات الإضافية المختارة</span>
                       <span className="font-bold text-slate-800">{bookingDetails.servicesPrice} ر.س</span>
+                    </div>
+                  )}
+
+                  {bookingDetails.productsPrice > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-bold">
+                      <span>مستلزمات ومنتجات المكان</span>
+                      <span>{bookingDetails.productsPrice} ر.س</span>
                     </div>
                   )}
 
@@ -2030,6 +2089,12 @@ export default function HallDetailsPage() {
                           <span className="font-medium">{bookingDetails.servicesPrice} ر.س</span>
                         </div>
                       )}
+                      {bookingDetails.productsPrice > 0 && (
+                        <div className="flex justify-between text-sm text-emerald-700 font-bold">
+                          <span>إجمالي مستلزمات ومنتجات المكان</span>
+                          <span>{bookingDetails.productsPrice} ر.س</span>
+                        </div>
+                      )}
                       {bookingDetails.externalServicesPrice > 0 && (
                         <div className="flex justify-between text-sm text-purple-700 font-semibold">
                           <span>خدمات الشركاء الخارجية</span>
@@ -2093,7 +2158,19 @@ export default function HallDetailsPage() {
                         ...selectedExternalServices.map(id => {
                           const s = EXTERNAL_PARTNERS_SERVICES.find(sx => sx.id === id);
                           return { name: s?.name || '', quantity: 1, price: s?.price || 0, total: s?.price || 0 };
-                        }).filter(s => s.name !== '')
+                        }).filter(s => s.name !== ''),
+                        ...Object.entries(selectedProducts).map(([pId, qty]) => {
+                          const currentProductsList = (currentHall.productsList && currentHall.productsList.length > 0)
+                            ? currentHall.productsList
+                            : DEFAULT_VENUE_PRODUCTS;
+                          const p = currentProductsList.find((item: any) => item.id === pId);
+                          return {
+                            name: p ? `مستلزمات: ${p.name} (${p.unit})` : 'مستلزمات إضافية',
+                            quantity: qty,
+                            price: p?.price || 0,
+                            total: (p?.price || 0) * qty
+                          };
+                        }).filter(p => p.quantity > 0)
                       ]}
                       subtotal={bookingDetails.subTotal}
                       vatAmount={bookingDetails.taxAmount}
@@ -2251,6 +2328,34 @@ export default function HallDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* VENUE PRODUCTS STORE MODAL (نافذة متجر مستلزمات وإضافات المكان المنبثقة) */}
+      <VenueProductsStoreModal
+        isOpen={isVenueStoreModalOpen}
+        onClose={() => setIsVenueStoreModalOpen(false)}
+        venueName={currentHall.name}
+        hallBasePrice={bookingDetails.basePrice}
+        servicesList={extraServicesList.map(s => ({
+          id: s.id,
+          name: s.name,
+          price: s.price,
+          desc: s.desc
+        }))}
+        selectedServices={services}
+        onToggleService={handleServiceToggle}
+        productsList={(currentHall.productsList && currentHall.productsList.length > 0) ? currentHall.productsList : DEFAULT_VENUE_PRODUCTS}
+        selectedProducts={selectedProducts}
+        onChangeProductQuantity={(productId, newQty) => {
+          setSelectedProducts(prev => {
+            if (newQty <= 0) {
+              const updated = { ...prev };
+              delete updated[productId];
+              return updated;
+            }
+            return { ...prev, [productId]: newQty };
+          });
+        }}
+      />
 
       <ReviewModal
         isOpen={isReviewModalOpen}

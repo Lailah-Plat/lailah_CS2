@@ -63,11 +63,11 @@ export function InventoryDashboard({ inventory = [], setInventory, currentProvid
   const loadInventoryData = async () => {
     try {
       const data = await apiService.getInventory();
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         updateInventoryState(data);
       }
-    } catch (err) {
-      console.error('Failed to fetch inventory from cloud database:', err);
+    } catch (err: any) {
+      console.warn('تنبيه: تعذر تحميل المخزون من السحابة مباشرة، يتم استخدام البيانات المحلية المتاحة:', err.message || err);
     }
   };
 
@@ -77,20 +77,20 @@ export function InventoryDashboard({ inventory = [], setInventory, currentProvid
       if (Array.isArray(logs)) {
         setAuditLogs(logs);
       }
-    } catch (err) {
-      console.error('Failed to fetch inventory logs:', err);
+    } catch (err: any) {
+      console.warn('تنبيه: تعذر تحميل سجلات حركة المخزون من السحابة، يتم استخدام السجلات المحلية:', err.message || err);
     }
   };
 
   const loadSuppliersList = async () => {
     try {
       const data = await apiService.getSuppliers();
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         const names = Array.from(new Set(data.map((s: any) => s.name).filter(Boolean)));
         setSuppliersList(names as string[]);
       }
-    } catch (err) {
-      console.error('Failed to fetch suppliers list:', err);
+    } catch (err: any) {
+      console.warn('تنبيه: تعذر تحميل قائمة الموردين من السحابة، يتم استخدام الموردين المحليين:', err.message || err);
     }
   };
 

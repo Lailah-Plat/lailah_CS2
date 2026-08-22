@@ -493,6 +493,7 @@ export interface Hall {
   archivedBy?: string;
   archiveReason?: string;
   packagesList?: any[];
+  productsList?: any[];
   approved?: boolean;
   hasPendingEdits?: boolean;
   pendingChanges?: any;

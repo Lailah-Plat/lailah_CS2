@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Building2, Layers, Info } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Building2, Layers, Info, ShoppingBag } from 'lucide-react';
 import HallsManagement from './HallsManagement';
 import ServicesManagement from './ServicesManagement';
+import { VenueProductsStoreTab } from './VenueProductsStoreTab';
 
 interface HallsServicesUnifiedPageProps {
   userRole: string;
@@ -52,9 +53,33 @@ export function HallsServicesUnifiedPage({
   renderLockScreen,
   renderHalls
 }: HallsServicesUnifiedPageProps) {
-  const [selectedDomainTab, setSelectedDomainTab] = useState<'halls' | 'services'>(
-    activeTab === 'services' ? 'services' : 'halls'
+  const [selectedDomainTab, setSelectedDomainTab] = useState<'halls' | 'services' | 'store'>(
+    activeTab === 'services' ? 'services' : activeTab === 'store' ? 'store' : 'halls'
   );
+
+  // Compute total store products count across all halls
+  const totalStoreProductsCount = useMemo(() => {
+    let count = 0;
+    halls.forEach(hall => {
+      const storageKey = `hall_store_products_${hall.id}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            count += parsed.length;
+            return;
+          }
+        } catch (e) {}
+      }
+      if (hall.productsList && Array.isArray(hall.productsList)) {
+        count += hall.productsList.length;
+      } else {
+        count += 8; // default standard presets count per hall
+      }
+    });
+    return count;
+  }, [halls]);
 
   const defaultRenderLockScreen = (featureName: string, featureId: string) => {
     return (
@@ -82,47 +107,63 @@ export function HallsServicesUnifiedPage({
               <span className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-600 shrink-0">
                 <Building2 className="w-6 h-6 animate-pulse" />
               </span>
-              مركز إدارة القاعات والمنشآت المتنوعة
+              مركز إدارة المنشآت والخدمات والمتجر المصغر
             </h1>
             <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-              إدارة طاقات الاستيعاب، رخص بلدي والدفاع المدني، وضبط التخصيص والمواصفات
+              إدارة المساحات والمنشآت، الباقات والخدمات المساندة التخصصية، والمواد والوحدات الاستهلاكية المجهزة
             </p>
           </div>
         </div>
 
-        {/* Clean Domain Separation Tab Switcher */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="flex bg-white p-1 rounded-xl border border-slate-200/80 max-w-xl w-full shadow-2xs">
+        {/* 3D Unified Domain Navigation Bar */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-white p-1 rounded-xl border border-slate-200/80 w-full shadow-2xs">
+            {/* Tab 1: Halls */}
             <button
               type="button"
               onClick={() => setSelectedDomainTab('halls')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`py-2.5 px-3.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 selectedDomainTab === 'halls' 
-                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' 
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Building2 className="w-4 h-4" />
-              <span>إدارة المنشآت والقاعات والخدمات المباشرة ({halls.length})</span>
+              <Building2 className="w-4 h-4 shrink-0" />
+              <span className="truncate">القاعات والمنشآت ({halls.length})</span>
             </button>
 
+            {/* Tab 2: Services */}
             <button
               type="button"
               onClick={() => setSelectedDomainTab('services')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`py-2.5 px-3.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 selectedDomainTab === 'services' 
                   ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20' 
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              <span>دليل الخدمات المساندة المستقلة ({services.length})</span>
+              <Layers className="w-4 h-4 shrink-0" />
+              <span className="truncate">الخدمات المساندة ({services.length})</span>
+            </button>
+
+            {/* Tab 3: Mini Products Store */}
+            <button
+              type="button"
+              onClick={() => setSelectedDomainTab('store')}
+              className={`py-2.5 px-3.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                selectedDomainTab === 'store' 
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 shrink-0" />
+              <span className="truncate">متجر المنتجات المصغر ({totalStoreProductsCount})</span>
             </button>
           </div>
 
-          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-2 px-2">
-            <Info className="w-4 h-4 text-purple-600 shrink-0" />
-            <span>عزل برميجي كامل للمجالات: خدمات القاعة المباشرة مقابل دليل الماركت بليس المستقل (Rule 5 & 6)</span>
+          <div className="text-[11px] text-slate-500 font-medium flex items-center gap-2 px-2 shrink-0">
+            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>هيكلية ثلاثية الأبعاد: منشآت ومساحات، خدمات مساندة مستقلة، ومستلزمات متجر مصغر</span>
           </div>
         </div>
 
@@ -143,7 +184,7 @@ export function HallsServicesUnifiedPage({
               showNotification={showNotification}
               activeTab="halls"
             />
-          ) : (
+          ) : selectedDomainTab === 'services' ? (
             userRole === 'provider' && !providerSubscription?.includesFullManagement ? (
               <>{finalRenderLockScreen('الإدارة الشاملة للحجوزات والخدمات', 'services')}</>
             ) : (
@@ -168,6 +209,16 @@ export function HallsServicesUnifiedPage({
                 hideHeader={true}
               />
             )
+          ) : (
+            <VenueProductsStoreTab
+              userRole={userRole}
+              currentProviderName={currentProviderName}
+              currentProviderId={currentProviderId}
+              halls={halls}
+              setHalls={setHalls}
+              showNotification={showNotification}
+              formatCurrency={formatCurrency}
+            />
           )}
         </div>
       </div>

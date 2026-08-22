@@ -427,6 +427,18 @@ async function startServer() {
     req.url = req.url === "/" || req.url === "" ? "/services" : "/services" + req.url;
     bookingRouter(req, res, next);
   });
+  app.use("/api/inventory", (req, res, next) => {
+    req.url = req.url === "/" || req.url === "" ? "/inventory" : "/inventory" + req.url;
+    bookingRouter(req, res, next);
+  });
+  app.use("/api/suppliers", (req, res, next) => {
+    req.url = req.url === "/" || req.url === "" ? "/suppliers" : "/suppliers" + req.url;
+    bookingRouter(req, res, next);
+  });
+  app.use("/api/supplier-invoices", (req, res, next) => {
+    req.url = req.url === "/" || req.url === "" ? "/supplier-invoices" : "/supplier-invoices" + req.url;
+    bookingRouter(req, res, next);
+  });
   app.use("/api/marketing/affiliates", affiliatesRouter);
   app.use("/api/marketing", marketingRouter);
   app.use("/api/analytics/feature-adoption", featureAdoptionRouter);
@@ -442,9 +454,14 @@ async function startServer() {
   app.use("/api/notifications/sms", smsRouter);
   app.use("/api/calendar", iCalRouter);
 
-  // 404 handler for API routes to prevent Vite SPA fallback from returning index.html (HTML)
+  // Strict 404 handler for all API routes to prevent Vite SPA fallback from returning index.html (HTML)
   app.use((req, res, next) => {
-    if (req.path.startsWith('/api') || req.originalUrl.startsWith('/api') || req.url.startsWith('/api')) {
+    const isApi = (req.path && req.path.startsWith('/api')) || 
+                  (req.originalUrl && req.originalUrl.startsWith('/api')) || 
+                  (req.url && req.url.startsWith('/api')) ||
+                  (req.baseUrl && req.baseUrl.startsWith('/api'));
+    if (isApi) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(404).json({ success: false, error: `API endpoint ${req.originalUrl || req.url} not found` });
     }
     next();
