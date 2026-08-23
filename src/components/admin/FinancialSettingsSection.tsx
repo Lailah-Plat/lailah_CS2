@@ -3,7 +3,7 @@ import {
   ShieldCheck, Cpu, FileText, Lock, Landmark, CreditCard, 
   Eye, EyeOff, Copy, Check, Zap, ExternalLink, Key, Info, Sliders, Settings,
   ShieldAlert, Coins, RefreshCw, AlertTriangle, CheckCircle2, Building2,
-  Users, ClipboardList, Database
+  Users, ClipboardList, Database, Store, SlidersHorizontal
 } from 'lucide-react';
 import PaymentTokensAuditPanel from './PaymentTokensAuditPanel';
 import PaymentGatewayLimitsPanel from './PaymentGatewayLimitsPanel';
@@ -89,6 +89,12 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
   const [marketingCommissionPercentage, setMarketingCommissionPercentage] = useState<number>(() => {
     const val = typeof window !== 'undefined' ? localStorage.getItem('MARKETING_COMMISSION_PERCENTAGE') : null;
     return val ? parseInt(val) || 15 : 15;
+  });
+  const [storeCommissionEnabled, setStoreCommissionEnabled] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('STORE_COMMISSION_ENABLED') === 'true' : false;
+  });
+  const [storeCommissionRate, setStoreCommissionRate] = useState<string>(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('STORE_COMMISSION_RATE')) || '5';
   });
   const [activeSettlementMethod, setActiveSettlementMethod] = useState<'deposit_only' | 'split_payments' | 'weekly_clearance'>(() => {
     return (typeof window !== 'undefined' && localStorage.getItem('SETTLEMENT_METHOD') as any) || 'deposit_only';
@@ -499,6 +505,89 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
                        <p className="text-xs text-slate-500 mt-2">يتم خصم هذه النسبة كعمولة للمنصة من (أتعاب وكالة التسويق) المدفوعة من المزود، ولا يتم المساس بميزانية الإعلانات.</p>
                      </div>
                    </div>
+                </div>
+
+                {/* حوكمة وعمولة متجر المنتجات والمستلزمات المصغر للقاعات */}
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <Store className="w-5 h-5 text-amber-500" />
+                      <span>حوكمة وعمولة متجر مستلزمات القاعات (Mini Store Commission)</span>
+                    </h3>
+                    <span className="text-xs font-black px-3 py-1 bg-amber-100 text-amber-900 border border-amber-200 rounded-full self-start sm:self-auto">
+                      {storeCommissionEnabled ? `العمولة مفعلة: ${storeCommissionRate}%` : 'معفاة حالياً من العمولة (0%)'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5">
+                    <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-950 text-xs space-y-2">
+                      <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                        <ShieldCheck className="w-4 h-4 text-amber-600" />
+                        <span>السياسة التجارية والرقابة السيادية:</span>
+                      </div>
+                      <p className="leading-relaxed text-slate-600 text-[11px]">
+                        افتراضياً، تعفى مبيعات متجر المنتجات والمستلزمات المصغر للقاعات من عمولة المنصة (<strong>عمولة 0%</strong>) كحافز تشغيلي وتجاري للشركاء، مع شمولية ضريبة القيمة المضافة 15% دائماً ضمن الأسعار المعروضة للمستهلك.
+                        يمكن للإدارة العليا تفعيل نسبة اقتطاع مستقبلية بمرونة هنا وتحديد النسبة المستهدفة لكافة مبيعات مستلزمات القاعات.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-200 items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-extrabold text-slate-800 text-sm block">تفعيل اقتطاع عمولة المنصة على مبيعات المتجر</span>
+                            <span className="text-[11px] text-slate-400">تطبيق نسبة اقتطاع عند شراء مستلزمات المكان عبر المنصة</span>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={storeCommissionEnabled}
+                              onChange={(e) => {
+                                const enabled = e.target.checked;
+                                setStoreCommissionEnabled(enabled);
+                                localStorage.setItem('STORE_COMMISSION_ENABLED', enabled ? 'true' : 'false');
+                                notify('info', enabled 
+                                  ? `تم تفعيل عمولة متجر المستلزمات بنسبة ${storeCommissionRate}%` 
+                                  : 'تم إعفاء متجر المستلزمات من العمولة (0%)');
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-bold text-slate-750">نسبة العمولة المقتطعة (%)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            step="0.5"
+                            disabled={!storeCommissionEnabled}
+                            value={storeCommissionRate}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setStoreCommissionRate(val);
+                              localStorage.setItem('STORE_COMMISSION_RATE', val || '0');
+                            }}
+                            className={`w-full p-3 rounded-xl border font-mono text-left outline-none ${
+                              storeCommissionEnabled 
+                                ? 'bg-white border-slate-200 focus:border-amber-500 text-slate-900 font-bold' 
+                                : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                            dir="ltr"
+                            placeholder="5"
+                          />
+                          <span className="absolute left-3 top-3.5 text-slate-400 font-mono font-bold">%</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">
+                          * يتم اقتطاع هذه النسبة من صافي مبيعات المتجر لصالح المنصة وتحويل المتبقي لحساب المزود عند تفعيل الخيار.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

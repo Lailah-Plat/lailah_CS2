@@ -32,6 +32,8 @@ import { syncFeedbackModels } from "./src/models/FeedbackModels.js";
 import { syncSubscriptionModels } from "./src/models/SubscriptionModels.js";
 import { syncFavorites } from "./src/models/FavoriteModels.js";
 import { syncAdvancedPhaseModels } from "./src/models/AdvancedPhaseModels.js";
+import { syncStoreModels } from "./src/models/StoreModels.js";
+import storeRouter from "./src/modules/store/store.routes.js";
 import { runStartupDataMigration } from "./src/utils/phoneMigration.js";
 import { loggerMiddleware } from "./src/middleware/logger.middleware.js";
 import { errorMiddleware } from "./src/middleware/error.middleware.js";
@@ -60,7 +62,8 @@ async function startServer() {
         { name: "Feedback Models", fn: syncFeedbackModels },
         { name: "Subscription Models", fn: syncSubscriptionModels },
         { name: "Favorite Models", fn: syncFavorites },
-        { name: "Advanced Phase Models", fn: syncAdvancedPhaseModels }
+        { name: "Advanced Phase Models", fn: syncAdvancedPhaseModels },
+        { name: "Store & Entitlement Models", fn: syncStoreModels }
       ];
 
       for (const step of syncSteps) {
@@ -447,6 +450,7 @@ async function startServer() {
   app.use("/api/security", securityRouter);
   app.use("/api/feedback", feedbackRouter);
   app.use("/api/subscriptions", subscriptionRouter);
+  app.use("/api/store", storeRouter);
   app.use("/api/favorites", favoriteRouter);
   app.use("/api/integrations/zoho-desk", zohoDeskRouter);
   app.use("/api/phases", phasesRouter);

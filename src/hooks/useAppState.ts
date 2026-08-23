@@ -1822,6 +1822,7 @@ export function useAppState() {
       { id: 'dynamic_pricing', name: 'ميزة التسعير الديناميكي ومبلغ التأمين', description: 'تتيح تعديل وتغيير الأسعار حسب فترات نهاية الأسبوع والمواسم الذروة وإقران مبالغ تأمين مستردة لحماية العقار آلياً.', priceMonthly: 200, priceYearly: 2000, discount: 15 },
       { id: 'financial_forecast', name: 'ميزة ميزانية التوقعات المالية الذكية', description: 'تتيح الحصول على تقديرات ومحاكاة ذكية للتدفقات والأرباح التشغيلية للأشهر القادمة مع إمكانية تصدير التقرير المالي كـ PDF للفترة المقبلة.', priceMonthly: 250, priceYearly: 2400, discount: 15 },
       { id: 'partial_payment', name: 'ميزة نظام الدفع الجزئي (العربون)', description: 'تفعيل وتنشيط نظام الدفع الجزئي: السماح للعملاء بدفع عربون مقدم والمتبقي لاحقاً آلياً والتحصيل الإلكتروني اللاحق.', priceMonthly: 180, priceYearly: 1800, discount: 15 },
+      { id: 'mini_products_store', name: 'متجر المنتجات والمستلزمات المصغر', description: 'تمكين بيع مستلزمات الحفلات، إعاشة العشاء VIP، المشروبات، الأثاث الإضافي، والمرشات للعملاء أثناء حجز القاعة وربطها بالمخزون.', priceMonthly: 89, priceYearly: 890, discount: 15, unit: 'متجر' },
       { id: 'hall_bundles', name: 'ميزة زيادة باقات القاعات المسموحة (النمط أ)', description: 'ميزة تفاعلية إضافية لرفع حد باقات الصالة المغلقة والجاهزة المفردة لإضافة المزيد من العروض والخيارات لكل صالة ومتابعة تدفقاتها بصورة مرنة.', priceMonthly: 40, priceYearly: 400, discount: 15, unit: 'باقة' }
     ];
     try {
@@ -5182,7 +5183,7 @@ export function useAppState() {
     commissionRate: 0, includesInventory: false, includesSuppliers: false, canExportFinancials: false, hasSupport: false,
     includesGrowthCharts: false, includesFinancialForecast: false, includesPartialPayment: false,
     includesAdvancedStats: false, includesFullManagement: false, includesAdvancedProviderDashboard: false,
-    includesLogisticsPortal: false,
+    includesLogisticsPortal: false, includesMiniProductsStore: false,
     hallsLimit: '', servicesLimit: '', staffSeatsLimit: '', isHidden: false
   });
   const [serviceForm, setServiceForm] = useState({
@@ -5940,11 +5941,13 @@ export function useAppState() {
   const filteredHalls = useMemo(() => {
     if (userRole === 'provider') {
       return halls.filter((h: any) => {
-        const hProviderName = h.providerName || h.provider || '';
-        const hProviderId = h.providerId || '';
+        const hProviderName = (h.providerName || h.provider || '').trim().toLowerCase();
+        const hProviderId = h.providerId ? String(h.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
         return (
-          hProviderName === currentProviderName ||
-          String(hProviderId) === String(currentProviderId)
+          (curName && hProviderName === curName) ||
+          (curId && hProviderId === curId)
         );
       });
     }
@@ -5954,11 +5957,13 @@ export function useAppState() {
   const filteredBookings = useMemo(() => {
     if (userRole === 'provider') {
       return bookings.filter((b: any) => {
-        const bProviderName = b.providerName || b.provider || '';
-        const bProviderId = b.providerId || '';
+        const bProviderName = (b.providerName || b.provider || '').trim().toLowerCase();
+        const bProviderId = b.providerId ? String(b.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
         return (
-          bProviderName === currentProviderName ||
-          String(bProviderId) === String(currentProviderId)
+          (curName && bProviderName === curName) ||
+          (curId && bProviderId === curId)
         );
       });
     }
@@ -5968,11 +5973,13 @@ export function useAppState() {
   const filteredServices = useMemo(() => {
     if (userRole === 'provider') {
       return services.filter((s: any) => {
-        const sProviderName = s.providerName || s.provider || '';
-        const sProviderId = s.providerId || '';
+        const sProviderName = (s.providerName || s.provider || '').trim().toLowerCase();
+        const sProviderId = s.providerId ? String(s.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
         return (
-          sProviderName === currentProviderName ||
-          String(sProviderId) === String(currentProviderId)
+          (curName && sProviderName === curName) ||
+          (curId && sProviderId === curId)
         );
       });
     }

@@ -3068,7 +3068,9 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
                     includesGrowthCharts: true,
                     includesAdvancedStats: true,
                     includesLogisticsPortal: true,
-                    addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing']
+                    includesMiniProductsStore: true,
+                    includesMiniStore: true,
+                    addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing', 'mini_products_store']
                   };
 
                   // 1. Get providers from localStorage or combinedProviders

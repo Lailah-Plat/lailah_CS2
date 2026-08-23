@@ -24,6 +24,10 @@ export interface FinancialCalculationInput {
   gatewayFeeRate?: number; 
   /** الرسوم الثابتة لبوابة الدفع (مثال: 1.00 ر.س) */
   gatewayFlatFee?: number; 
+  /** الوعاء الخاضع للعمولة فعلياً بعد استبعاد العناصر المعفاة (مثل منتجات المتجر المصغر) */
+  commissionableAmount?: number;
+  /** مبلغ العناصر المعفاة من العمولة */
+  nonCommissionableAmount?: number;
 }
 
 /**
@@ -42,6 +46,10 @@ export interface FinancialSnapshotData {
   providerShare: number;
   /** تكلفة رسوم بوابة الدفع */
   gatewayFee: number;
+  /** الوعاء الخاضع للعمولة */
+  commissionableBase: number;
+  /** الوعاء المعفى من العمولة (مبيعات المتجر المصغر) */
+  nonCommissionableBase: number;
   /** نسبة ضريبة القيمة المضافة العامة (0.15) */
   vatRate: number;
   /** إصدار القواعد المالية المطبقة */
@@ -60,39 +68,59 @@ export class FinancialEngine {
   /**
    * 1. حاسبة المعادلات المالية الموحدة
    * القاعدة السيادية:
-   * مثال (المبلغ الإجمالي: 10,000 ر.س، عمولة المنصة: 10%، رسوم البوابة: 2%):
-   * - السعر الإجمالي المسجل: 10,000 ر.س (شامل الضريبة)
-   * - رسوم بوابة الدفع: 200 ر.س (2% من 10,000 ر.س)
-   * - عمولة المنصة (شاملة ضريبة المنصة): 980 ر.س
-   * - صافي المستحق للمزود: 8,820 ر.س (10,000 - 200 - 980)
+   * - السعر الإجمالي المسجل: Gross Amount (شامل الضريبة)
+   * - رسوم بوابة الدفع: تُحسب على كامل العملية المالية المدفوعة (Gross Amount)
+   * - عمولة المنصة: تُحسب حصراً على الوعاء الخاضع للعمولة (Commissionable Base)
+   *   مع استبعاد مبيعات المتجر المصغر (Mini Store Products) طالما سياسة الإعفاء مفعلة.
+   * - صافي حصة المزود: إجمالي المبلغ - رسوم بوابة الدفع - عمولة المنصة
    * 
    * @param input بيانات المبلغ والنسب
    * @returns FinancialSnapshotData اللقطة المالية التفصيلية
    */
   static calculate(input: FinancialCalculationInput): FinancialSnapshotData {
-    const { grossAmount, commissionRate, gatewayFeeRate = 0, gatewayFlatFee = 0 } = input;
+    const { 
+      grossAmount, 
+      commissionRate, 
+      gatewayFeeRate = 0, 
+      gatewayFlatFee = 0,
+      commissionableAmount,
+      nonCommissionableAmount
+    } = input;
 
-    // 1. حساب رسوم بوابة الدفع بناءً على المبلغ الإجمالي
+    // 1. حساب رسوم بوابة الدفع بناءً على كامل مبلغ العملية المالية
     const gatewayFee = (grossAmount * gatewayFeeRate) + gatewayFlatFee;
-    const remainingSplitRevenue = Math.max(0, grossAmount - gatewayFee);
+    
+    // 2. تحديد الوعاء الخاضع للعمولة (Commissionable Base)
+    // إذا لم يُحدد صراحة، فإن الوعاء الخاضع للعمولة هو المبلغ الإجمالي
+    const eligibleBase = commissionableAmount !== undefined 
+      ? Math.max(0, commissionableAmount) 
+      : (nonCommissionableAmount !== undefined ? Math.max(0, grossAmount - nonCommissionableAmount) : grossAmount);
+    
+    const nonEligibleBase = nonCommissionableAmount !== undefined 
+      ? nonCommissionableAmount 
+      : Math.max(0, grossAmount - eligibleBase);
 
-    // 2. حساب إجمالي عمولة المنصة (شاملة الضريبة)
-    const commissionAmount = remainingSplitRevenue * commissionRate;
+    // 3. احتساب عمولة المنصة بناءً على الوعاء الخاضع للعمولة
+    const proportionalGatewayFee = grossAmount > 0 ? (gatewayFee * (eligibleBase / grossAmount)) : 0;
+    const splitEligible = Math.max(0, eligibleBase - proportionalGatewayFee);
+    const commissionAmount = splitEligible * commissionRate;
 
-    // 3. استخراج صافي الإيراد والضريبة الخاصة بالمنصة من عمولة المنصة
+    // 4. استخراج صافي الإيراد والضريبة الخاصة بالمنصة من عمولة المنصة
     const commissionBase = TaxService.calculateBaseAmount(commissionAmount, this.DEFAULT_VAT_RATE);
     const commissionVat = commissionAmount - commissionBase;
 
-    // 4. حساب صافي حصة المزود = المبلغ الإجمالي - رسوم البوابة - إجمالي العمولة
+    // 5. حساب صافي حصة المزود = المبلغ الإجمالي - رسوم البوابة - إجمالي العمولة
     const providerShare = Math.max(0, grossAmount - gatewayFee - commissionAmount);
 
     return {
       commissionRate,
-      commissionAmount,
-      commissionBase,
-      commissionVat,
-      providerShare,
-      gatewayFee,
+      commissionAmount: Math.round(commissionAmount * 100) / 100,
+      commissionBase: Math.round(commissionBase * 100) / 100,
+      commissionVat: Math.round(commissionVat * 100) / 100,
+      providerShare: Math.round(providerShare * 100) / 100,
+      gatewayFee: Math.round(gatewayFee * 100) / 100,
+      commissionableBase: Math.round(eligibleBase * 100) / 100,
+      nonCommissionableBase: Math.round(nonEligibleBase * 100) / 100,
       vatRate: this.DEFAULT_VAT_RATE,
       rulesVersion: this.RULES_VERSION,
     };

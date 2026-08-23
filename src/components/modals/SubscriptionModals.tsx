@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, X, Check } from 'lucide-react';
+import { Package, X, Check, ShoppingBag } from 'lucide-react';
 
 interface SubscriptionModalsProps {
   isSubscriptionModalOpen: boolean;
@@ -185,6 +185,14 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                     <span className="text-sm font-black text-emerald-700">تفعيل ميزة "بوابة الطلبات اللوجستية وإدارة السيولة المتقدمة" في هذه الباقة</span>
                   </label>
 
+                  <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-dashed border-slate-100 mt-1">
+                    <input type="checkbox" checked={subscriptionForm.includesMiniProductsStore || false} onChange={e => setSubscriptionForm({...subscriptionForm, includesMiniProductsStore: e.target.checked})} className="w-5 h-5 text-emerald-500 rounded border-emerald-300 focus:ring-emerald-500" />
+                    <span className="text-sm font-black text-emerald-800 flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                      تفعيل ميزة "متجر المنتجات والمستلزمات المصغر" في هذه الباقة
+                    </span>
+                  </label>
+
                   <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-dashed border-red-200 mt-2 bg-red-50/50 p-2.5 rounded-lg border border-red-100">
                     <input type="checkbox" checked={subscriptionForm.isHidden || false} onChange={e => setSubscriptionForm({...subscriptionForm, isHidden: e.target.checked})} className="w-5 h-5 text-rose-600 rounded border-rose-300 focus:ring-rose-500" />
                     <span className="text-sm font-extrabold text-rose-700 flex items-center gap-1.5">🔒 باقة مخفية ترويجية مخصصة (تُستخدم فقط لعروض الترقية الخاصة وتغيب عن عيون الشركاء العاديين)</span>
@@ -223,6 +231,9 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                   }
                   if (subscriptionForm.includesLogisticsPortal && !featuresStr.includes('بوابة الطلبات اللوجستية وإدارة السيولة المتقدمة')) {
                     featuresStr = featuresStr ? featuresStr + '\nبوابة الطلبات اللوجستية وإدارة السيولة المتقدمة' : 'بوابة الطلبات اللوجستية وإدارة السيولة المتقدمة';
+                  }
+                  if (subscriptionForm.includesMiniProductsStore && !featuresStr.includes('ميزة متجر المنتجات والمستلزمات المصغر')) {
+                    featuresStr = featuresStr ? featuresStr + '\nميزة متجر المنتجات والمستلزمات المصغر' : 'ميزة متجر المنتجات والمستلزمات المصغر';
                   }
                   const newSubscription = {
                     ...subscriptionForm,

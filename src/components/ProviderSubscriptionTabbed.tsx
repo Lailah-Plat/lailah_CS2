@@ -18,9 +18,11 @@ import {
   List,
   Table,
   Percent,
-  Wallet
+  Wallet,
+  ShoppingBag
 } from 'lucide-react';
 import { SubscriptionFlow } from '../pages/SubscriptionPage';
+import { entitlementService } from '../services/entitlementService';
 
 interface ProviderSubscriptionTabbedProps {
   providerSubscription: any;
@@ -62,6 +64,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
   const [providerSelectedDynamicPricing, setProviderSelectedDynamicPricing] = useState(false);
   const [providerSelectedFinancialForecast, setProviderSelectedFinancialForecast] = useState(false);
   const [providerSelectedPartialPayment, setProviderSelectedPartialPayment] = useState(false);
+  const [providerSelectedMiniStore, setProviderSelectedMiniStore] = useState(false);
 
   const [providerAddonCycles, setProviderAddonCycles] = useState<Record<string, 'monthly' | 'yearly'>>({});
   const [isAddonCheckoutOpen, setIsAddonCheckoutOpen] = useState(false);
@@ -168,6 +171,16 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
 
   const isAddonActive = (featId: string) => {
     if (!providerSubscription) return false;
+    if (featId === 'mini_products_store') {
+      return (
+        entitlementService.isEntitled(currentProviderName, 'mini_products_store') ||
+        !!providerSubscription.includesMiniStore ||
+        !!providerSubscription.hasMiniStore ||
+        !!providerSubscription.addons?.includes('mini_products_store') ||
+        !!providerSubscription.addons?.includes('mini_store') ||
+        !!providerSubscription.addons?.includes('venue_products_store')
+      );
+    }
     if (featId === 'inventory') {
       return !!providerSubscription.includesInventory || !!providerSubscription.addons?.includes('inventory');
     }
@@ -235,7 +248,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       totalDiscount += cost * (discPercent / 100);
     }
     
-    ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing', 'financial_forecast', 'partial_payment'].forEach((id) => {
+    ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing', 'financial_forecast', 'partial_payment', 'mini_products_store'].forEach((id) => {
       const isSelected = 
         (id === 'inventory' && providerSelectedInventory) ||
         (id === 'suppliers' && providerSelectedSuppliers) ||
@@ -243,7 +256,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
         (id === 'support' && providerSelectedSupport) ||
         (id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
         (id === 'financial_forecast' && providerSelectedFinancialForecast) ||
-        (id === 'partial_payment' && providerSelectedPartialPayment);
+        (id === 'partial_payment' && providerSelectedPartialPayment) ||
+        (id === 'mini_products_store' && providerSelectedMiniStore);
       if (isSelected) {
         const cost = getAddonCost(id);
         const feat = additionalFeatures.find(f => f.id === id);
@@ -269,6 +283,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
     providerSelectedDynamicPricing,
     providerSelectedFinancialForecast,
     providerSelectedPartialPayment,
+    providerSelectedMiniStore,
     providerAddonCycles,
     additionalFeatures
   ]);
@@ -306,6 +321,19 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       if (providerSelectedPartialPayment && !newAddons.includes('partial_payment')) {
         newAddons.push('partial_payment');
       }
+      if (providerSelectedMiniStore && !newAddons.includes('mini_products_store')) {
+        newAddons.push('mini_products_store');
+        const miniStoreCycle = getAddonBillingCycle('mini_products_store');
+        entitlementService.activateAddon(
+          currentProviderName || 'unknown',
+          'mini_products_store',
+          {
+            cycle: miniStoreCycle,
+            source: 'checkout',
+            note: `تفعيل ميزة متجر المنتجات والمستلزمات المصغر عبر بوابة الدفع (${miniStoreCycle === 'yearly' ? 'سنوي' : 'شهري'})`
+          }
+        );
+      }
       if (providerSelectedStaffSlots > 0 && !newAddons.includes('provider_staff')) {
         newAddons.push('provider_staff');
       }
@@ -331,6 +359,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
         includesDynamicPricing: providerSubscription.includesDynamicPricing || providerSelectedDynamicPricing,
         includesFinancialForecast: providerSubscription.includesFinancialForecast || providerSelectedFinancialForecast,
         includesPartialPayment: providerSubscription.includesPartialPayment || providerSelectedPartialPayment,
+        includesMiniStore: providerSubscription.includesMiniStore || providerSelectedMiniStore,
         addons: newAddons
       };
       
@@ -352,6 +381,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       setProviderSelectedDynamicPricing(false);
       setProviderSelectedFinancialForecast(false);
       setProviderSelectedPartialPayment(false);
+      setProviderSelectedMiniStore(false);
       
       showNotification('success', 'تهانينا! تم تفعيل وتوثيق الميزات التنافسية الإضافية بنجاح في نظام الشريك المباشر.');
       
@@ -505,7 +535,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                   const isActive = isAddonActive(feat.id);
                   let iconColor = "bg-slate-100 text-slate-450";
                   let IconComponent = Box;
-                  if (feat.id === 'inventory') { IconComponent = Box; iconColor = isActive ? "bg-indigo-100 text-indigo-600 animate-pulse" : iconColor; }
+                  if (feat.id === 'mini_products_store') { IconComponent = ShoppingBag; iconColor = isActive ? "bg-emerald-100 text-emerald-600 animate-pulse" : iconColor; }
+                  else if (feat.id === 'inventory') { IconComponent = Box; iconColor = isActive ? "bg-indigo-100 text-indigo-600 animate-pulse" : iconColor; }
                   else if (feat.id === 'suppliers') { IconComponent = Users2; iconColor = isActive ? "bg-amber-100 text-amber-600" : iconColor; }
                   else if (feat.id === 'invoice_export') { IconComponent = FileText; iconColor = isActive ? "bg-blue-100 text-blue-600" : iconColor; }
                   else if (feat.id === 'support') { IconComponent = Headset; iconColor = isActive ? "bg-teal-100 text-teal-600" : iconColor; }
@@ -805,6 +836,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                     if (feat.id === 'dynamic_pricing') setProviderSelectedDynamicPricing(!providerSelectedDynamicPricing);
                                     if (feat.id === 'financial_forecast') setProviderSelectedFinancialForecast(!providerSelectedFinancialForecast);
                                     if (feat.id === 'partial_payment') setProviderSelectedPartialPayment(!providerSelectedPartialPayment);
+                                    if (feat.id === 'mini_products_store') setProviderSelectedMiniStore(!providerSelectedMiniStore);
                                   }}
                                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                                     (feat.id === 'inventory' && providerSelectedInventory) ||
@@ -813,7 +845,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                     (feat.id === 'support' && providerSelectedSupport) ||
                                     (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
                                     (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
-                                    (feat.id === 'partial_payment' && providerSelectedPartialPayment)
+                                    (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                    (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                       ? 'bg-amber-500 text-slate-950'
                                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                   }`}
@@ -824,7 +857,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                   (feat.id === 'support' && providerSelectedSupport) ||
                                   (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
                                   (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
-                                  (feat.id === 'partial_payment' && providerSelectedPartialPayment)
+                                  (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                  (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                     ? 'تم الاختيار ✓'
                                     : 'تفعيل الميزة +'}
                                 </button>
@@ -987,15 +1021,19 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                         if (feat.id === 'invoice_export') setProviderSelectedInvoiceExport(!providerSelectedInvoiceExport);
                                         if (feat.id === 'support') setProviderSelectedSupport(!providerSelectedSupport);
                                         if (feat.id === 'dynamic_pricing') setProviderSelectedDynamicPricing(!providerSelectedDynamicPricing);
-
                                         if (feat.id === 'financial_forecast') setProviderSelectedFinancialForecast(!providerSelectedFinancialForecast);
+                                        if (feat.id === 'partial_payment') setProviderSelectedPartialPayment(!providerSelectedPartialPayment);
+                                        if (feat.id === 'mini_products_store') setProviderSelectedMiniStore(!providerSelectedMiniStore);
                                       }}
                                       className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                                         (feat.id === 'inventory' && providerSelectedInventory) ||
                                         (feat.id === 'suppliers' && providerSelectedSuppliers) ||
                                         (feat.id === 'invoice_export' && providerSelectedInvoiceExport) ||
                                         (feat.id === 'support' && providerSelectedSupport) ||
-                                        (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) || (feat.id === 'financial_forecast' && providerSelectedFinancialForecast)
+                                        (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
+                                        (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
+                                        (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                        (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                           ? 'bg-amber-500 text-slate-950 shadow-sm'
                                           : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                       }`}
@@ -1004,7 +1042,10 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                       (feat.id === 'suppliers' && providerSelectedSuppliers) ||
                                       (feat.id === 'invoice_export' && providerSelectedInvoiceExport) ||
                                       (feat.id === 'support' && providerSelectedSupport) ||
-                                      (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) || (feat.id === 'financial_forecast' && providerSelectedFinancialForecast)
+                                      (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
+                                      (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
+                                      (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                      (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                         ? 'تم الاختيار ✓'
                                         : 'تفعيل الميزة +'}
                                     </button>
@@ -1132,6 +1173,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                             if (feat.id === 'dynamic_pricing') setProviderSelectedDynamicPricing(!providerSelectedDynamicPricing);
                                             if (feat.id === 'financial_forecast') setProviderSelectedFinancialForecast(!providerSelectedFinancialForecast);
                                             if (feat.id === 'partial_payment') setProviderSelectedPartialPayment(!providerSelectedPartialPayment);
+                                            if (feat.id === 'mini_products_store') setProviderSelectedMiniStore(!providerSelectedMiniStore);
                                           }}
                                           className={`px-3 py-1 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
                                             (feat.id === 'inventory' && providerSelectedInventory) ||
@@ -1140,7 +1182,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                             (feat.id === 'support' && providerSelectedSupport) ||
                                             (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
                                             (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
-                                            (feat.id === 'partial_payment' && providerSelectedPartialPayment)
+                                            (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                            (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                               ? 'bg-amber-500 text-slate-950 font-black'
                                               : 'bg-white border text-slate-500 hover:bg-slate-50'
                                           }`}
@@ -1151,7 +1194,8 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                                           (feat.id === 'support' && providerSelectedSupport) ||
                                           (feat.id === 'dynamic_pricing' && providerSelectedDynamicPricing) ||
                                           (feat.id === 'financial_forecast' && providerSelectedFinancialForecast) ||
-                                          (feat.id === 'partial_payment' && providerSelectedPartialPayment)
+                                          (feat.id === 'partial_payment' && providerSelectedPartialPayment) ||
+                                          (feat.id === 'mini_products_store' && providerSelectedMiniStore)
                                             ? 'محدد ✓'
                                             : 'تفعيل +'}
                                         </button>

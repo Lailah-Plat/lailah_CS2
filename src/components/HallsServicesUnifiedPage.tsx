@@ -57,10 +57,44 @@ export function HallsServicesUnifiedPage({
     activeTab === 'services' ? 'services' : activeTab === 'store' ? 'store' : 'halls'
   );
 
-  // Compute total store products count across all halls
+  // Strict isolation scoped halls for current provider
+  const scopedHalls = useMemo(() => {
+    if (userRole === 'provider') {
+      return (halls || []).filter((h: any) => {
+        const hProviderName = (h.providerName || h.provider || '').trim().toLowerCase();
+        const hProviderId = h.providerId ? String(h.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
+        return (
+          (curName && hProviderName === curName) ||
+          (curId && hProviderId === curId)
+        );
+      });
+    }
+    return halls || [];
+  }, [halls, userRole, currentProviderName, currentProviderId]);
+
+  // Strict isolation scoped services for current provider
+  const scopedServices = useMemo(() => {
+    if (userRole === 'provider') {
+      return (services || []).filter((s: any) => {
+        const sProviderName = (s.providerName || s.provider || '').trim().toLowerCase();
+        const sProviderId = s.providerId ? String(s.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
+        return (
+          (curName && sProviderName === curName) ||
+          (curId && sProviderId === curId)
+        );
+      });
+    }
+    return services || [];
+  }, [services, userRole, currentProviderName, currentProviderId]);
+
+  // Compute total store products count across scoped halls only
   const totalStoreProductsCount = useMemo(() => {
     let count = 0;
-    halls.forEach(hall => {
+    scopedHalls.forEach(hall => {
       const storageKey = `hall_store_products_${hall.id}`;
       const stored = localStorage.getItem(storageKey);
       if (stored) {
@@ -79,7 +113,7 @@ export function HallsServicesUnifiedPage({
       }
     });
     return count;
-  }, [halls]);
+  }, [scopedHalls]);
 
   const defaultRenderLockScreen = (featureName: string, featureId: string) => {
     return (
@@ -129,7 +163,7 @@ export function HallsServicesUnifiedPage({
               }`}
             >
               <Building2 className="w-4 h-4 shrink-0" />
-              <span className="truncate">القاعات والمنشآت ({halls.length})</span>
+              <span className="truncate">القاعات والمنشآت ({scopedHalls.length})</span>
             </button>
 
             {/* Tab 2: Services */}
@@ -143,7 +177,7 @@ export function HallsServicesUnifiedPage({
               }`}
             >
               <Layers className="w-4 h-4 shrink-0" />
-              <span className="truncate">الخدمات المساندة ({services.length})</span>
+              <span className="truncate">الخدمات المساندة ({scopedServices.length})</span>
             </button>
 
             {/* Tab 3: Mini Products Store */}
@@ -173,13 +207,14 @@ export function HallsServicesUnifiedPage({
             <HallsManagement
               userRole={userRole}
               currentProviderName={currentProviderName}
+              currentProviderId={currentProviderId}
               currentUserName={currentUserName}
               providerSubscription={providerSubscription}
               providers={providers}
               regions={regions}
-              halls={halls}
+              halls={scopedHalls}
               setHalls={setHalls}
-              services={services}
+              services={scopedServices}
               setServices={setServices}
               showNotification={showNotification}
               activeTab="halls"
@@ -196,8 +231,10 @@ export function HallsServicesUnifiedPage({
                 providerSubscription={providerSubscription}
                 providers={providers}
                 regions={regions}
-                services={services}
+                services={scopedServices}
                 setServices={setServices}
+                halls={scopedHalls}
+                setHalls={setHalls}
                 showNotification={showNotification}
                 setEditingItem={setEditingItem}
                 setServiceForm={setServiceForm}
@@ -214,7 +251,7 @@ export function HallsServicesUnifiedPage({
               userRole={userRole}
               currentProviderName={currentProviderName}
               currentProviderId={currentProviderId}
-              halls={halls}
+              halls={scopedHalls}
               setHalls={setHalls}
               showNotification={showNotification}
               formatCurrency={formatCurrency}

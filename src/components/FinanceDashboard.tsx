@@ -4,7 +4,8 @@ import {
   Wallet, TrendingUp, TrendingDown, FileText, Briefcase, 
   Download, Plus, Filter, Calendar as CalendarIcon, PieChart as PieChartIcon,
   X, Check, Heart, Sparkles, Lock, Paperclip, Calculator, Percent,
-  Activity, CreditCard, Users, RefreshCw, Bell, ShieldAlert, Landmark, History
+  Activity, CreditCard, Users, RefreshCw, Bell, ShieldAlert, Landmark, History,
+  SlidersHorizontal, ShieldCheck
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,

@@ -6,8 +6,9 @@ import {
   Wine, Armchair, Users, Flame, Info, ChevronDown, 
   Layers, AlertTriangle, ShieldCheck, Tag, ArrowRight,
   Boxes, RefreshCw, Upload, Image as ImageIcon, CheckCircle2,
-  Clock
+  Clock, Lock
 } from 'lucide-react';
+import { entitlementService, EntitlementResolution } from '../../services/entitlementService';
 
 export interface StoreProductItem {
   id: string;
@@ -185,6 +186,40 @@ export function VenueStoreManagerModal({
   // Storage key based on hall id
   const storageKey = useMemo(() => `hall_store_products_${hall?.id || 'default'}`, [hall?.id]);
 
+  // Provider identifier & Entitlement
+  const providerKey = useMemo(() => {
+    return hall?.providerId || hall?.providerName || hall?.provider || 'provider';
+  }, [hall]);
+
+  const [entitlement, setEntitlement] = useState<EntitlementResolution>(() => 
+    entitlementService.resolve(providerKey, 'mini_products_store')
+  );
+
+  useEffect(() => {
+    const check = () => {
+      const res = entitlementService.resolve(providerKey, 'mini_products_store');
+      setEntitlement(res);
+    };
+    check();
+    window.addEventListener('entitlementUpdated', check);
+    window.addEventListener('storage', check);
+    return () => {
+      window.removeEventListener('entitlementUpdated', check);
+      window.removeEventListener('storage', check);
+    };
+  }, [providerKey]);
+
+  const handleInstantActivateStoreAddon = () => {
+    const success = entitlementService.activateAddon(providerKey, 'mini_products_store', {
+      fee: 120,
+      period: 'monthly',
+      activationDate: new Date().toISOString()
+    });
+    if (success) {
+      if (showNotification) showNotification('success', 'تم تفعيل ميزة متجر المنتجات والمستلزمات المصغر بنجاح كإضافة مستقلة (120 ر.س/شهر)!');
+    }
+  };
+
   // Load products from localStorage or hall.productsList or defaults
   const [products, setProducts] = useState<StoreProductItem[]>(() => {
     if (!hall) return DEFAULT_HALL_PRODUCTS;
@@ -264,6 +299,10 @@ export function VenueStoreManagerModal({
 
   // Toggle status (Active / Paused)
   const handleToggleStatus = (prodId: string) => {
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لتعديل حالة المنتجات.');
+      return;
+    }
     const updated = products.map(p => {
       if (p.id === prodId) {
         const nextStatus: 'active' | 'paused' = p.status === 'active' ? 'paused' : 'active';
@@ -279,6 +318,10 @@ export function VenueStoreManagerModal({
 
   // Delete product
   const handleDeleteProduct = (prodId: string) => {
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لحذف المنتجات.');
+      return;
+    }
     const updated = products.filter(p => p.id !== prodId);
     handleSaveAll(updated);
     if (showNotification) {
@@ -288,6 +331,10 @@ export function VenueStoreManagerModal({
 
   // Open Edit Form
   const handleOpenEdit = (prod: StoreProductItem) => {
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لتعديل المنتجات.');
+      return;
+    }
     setEditingProductId(prod.id);
     setFormData({ ...prod });
     setIsProductFormOpen(true);
@@ -295,6 +342,10 @@ export function VenueStoreManagerModal({
 
   // Open Create Form
   const handleOpenCreate = () => {
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يرجى تفعيل ميزة متجر المنتجات والمستلزمات المصغر لإضافة منتجات جديدة.');
+      return;
+    }
     setEditingProductId(null);
     setFormData({
       name: '',
@@ -318,6 +369,10 @@ export function VenueStoreManagerModal({
   // Save product from form
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لحفظ التغييرات.');
+      return;
+    }
     if (!formData.name?.trim()) {
       if (showNotification) showNotification('error', 'يرجى كتابة اسم المنتج أو المستلزم.');
       return;
@@ -370,6 +425,10 @@ export function VenueStoreManagerModal({
 
   // Load Preset Templates
   const handleLoadPresets = () => {
+    if (!entitlement.isEntitled) {
+      if (showNotification) showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لاستيراد القوالب.');
+      return;
+    }
     const freshDefaults = DEFAULT_HALL_PRODUCTS.map(p => ({ ...p, hallId: hall?.id, id: `prod_${Math.random().toString(36).substr(2, 9)}` }));
     handleSaveAll(freshDefaults);
     if (showNotification) showNotification('success', 'تم استيراد قوالب مستلزمات الضيافة القياسية بنجاح.');
@@ -448,6 +507,53 @@ export function VenueStoreManagerModal({
           </button>
         </div>
 
+        {/* Entitlement Banner */}
+        <div className={`px-5 py-3 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shrink-0 ${
+          entitlement.isEntitled
+            ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <div className={`p-1.5 rounded-lg shrink-0 ${entitlement.isEntitled ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-slate-950'}`}>
+              {entitlement.isEntitled ? <ShieldCheck className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs">
+                  {entitlement.isEntitled 
+                    ? 'الميزة مفعلة رسمياً' 
+                    : 'ميزة متجر المنتجات والمستلزمات المصغر غير مفعلة في اشتراك هذا المزود'}
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  entitlement.isEntitled 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                    : 'bg-amber-200 text-amber-900 border border-amber-300'
+                }`}>
+                  {entitlement.isEntitled 
+                    ? (entitlement.source === 'plan' ? `باقة: ${entitlement.planName || 'الاحترافية'}` : entitlement.source === 'admin_grant' ? 'منح إداري' : 'إضافة نشطة')
+                    : 'إضافة تجارية مدفوعة (120 ر.س/شهر)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                {entitlement.isEntitled
+                  ? 'المنتجات والمستلزمات المعروضة مرتبطة بالمخزون وتظهر للعميل في واجهة الحجز مع احتساب ضريبة 15%.'
+                  : 'تفعيل الميزة يتيح إضافة منتجات جديدة، تعديل الأسعار، وإدارة المخزون المعروض لحجوزات القاعة.'}
+              </p>
+            </div>
+          </div>
+
+          {!entitlement.isEntitled && (
+            <button
+              type="button"
+              onClick={handleInstantActivateStoreAddon}
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 border border-amber-600/30 whitespace-nowrap self-end sm:self-auto"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>تفعيل الميزة الآن</span>
+            </button>
+          )}
+        </div>
+
         {/* Top KPI Cards Row */}
         <div className="p-4 sm:p-5 bg-slate-50/70 border-b border-slate-200/80 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
           {/* Card 1: Total Products */}
@@ -484,18 +590,27 @@ export function VenueStoreManagerModal({
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm px-3.5 py-3 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 border border-amber-400"
+              className={`flex-1 font-black text-xs sm:text-sm px-3.5 py-3 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 border ${
+                entitlement.isEntitled
+                  ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-400'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300'
+              }`}
+              title={entitlement.isEntitled ? 'إضافة منتج جديد' : 'ميزة مقفلة - انقر للتفعيل'}
             >
-              <Plus className="w-4 h-4" />
-              <span>+ إضافة منتج جديد</span>
+              {entitlement.isEntitled ? <Plus className="w-4 h-4" /> : <Lock className="w-3.5 h-3.5 text-amber-700" />}
+              <span>{entitlement.isEntitled ? '+ إضافة منتج جديد' : 'إضافة منتج (مغلق 🔒)'}</span>
             </button>
             <button
               type="button"
               onClick={handleLoadPresets}
-              className="bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 font-black text-xs px-3 py-3 rounded-2xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0"
-              title="استيراد التشكيلة القياسية المقترحة"
+              className={`font-black text-xs px-3 py-3 rounded-2xl transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0 border ${
+                entitlement.isEntitled
+                  ? 'bg-white hover:bg-amber-50 text-amber-800 border-amber-300'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-200'
+              }`}
+              title={entitlement.isEntitled ? 'استيراد التشكيلة القياسية المقترحة' : 'ميزة مقفلة - انقر للتفعيل'}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              {entitlement.isEntitled ? <Sparkles className="w-3.5 h-3.5 text-amber-600" /> : <Lock className="w-3 h-3 text-slate-400" />}
               <span className="hidden sm:inline">✨ قوالب جاهزة</span>
             </button>
           </div>

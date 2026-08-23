@@ -6,9 +6,10 @@ import {
   Wine, Armchair, Users, Info, ChevronDown, 
   Layers, ShieldCheck, Tag, ArrowRight,
   Boxes, RefreshCw, Image as ImageIcon, CheckCircle2,
-  Clock, Building2, Store, AlertTriangle, Copy, SlidersHorizontal
+  Clock, Building2, Store, AlertTriangle, Copy, SlidersHorizontal, Lock
 } from 'lucide-react';
 import { StoreProductItem } from './modals/VenueStoreManagerModal';
+import { entitlementService, EntitlementResolution } from '../services/entitlementService';
 
 interface VenueProductsStoreTabProps {
   userRole: string;
@@ -168,6 +169,42 @@ export function VenueProductsStoreTab({
   showNotification,
   formatCurrency = (val: number) => `${val} ر.س`
 }: VenueProductsStoreTabProps) {
+  // Strict multi-tenancy isolation for scoped halls
+  const scopedHalls = useMemo(() => {
+    if (userRole === 'provider') {
+      return (halls || []).filter((h: any) => {
+        const hProviderName = (h.providerName || h.provider || '').trim().toLowerCase();
+        const hProviderId = h.providerId ? String(h.providerId) : '';
+        const curName = (currentProviderName || '').trim().toLowerCase();
+        const curId = currentProviderId ? String(currentProviderId) : '';
+        return (
+          (curName && hProviderName === curName) ||
+          (curId && hProviderId === curId)
+        );
+      });
+    }
+    return halls || [];
+  }, [halls, userRole, currentProviderName, currentProviderId]);
+
+  // Entitlement state
+  const [entitlement, setEntitlement] = useState<EntitlementResolution>(() => 
+    entitlementService.resolve(currentProviderId || currentProviderName || 'provider', 'mini_products_store')
+  );
+
+  useEffect(() => {
+    const check = () => {
+      const res = entitlementService.resolve(currentProviderId || currentProviderName || 'provider', 'mini_products_store');
+      setEntitlement(res);
+    };
+    check();
+    window.addEventListener('entitlementUpdated', check);
+    window.addEventListener('storage', check);
+    return () => {
+      window.removeEventListener('entitlementUpdated', check);
+      window.removeEventListener('storage', check);
+    };
+  }, [currentProviderId, currentProviderName, userRole]);
+
   // Hall selection filter: 'all' or specific hall id
   const [selectedHallId, setSelectedHallId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,7 +212,7 @@ export function VenueProductsStoreTab({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [itemTypeFilter, setItemTypeFilter] = useState<string>('all');
 
-  // Load all products aggregated from all halls + localStorage
+  // Load all products aggregated from scoped halls + localStorage
   const [productsVersion, setProductsVersion] = useState(0);
 
   // Helper to load products for a specific hall
@@ -196,10 +233,10 @@ export function VenueProductsStoreTab({
     return DEFAULT_PRESET_PRODUCTS.map(p => ({ ...p, hallId: hall.id }));
   };
 
-  // Compile all products across halls
+  // Compile all products across scoped halls only
   const allProducts = useMemo(() => {
     const list: (StoreProductItem & { hallName: string; hallCity?: string })[] = [];
-    halls.forEach(hall => {
+    scopedHalls.forEach(hall => {
       const hallProds = getHallProducts(hall);
       hallProds.forEach(p => {
         list.push({
@@ -212,7 +249,7 @@ export function VenueProductsStoreTab({
     });
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [halls, productsVersion]);
+  }, [scopedHalls, productsVersion]);
 
   // Persist products for a specific hall
   const persistHallProducts = (hallId: string | number, updatedProds: StoreProductItem[]) => {
@@ -230,7 +267,7 @@ export function VenueProductsStoreTab({
   // Add / Edit Modal State
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<StoreProductItem | null>(null);
-  const [formHallId, setFormHallId] = useState<string | number>(halls[0]?.id || '');
+  const [formHallId, setFormHallId] = useState<string | number>(scopedHalls[0]?.id || '');
   const [formData, setFormData] = useState<Partial<StoreProductItem>>({
     name: '',
     category: 'hospitality',
@@ -248,11 +285,30 @@ export function VenueProductsStoreTab({
     itemType: 'consumable'
   });
 
+  // Quick instant activation helper for provider
+  const handleInstantActivateStoreAddon = () => {
+    const success = entitlementService.activateAddon(currentProviderName || 'provider', 'mini_products_store', {
+      fee: 120,
+      period: 'monthly',
+      activationDate: new Date().toISOString()
+    });
+    if (success) {
+      showNotification('success', 'تم تفعيل ميزة متجر المنتجات والمستلزمات المصغر بنجاح كإضافة مستقلة (120 ر.س/شهر)!');
+      setProductsVersion(v => v + 1);
+    } else {
+      showNotification('error', 'تعذر تفعيل الميزة. يرجى المحاولة من تبويب الاشتراكات.');
+    }
+  };
+
   // Toggle single product status
   const handleToggleStatus = (item: StoreProductItem & { hallName: string }) => {
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لتعديل حالة المنتجات.');
+      return;
+    }
     const hallId = item.hallId;
     if (!hallId) return;
-    const currentProds = getHallProducts(halls.find(h => h.id === hallId));
+    const currentProds = getHallProducts(scopedHalls.find(h => h.id === hallId));
     const nextStatus: 'active' | 'paused' = item.status === 'active' ? 'paused' : 'active';
     const updated = currentProds.map(p => p.id === item.id ? { ...p, status: nextStatus } : p);
     persistHallProducts(hallId, updated);
@@ -261,9 +317,13 @@ export function VenueProductsStoreTab({
 
   // Delete product
   const handleDeleteProduct = (item: StoreProductItem & { hallName: string }) => {
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لحذف المنتجات.');
+      return;
+    }
     const hallId = item.hallId;
     if (!hallId) return;
-    const currentProds = getHallProducts(halls.find(h => h.id === hallId));
+    const currentProds = getHallProducts(scopedHalls.find(h => h.id === hallId));
     const updated = currentProds.filter(p => p.id !== item.id);
     persistHallProducts(hallId, updated);
     showNotification('success', 'تم حذف المنتج من متجر القاعة بنجاح.');
@@ -271,8 +331,12 @@ export function VenueProductsStoreTab({
 
   // Open Create Modal
   const handleOpenCreate = () => {
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يرجى تفعيل ميزة متجر المنتجات والمستلزمات المصغر لإضافة منتجات جديدة.');
+      return;
+    }
     setEditingProduct(null);
-    setFormHallId(selectedHallId !== 'all' ? selectedHallId : (halls[0]?.id || ''));
+    setFormHallId(selectedHallId !== 'all' ? selectedHallId : (scopedHalls[0]?.id || ''));
     setFormData({
       name: '',
       category: 'hospitality',
@@ -294,8 +358,12 @@ export function VenueProductsStoreTab({
 
   // Open Edit Modal
   const handleOpenEdit = (item: StoreProductItem & { hallName: string }) => {
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لتعديل المنتجات.');
+      return;
+    }
     setEditingProduct(item);
-    setFormHallId(item.hallId || halls[0]?.id || '');
+    setFormHallId(item.hallId || scopedHalls[0]?.id || '');
     setFormData({ ...item });
     setIsProductFormOpen(true);
   };
@@ -303,17 +371,21 @@ export function VenueProductsStoreTab({
   // Save product form
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لحفظ التغييرات.');
+      return;
+    }
     if (!formData.name?.trim()) {
       showNotification('error', 'يرجى إدخال اسم المنتج.');
       return;
     }
-    const targetHallId = formHallId || halls[0]?.id;
+    const targetHallId = formHallId || scopedHalls[0]?.id;
     if (!targetHallId) {
       showNotification('error', 'يرجى اختيار القاعة التابع لها المنتج.');
       return;
     }
 
-    const currentProds = getHallProducts(halls.find(h => h.id === targetHallId));
+    const currentProds = getHallProducts(scopedHalls.find(h => h.id === targetHallId));
 
     if (editingProduct) {
       // Update existing
@@ -363,8 +435,12 @@ export function VenueProductsStoreTab({
 
   // Re-seed preset template for selected hall or all halls
   const handleLoadPresetsForHall = () => {
+    if (!entitlement.isEntitled && userRole === 'provider') {
+      showNotification('warning', 'يتطلب تفعيل ميزة متجر المنتجات والمستلزمات المصغر لاستيراد القوالب.');
+      return;
+    }
     if (selectedHallId !== 'all') {
-      const target = halls.find(h => String(h.id) === String(selectedHallId));
+      const target = scopedHalls.find(h => String(h.id) === String(selectedHallId));
       if (target) {
         const seeded = DEFAULT_PRESET_PRODUCTS.map(p => ({
           ...p,
@@ -375,7 +451,7 @@ export function VenueProductsStoreTab({
         showNotification('success', `تم استيراد قوالب المنتجات لقاعة (${target.name}) بنجاح.`);
       }
     } else {
-      halls.forEach(h => {
+      scopedHalls.forEach(h => {
         const seeded = DEFAULT_PRESET_PRODUCTS.map(p => ({
           ...p,
           hallId: h.id,
@@ -438,10 +514,10 @@ export function VenueProductsStoreTab({
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow-xs">
-                إدارة متجر المنتجات والمستلزمات المصغر ������️
+                إدارة متجر المنتجات والمستلزمات المصغر 🛍️
               </h2>
               <span className="px-3 py-0.5 rounded-full text-xs font-black bg-black/40 text-amber-300 border border-white/15 backdrop-blur-xs">
-                {selectedHallId === 'all' ? `كافة القاعات (${halls.length})` : halls.find(h => String(h.id) === String(selectedHallId))?.name || 'قاعة محددة'}
+                {selectedHallId === 'all' ? `كافة القاعات (${scopedHalls.length})` : scopedHalls.find(h => String(h.id) === String(selectedHallId))?.name || 'قاعة محددة'}
               </span>
             </div>
             <p className="text-xs sm:text-sm text-amber-100/90 font-medium mt-1">
@@ -454,22 +530,84 @@ export function VenueProductsStoreTab({
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="px-4 py-3 bg-slate-950 hover:bg-slate-900 text-amber-400 font-black text-xs sm:text-sm rounded-2xl transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 border border-amber-400/30"
+            className={`px-4 py-3 font-black text-xs sm:text-sm rounded-2xl transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 border ${
+              entitlement.isEntitled
+                ? 'bg-slate-950 hover:bg-slate-900 text-amber-400 border-amber-400/30'
+                : 'bg-black/40 hover:bg-black/50 text-amber-200 border-amber-300/30'
+            }`}
+            title={entitlement.isEntitled ? 'إضافة منتج جديد' : 'ميزة مقفلة في الباقة الحالية'}
           >
-            <Plus className="w-4 h-4" />
-            <span>+ إضافة منتج جديد</span>
+            {entitlement.isEntitled ? <Plus className="w-4 h-4" /> : <Lock className="w-4 h-4 text-amber-300" />}
+            <span>{entitlement.isEntitled ? '+ إضافة منتج جديد' : 'إضافة منتج (مغلق 🔒)'}</span>
           </button>
           <button
             type="button"
             onClick={handleLoadPresetsForHall}
-            className="px-3.5 py-3 bg-white/20 hover:bg-white/30 text-white font-black text-xs rounded-2xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 border border-white/25 backdrop-blur-xs"
-            title="استيراد التشكيلة المعيارية المقترحة"
+            className={`px-3.5 py-3 font-black text-xs rounded-2xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 border backdrop-blur-xs ${
+              entitlement.isEntitled
+                ? 'bg-white/20 hover:bg-white/30 text-white border-white/25'
+                : 'bg-white/10 hover:bg-white/20 text-white/70 border-white/15'
+            }`}
+            title={entitlement.isEntitled ? 'استيراد التشكيلة المعيارية المقترحة' : 'ميزة مقفلة في الباقة الحالية'}
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            {entitlement.isEntitled ? <Sparkles className="w-3.5 h-3.5 text-amber-300" /> : <Lock className="w-3.5 h-3.5 text-white/60" />}
             <span>قوالب معتمدة</span>
           </button>
         </div>
       </div>
+
+      {/* Entitlement Status & Commercial Governance Banner */}
+      {userRole === 'provider' && (
+        <div className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-2xs ${
+          entitlement.isEntitled
+            ? 'bg-emerald-50/80 border-emerald-200/90 text-emerald-950'
+            : 'bg-gradient-to-r from-amber-50 to-orange-50/80 border-amber-300 text-amber-950'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2.5 rounded-xl mt-0.5 shrink-0 ${
+              entitlement.isEntitled ? 'bg-emerald-500 text-white shadow-sm' : 'bg-amber-500 text-slate-950 shadow-sm'
+            }`}>
+              {entitlement.isEntitled ? <ShieldCheck className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-sm">
+                  {entitlement.isEntitled 
+                    ? 'ميزة متجر المنتجات والمستلزمات المصغر مفعلة بنجاح' 
+                    : 'ميزة متجر المنتجات والمستلزمات المصغر غير مفعلة في باقتك الحالية'}
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black ${
+                  entitlement.isEntitled 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                    : 'bg-amber-200 text-amber-900 border border-amber-300'
+                }`}>
+                  {entitlement.isEntitled 
+                    ? (entitlement.source === 'plan' ? `مشمولة بالباقة: ${entitlement.planName || 'الاحترافية'}` : entitlement.source === 'admin_grant' ? 'منح إداري مباشر' : 'إضافة نشطة (Add-on)')
+                    : 'ميزة تجارية مدفوعة (120 ر.س/شهر)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
+                {entitlement.isEntitled
+                  ? 'يمكنك إضافة وتحديث المنتجات والمستلزمات وربطها بالمخزون، وستظهر للعملاء تلقائياً أثناء حجز القاعات المعنية مع الحفاظ على تسعير شامل لضريبة 15%.'
+                  : 'متجر المنتجات والمستلزمات المصغر ميزة مستقلة تمكنك من بيع الضيافة، المشروبات، الأثاث، ومستلزمات القاعة مباشرة لعملائك مع تتبع المخزون والربط التشغيلي الكامل.'}
+              </p>
+            </div>
+          </div>
+
+          {!entitlement.isEntitled && (
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={handleInstantActivateStoreAddon}
+                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 border border-amber-600/30 whitespace-nowrap"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>تفعيل الميزة الآن (120 ر.س / شهرياً)</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
@@ -535,8 +673,8 @@ export function VenueProductsStoreTab({
               onChange={e => setSelectedHallId(e.target.value)}
               className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-800 outline-none focus:border-amber-500 cursor-pointer min-w-[160px]"
             >
-              <option value="all">🏢 كافة القاعات والمنشآت ({halls.length})</option>
-              {halls.map(hall => (
+              <option value="all">🏢 كافة القاعات والمنشآت ({scopedHalls.length})</option>
+              {scopedHalls.map(hall => (
                 <option key={hall.id} value={hall.id}>
                   {hall.name} ({hall.city || hall.region || 'الرئيسية'})
                 </option>
@@ -857,7 +995,7 @@ export function VenueProductsStoreTab({
                       required
                       className="w-full p-2.5 rounded-xl border border-slate-200 focus:border-amber-500 outline-none bg-white cursor-pointer"
                     >
-                      {halls.map(h => (
+                      {scopedHalls.map(h => (
                         <option key={h.id} value={h.id}>
                           {h.name} ({h.city || h.region || 'الرئيسية'})
                         </option>
