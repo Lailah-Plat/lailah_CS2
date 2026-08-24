@@ -13,12 +13,13 @@
  * تقويم التوفر المباشر، واستعراض الشركاء والقاعات المميزة.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, MapPin, Calendar as CalendarIcon, 
   Star, Crown, ShieldCheck, Map, Smartphone, 
-  Percent, ThumbsUp, Headset, MessageCircle, AlertCircle, X
+  Percent, ThumbsUp, Headset, MessageCircle, AlertCircle, X,
+  ArrowLeft, ArrowRight, Lock, CheckCircle2, Sparkles, Users
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LPASPublicPage from './LPASPublicPage';
@@ -89,26 +90,853 @@ export default function HomePage() {
       if (stored) return JSON.parse(stored);
     } catch {}
     return [
-      { id: 1, name: 'الرياض', cities: ['الرياض', 'الخرج', 'الدرعية'], image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 2, name: 'مكة المكرمة', cities: ['مكة', 'جدة', 'الطائف'], image: 'https://images.unsplash.com/photo-1565552643952-b4306354dd95?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 3, name: 'المدينة المنورة', cities: ['المدينة المنورة', 'ينبع', 'بدر'], image: 'https://images.unsplash.com/photo-1591462002164-81ebd02d6b38?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 4, name: 'المنطقة الشرقية', cities: ['الدمام', 'الخبر', 'الظهران', 'الجبيل'], image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 5, name: 'القصيم', cities: ['بريدة', 'عنيزة', 'الرس'], image: 'https://images.unsplash.com/photo-1582236371728-4ce67cfab7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 6, name: 'حائل', cities: ['حائل', 'بقعاء', 'الشنان'], image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 7, name: 'عسير', cities: ['أبها', 'خميس مشيط', 'أحد رفيدة'], image: 'https://images.unsplash.com/photo-1627998656608-f40b28ecda90?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 8, name: 'تبوك', cities: ['تبوك', 'ضباء', 'الوجه'], image: 'https://images.unsplash.com/photo-1647432243886-42ab22c95333?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 9, name: 'الجوف', cities: ['سكاكا', 'القريات', 'دومة الجندل'], image: 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 10, name: 'جيزان', cities: ['جيزان', 'صبيا', 'أبو عريش'], image: 'https://images.unsplash.com/photo-1621213501708-518dd3e198b1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 11, name: 'نجران', cities: ['نجران', 'شرورة'], image: 'https://images.unsplash.com/photo-1549419131-7294860b7cb3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 12, name: 'الباحة', cities: ['الباحة', 'بلجرشي'], image: 'https://images.unsplash.com/photo-1623945415707-16067fa23cd2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
-      { id: 13, name: 'الحدود الشمالية', cities: ['عرعر', 'رفحاء', 'طريف'], image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' }
+      { id: 1, name: 'الرياض', cities: ['الرياض', 'الخرج', 'الدرعية', 'المجمعة', 'الدوادمي', 'الزلفي', 'وادي الدواسر', 'القويعية', 'شقراء'], image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 2, name: 'مكة المكرمة', cities: ['مكة', 'جدة', 'الطائف', 'رابغ', 'القنفذة', 'الليث', 'خليص'], image: 'https://images.unsplash.com/photo-1565552643952-b4306354dd95?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 3, name: 'المدينة المنورة', cities: ['المدينة المنورة', 'ينبع', 'العلا', 'بدر', 'المهد', 'خيبر'], image: 'https://images.unsplash.com/photo-1591462002164-81ebd02d6b38?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 4, name: 'المنطقة الشرقية', cities: ['الدمام', 'الخبر', 'الظهران', 'الأحساء', 'الهفوف', 'الجبيل', 'القطيف', 'حفر الباطن', 'الخفجي', 'رأس تنورة'], image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 5, name: 'القصيم', cities: ['بريدة', 'عنيزة', 'الرس', 'البكيرية', 'المذنب', 'البدائع', 'رياض الخبراء'], image: 'https://images.unsplash.com/photo-1582236371728-4ce67cfab7ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 6, name: 'حائل', cities: ['حائل', 'بقعاء', 'الشنان', 'الغزالة'], image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 7, name: 'عسير', cities: ['أبها', 'خميس مشيط', 'النماص', 'أحد رفيدة', 'محايل عسير', 'تنومة', 'بيشة', 'المجاردة'], image: 'https://images.unsplash.com/photo-1627998656608-f40b28ecda90?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 8, name: 'تبوك', cities: ['تبوك', 'ضباء', 'الوجه', 'أملج', 'حقل', 'تيماء'], image: 'https://images.unsplash.com/photo-1647432243886-42ab22c95333?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 9, name: 'الجوف', cities: ['سكاكا', 'القريات', 'دومة الجندل', 'طبرجل'], image: 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 10, name: 'جيزان', cities: ['جيزان', 'صبيا', 'أبو عريش', 'صامطة', 'بيش', 'فرسان', 'الدرب'], image: 'https://images.unsplash.com/photo-1621213501708-518dd3e198b1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 11, name: 'نجران', cities: ['نجران', 'شرورة', 'حبونا', 'بدر الجنوب'], image: 'https://images.unsplash.com/photo-1549419131-7294860b7cb3?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 12, name: 'الباحة', cities: ['الباحة', 'بلجرشي', 'المندق', 'المخواة', 'قلوة'], image: 'https://images.unsplash.com/photo-1623945415707-16067fa23cd2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' },
+      { id: 13, name: 'الحدود الشمالية', cities: ['عرعر', 'رفحاء', 'طريف', 'العويقيلة'], image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' }
     ];
   });
+
+  const [hallsList, setHallsList] = useState(() => getStoredHalls());
+
+  useEffect(() => {
+    const fetchHallsFromDB = async () => {
+      try {
+        const res = await fetch('/api/bookings/halls');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setHallsList(data);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed fetching halls from external DB API, fallback to local storage:", err);
+      }
+    };
+
+    const syncRegionsFromStore = () => {
+      try {
+        const stored = localStorage.getItem('SYSTEM_REGIONS');
+        if (stored) {
+          setRegionsList(JSON.parse(stored));
+        }
+      } catch {}
+    };
+
+    fetchHallsFromDB();
+    syncRegionsFromStore();
+
+    const handleHallsUpdate = () => {
+      fetchHallsFromDB();
+      syncRegionsFromStore();
+    };
+    window.addEventListener('storage', handleHallsUpdate);
+    window.addEventListener('settingsUpdated', handleHallsUpdate);
+    window.addEventListener('hallsUpdated', handleHallsUpdate);
+    return () => {
+      window.removeEventListener('storage', handleHallsUpdate);
+      window.removeEventListener('settingsUpdated', handleHallsUpdate);
+      window.removeEventListener('hallsUpdated', handleHallsUpdate);
+    };
+  }, []);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { calendarType, setCalendarType } = useCalendar();
   const navigate = useNavigate();
+
+  // Metro Region UI Active Tab state & Sub-region state & pagination
+  const [selectedMetroTab, setSelectedMetroTab] = useState<string>('all');
+  const [selectedSubRegion, setSelectedSubRegion] = useState<string>('all');
+  const [metroPageIndex, setMetroPageIndex] = useState<number>(0);
+
+  /**
+   * دالة مساعدة لحساب عدد القاعات المتاحة لكل مدينة أو منطقة من قاعدة البيانات السحابية
+   */
+  const getDynamicHallCount = (cityQuery: string, regionQuery: string, fallbackCount: number) => {
+    if (!hallsList || hallsList.length === 0) return fallbackCount;
+    const count = hallsList.filter((h: any) => {
+      if (h.status && h.status !== 'approved') return false;
+      if (h.activationStatus === 'موقوف') return false;
+      if (cityQuery && h.city && (h.city.includes(cityQuery) || cityQuery.includes(h.city))) return true;
+      if (regionQuery && h.region && (h.region.includes(regionQuery) || regionQuery.includes(h.region))) return true;
+      return false;
+    }).length;
+    return count > 0 ? count : fallbackCount;
+  };
+
+  // Master Regions data mapping with geographic zones, administrative regions, and independent cities
+  const zoneDataMap = useMemo(() => {
+    return {
+      all: {
+        id: 'all',
+        label: 'كل المناطق',
+        subRegions: [],
+        tiles: [
+          {
+            id: 'central-all',
+            title: 'المنطقة الوسطى',
+            subtitle: 'منطقة الرياض ومنطقة القصيم ومنطقة حائل',
+            count: getDynamicHallCount('', 'الرياض', 312),
+            query: 'الرياض',
+            city: '',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'western-all',
+            title: 'المنطقة الغربية',
+            subtitle: 'منطقة مكة المكرمة ومنطقة المدينة المنورة',
+            count: getDynamicHallCount('', 'مكة المكرمة', 286),
+            query: 'مكة المكرمة',
+            city: '',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'southern-all',
+            title: 'المنطقة الجنوبية',
+            subtitle: 'عسير والباحة وجازان ونجران',
+            count: getDynamicHallCount('', 'عسير', 164),
+            query: 'عسير',
+            city: '',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'eastern-all',
+            title: 'المنطقة الشرقية',
+            subtitle: 'الدمام والخبر والأحساء والجبيل والقطيف',
+            count: getDynamicHallCount('', 'المنطقة الشرقية', 198),
+            query: 'المنطقة الشرقية',
+            city: '',
+            image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'northern-all',
+            title: 'المنطقة الشمالية',
+            subtitle: 'منطقة الجوف ومنطقة تبوك والحدود الشمالية',
+            count: getDynamicHallCount('', 'تبوك', 142),
+            query: 'تبوك',
+            city: '',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      },
+      central: {
+        id: 'central',
+        label: 'الوسطى',
+        subRegions: [
+          { id: 'all', name: 'كل المنطقة الوسطى', query: 'الرياض' },
+          { id: 'riyadh', name: 'منطقة الرياض', query: 'الرياض' },
+          { id: 'qassim', name: 'منطقة القصيم', query: 'القصيم' },
+          { id: 'hail', name: 'منطقة حائل', query: 'حائل' },
+        ],
+        tiles: [
+          {
+            id: 'riyadh-city',
+            title: 'مدينة الرياض',
+            subtitle: 'العاصمة وقصور الأفراح الفاخرة',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('الرياض', 'الرياض', 185),
+            query: 'الرياض',
+            city: 'الرياض',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'diriyah-city',
+            title: 'مدينة الدرعية',
+            subtitle: 'أصالة نجد وقاعات المناسبات التراثية',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('الدرعية', 'الرياض', 42),
+            query: 'الرياض',
+            city: 'الدرعية',
+            image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'kharj-city',
+            title: 'مدينة الخرج',
+            subtitle: 'واحات نجد وقصور الأفراح الراقية',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('الخرج', 'الرياض', 36),
+            query: 'الرياض',
+            city: 'الخرج',
+            image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'buraidah-city',
+            title: 'مدينة بريدة',
+            subtitle: 'عاصمة القصيم وقصور الاحتفالات الكبرى',
+            regionName: 'منطقة القصيم',
+            subRegionId: 'qassim',
+            count: getDynamicHallCount('بريدة', 'القصيم', 38),
+            query: 'القصيم',
+            city: 'بريدة',
+            image: 'https://images.unsplash.com/photo-1582236371728-4ce67cfab7ef?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'unaizah-city',
+            title: 'مدينة عنيزة',
+            subtitle: 'باريس نجد وقاعات المناسبات الراقية',
+            regionName: 'منطقة القصيم',
+            subRegionId: 'qassim',
+            count: getDynamicHallCount('عنيزة', 'القصيم', 28),
+            query: 'القصيم',
+            city: 'عنيزة',
+            image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'hail-main-city',
+            title: 'مدينة حائل',
+            subtitle: 'عروس الشمال ومضايف الكرم الحاتمي',
+            regionName: 'منطقة حائل',
+            subRegionId: 'hail',
+            count: getDynamicHallCount('حائل', 'حائل', 24),
+            query: 'حائل',
+            city: 'حائل',
+            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'rass-city',
+            title: 'مدينة الرس',
+            subtitle: 'واحات القصيم وقاعات ومنتجعات الضيافة',
+            regionName: 'منطقة القصيم',
+            subRegionId: 'qassim',
+            count: getDynamicHallCount('الرس', 'القصيم', 18),
+            query: 'القصيم',
+            city: 'الرس',
+            image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'majmaah-city',
+            title: 'مدينة المجمعة',
+            subtitle: 'عروس سدير وقاعات الاحتفالات الراقية',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('المجمعة', 'الرياض', 22),
+            query: 'الرياض',
+            city: 'المجمعة',
+            image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'dawadmi-city',
+            title: 'مدينة الدوادمي',
+            subtitle: 'عالية نجد واستراحات ومناسبات الفخامة',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('الدوادمي', 'الرياض', 16),
+            query: 'الرياض',
+            city: 'الدوادمي',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'zulfi-city',
+            title: 'مدينة الزلفي',
+            subtitle: 'واحات الرمال وقاعات الضيافة المميزة',
+            regionName: 'منطقة الرياض',
+            subRegionId: 'riyadh',
+            count: getDynamicHallCount('الزلفي', 'الرياض', 14),
+            query: 'الرياض',
+            city: 'الزلفي',
+            image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'bukayriyah-city',
+            title: 'مدينة البكيرية',
+            subtitle: 'مدينة الزهور وقاعات الأفراح',
+            regionName: 'منطقة القصيم',
+            subRegionId: 'qassim',
+            count: getDynamicHallCount('البكيرية', 'القصيم', 12),
+            query: 'القصيم',
+            city: 'البكيرية',
+            image: 'https://images.unsplash.com/photo-1452780212940-6f5c0d14d848?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'baqaa-city',
+            title: 'محافظة بقعاء',
+            subtitle: 'واحات حائل واستراحات المناسبات',
+            regionName: 'منطقة حائل',
+            subRegionId: 'hail',
+            count: getDynamicHallCount('بقعاء', 'حائل', 8),
+            query: 'حائل',
+            city: 'بقعاء',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      },
+      western: {
+        id: 'western',
+        label: 'الغربية',
+        subRegions: [
+          { id: 'all', name: 'كل المنطقة الغربية', query: 'مكة المكرمة' },
+          { id: 'makkah', name: 'منطقة مكة المكرمة', query: 'مكة المكرمة' },
+          { id: 'madinah', name: 'منطقة المدينة المنورة', query: 'المدينة المنورة' },
+        ],
+        tiles: [
+          {
+            id: 'jeddah-city',
+            title: 'مدينة جدة',
+            subtitle: 'عروس البحر الأحمر والقاعات الفندقية الفاخرة',
+            regionName: 'منطقة مكة المكرمة',
+            subRegionId: 'makkah',
+            count: getDynamicHallCount('جدة', 'مكة المكرمة', 142),
+            query: 'مكة المكرمة',
+            city: 'جدة',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'makkah-main-city',
+            title: 'مكة المكرمة',
+            subtitle: 'قاعات المناسبات الكبرى والضيافة الراقية',
+            regionName: 'منطقة مكة المكرمة',
+            subRegionId: 'makkah',
+            count: getDynamicHallCount('مكة', 'مكة المكرمة', 68),
+            query: 'مكة المكرمة',
+            city: 'مكة',
+            image: 'https://images.unsplash.com/photo-1565552643952-b4306354dd95?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'taif-city',
+            title: 'مدينة الطائف',
+            subtitle: 'عروس المصائف وقاعات الإطلالات الجبلية',
+            regionName: 'منطقة مكة المكرمة',
+            subRegionId: 'makkah',
+            count: getDynamicHallCount('الطائف', 'مكة المكرمة', 38),
+            query: 'مكة المكرمة',
+            city: 'الطائف',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'madinah-main-city',
+            title: 'المدينة المنورة',
+            subtitle: 'طيبة الطيبة وقصور الضيافة والمناسبات',
+            regionName: 'منطقة المدينة المنورة',
+            subRegionId: 'madinah',
+            count: getDynamicHallCount('المدينة المنورة', 'المدينة المنورة', 32),
+            query: 'المدينة المنورة',
+            city: 'المدينة المنورة',
+            image: 'https://images.unsplash.com/photo-1591462002164-81ebd02d6b38?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'yanbu-city',
+            title: 'مدينة ينبع',
+            subtitle: 'لؤلؤة البحر الأحمر والمنتجعات الشاطئية',
+            regionName: 'منطقة المدينة المنورة',
+            subRegionId: 'madinah',
+            count: getDynamicHallCount('ينبع', 'المدينة المنورة', 18),
+            query: 'المدينة المنورة',
+            city: 'ينبع',
+            image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'ula-city',
+            title: 'محافظة العلا',
+            subtitle: 'عروس الجبال وقاعات المناسبات الاستثنائية',
+            regionName: 'منطقة المدينة المنورة',
+            subRegionId: 'madinah',
+            count: getDynamicHallCount('العلا', 'المدينة المنورة', 14),
+            query: 'المدينة المنورة',
+            city: 'العلا',
+            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'rabigh-city',
+            title: 'محافظة رابغ',
+            subtitle: 'سواحل البحر الأحمر وقاعات الاحتفالات الحديثة',
+            regionName: 'منطقة مكة المكرمة',
+            subRegionId: 'makkah',
+            count: getDynamicHallCount('رابغ', 'مكة المكرمة', 12),
+            query: 'مكة المكرمة',
+            city: 'رابغ',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'qunfudhah-city',
+            title: 'محافظة القنفذة',
+            subtitle: 'غادة الجنوب والمنتجعات الساحلية الفاخرة',
+            regionName: 'منطقة مكة المكرمة',
+            subRegionId: 'makkah',
+            count: getDynamicHallCount('القنفذة', 'مكة المكرمة', 9),
+            query: 'مكة المكرمة',
+            city: 'القنفذة',
+            image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'badr-city',
+            title: 'محافظة بدر',
+            subtitle: 'واحات التاريخ وقاعات الضيافة',
+            regionName: 'منطقة المدينة المنورة',
+            subRegionId: 'madinah',
+            count: getDynamicHallCount('بدر', 'المدينة المنورة', 7),
+            query: 'المدينة المنورة',
+            city: 'بدر',
+            image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      },
+      eastern: {
+        id: 'eastern',
+        label: 'الشرقية',
+        subRegions: [
+          { id: 'all', name: 'كل المنطقة الشرقية', query: 'المنطقة الشرقية' },
+          { id: 'eastern-region', name: 'المنطقة الشرقية', query: 'المنطقة الشرقية' },
+        ],
+        tiles: [
+          {
+            id: 'khobar-city',
+            title: 'مدينة الخبر',
+            subtitle: 'لؤلؤة الخليج والقاعات الفندقية الفاخرة',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الخبر', 'المنطقة الشرقية', 78),
+            query: 'المنطقة الشرقية',
+            city: 'الخبر',
+            image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'dammam-city',
+            title: 'مدينة الدمام',
+            subtitle: 'حاضرة الشرقية وقصور المناسبات الكبرى',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الدمام', 'المنطقة الشرقية', 65),
+            query: 'المنطقة الشرقية',
+            city: 'الدمام',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'ahsa-city',
+            title: 'محافظة الأحساء',
+            subtitle: 'أكبر واحة نخيل وقصور الأفراح الفاخرة',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الأحساء', 'المنطقة الشرقية', 46),
+            query: 'المنطقة الشرقية',
+            city: 'الهفوف',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'jubail-city',
+            title: 'مدينة الجبيل',
+            subtitle: 'قاعات ومنتجعات النخيل وشواطئ الخليج',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الجبيل', 'المنطقة الشرقية', 22),
+            query: 'المنطقة الشرقية',
+            city: 'الجبيل',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'qatif-city',
+            title: 'محافظة القطيف',
+            subtitle: 'سواحل الخليج واستراحات وقاعات المناسبات',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('القطيف', 'المنطقة الشرقية', 18),
+            query: 'المنطقة الشرقية',
+            city: 'القطيف',
+            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'dhahran-city',
+            title: 'مدينة الظهران',
+            subtitle: 'واحة الطاقة وقاعات الفنادق الراقية',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الظهران', 'المنطقة الشرقية', 15),
+            query: 'المنطقة الشرقية',
+            city: 'الظهران',
+            image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'hafr-city',
+            title: 'حفر الباطن',
+            subtitle: 'عاصمة الربيع وقصور الضيافة الشمالية الشرقية',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('حفر الباطن', 'المنطقة الشرقية', 14),
+            query: 'المنطقة الشرقية',
+            city: 'حفر الباطن',
+            image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'khafji-city',
+            title: 'محافظة الخفجي',
+            subtitle: 'شواطئ الخليج وقاعات المناسبات الساحلية',
+            regionName: 'المنطقة الشرقية',
+            subRegionId: 'eastern-region',
+            count: getDynamicHallCount('الخفجي', 'المنطقة الشرقية', 9),
+            query: 'المنطقة الشرقية',
+            city: 'الخفجي',
+            image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      },
+      northern: {
+        id: 'northern',
+        label: 'الشمالية',
+        subRegions: [
+          { id: 'all', name: 'كل المنطقة الشمالية', query: 'تبوك' },
+          { id: 'jouf', name: 'منطقة الجوف', query: 'الجوف' },
+          { id: 'tabuk', name: 'منطقة تبوك', query: 'تبوك' },
+          { id: 'northern-borders', name: 'منطقة الحدود الشمالية', query: 'الحدود الشمالية' },
+        ],
+        tiles: [
+          {
+            id: 'tabuk-main-city',
+            title: 'مدينة تبوك',
+            subtitle: 'بوابة الشمال وقاعات المستقبل ونيوم',
+            regionName: 'منطقة تبوك',
+            subRegionId: 'tabuk',
+            count: getDynamicHallCount('تبوك', 'تبوك', 62),
+            query: 'تبوك',
+            city: 'تبوك',
+            image: 'https://images.unsplash.com/photo-1647432243886-42ab22c95333?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'sakaka-city',
+            title: 'مدينة سكاكا',
+            subtitle: 'عاصمة الجوف وواحات الزيتون وقصور الأفراح',
+            regionName: 'منطقة الجوف',
+            subRegionId: 'jouf',
+            count: getDynamicHallCount('سكاكا', 'الجوف', 36),
+            query: 'الجوف',
+            city: 'سكاكا',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'qurayyat-city',
+            title: 'محافظة القريات',
+            subtitle: 'مدينة الملح وقاعات المناسبات الشمالية',
+            regionName: 'منطقة الجوف',
+            subRegionId: 'jouf',
+            count: getDynamicHallCount('القريات', 'الجوف', 24),
+            query: 'الجوف',
+            city: 'القريات',
+            image: 'https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'arar-city',
+            title: 'مدينة عرعر',
+            subtitle: 'عاصمة الحدود الشمالية ومناسبات البادية',
+            regionName: 'منطقة الحدود الشمالية',
+            subRegionId: 'northern-borders',
+            count: getDynamicHallCount('عرعر', 'الحدود الشمالية', 22),
+            query: 'الحدود الشمالية',
+            city: 'عرعر',
+            image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'rafha-city',
+            title: 'محافظة رفحاء',
+            subtitle: 'واحات الشمال وقصور الضيافة العربية',
+            regionName: 'منطقة الحدود الشمالية',
+            subRegionId: 'northern-borders',
+            count: getDynamicHallCount('رفحاء', 'الحدود الشمالية', 14),
+            query: 'الحدود الشمالية',
+            city: 'رفحاء',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'duba-city',
+            title: 'محافظة ضباء',
+            subtitle: 'لؤلؤة الشمال وقاعات الشواطئ الساحلية',
+            regionName: 'منطقة تبوك',
+            subRegionId: 'tabuk',
+            count: getDynamicHallCount('ضباء', 'تبوك', 12),
+            query: 'تبوك',
+            city: 'ضباء',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'wajh-city',
+            title: 'محافظة الوجه',
+            subtitle: 'تراث الساحل وقاعات المناسبات',
+            regionName: 'منطقة تبوك',
+            subRegionId: 'tabuk',
+            count: getDynamicHallCount('الوجه', 'تبوك', 10),
+            query: 'تبوك',
+            city: 'الوجه',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'umluj-city',
+            title: 'محافظة أملج',
+            subtitle: 'مالديف السعودية والمنتجعات الشاطئية',
+            regionName: 'منطقة تبوك',
+            subRegionId: 'tabuk',
+            count: getDynamicHallCount('أملج', 'تبوك', 11),
+            query: 'تبوك',
+            city: 'أملج',
+            image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'turaif-city',
+            title: 'محافظة طريف',
+            subtitle: 'بوابة الشمال الغربية وقاعات الاحتفالات',
+            regionName: 'منطقة الحدود الشمالية',
+            subRegionId: 'northern-borders',
+            count: getDynamicHallCount('طريف', 'الحدود الشمالية', 8),
+            query: 'الحدود الشمالية',
+            city: 'طريف',
+            image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'dumat-city',
+            title: 'دومة الجندل',
+            subtitle: 'تراث قلعة مارد وقاعات الضيافة',
+            regionName: 'منطقة الجوف',
+            subRegionId: 'jouf',
+            count: getDynamicHallCount('دومة الجندل', 'الجوف', 8),
+            query: 'الجوف',
+            city: 'دومة الجندل',
+            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      },
+      southern: {
+        id: 'southern',
+        label: 'الجنوبية',
+        subRegions: [
+          { id: 'all', name: 'كل المنطقة الجنوبية', query: 'عسير' },
+          { id: 'asir', name: 'منطقة عسير', query: 'عسير' },
+          { id: 'baha', name: 'منطقة الباحة', query: 'الباحة' },
+          { id: 'jizan', name: 'منطقة جازان', query: 'جازان' },
+          { id: 'najran', name: 'منطقة نجران', query: 'نجران' },
+        ],
+        tiles: [
+          {
+            id: 'abha-main-city',
+            title: 'مدينة أبها',
+            subtitle: 'سيدة الضباب وقاعات قمم السروات',
+            regionName: 'منطقة عسير',
+            subRegionId: 'asir',
+            count: getDynamicHallCount('أبها', 'عسير', 72),
+            query: 'عسير',
+            city: 'أبها',
+            image: 'https://images.unsplash.com/photo-1627998656608-f40b28ecda90?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'khamis-city',
+            title: 'خميس مشيط',
+            subtitle: 'حاضرة عسير التجارية وقصور الأفراح الكبرى',
+            regionName: 'منطقة عسير',
+            subRegionId: 'asir',
+            count: getDynamicHallCount('خميس مشيط', 'عسير', 54),
+            query: 'عسير',
+            city: 'خميس مشيط',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'baha-main-city',
+            title: 'مدينة الباحة',
+            subtitle: 'غابات رغدان وقصور الضيافة الجبلية',
+            regionName: 'منطقة الباحة',
+            subRegionId: 'baha',
+            count: getDynamicHallCount('الباحة', 'الباحة', 26),
+            query: 'الباحة',
+            city: 'الباحة',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'jizan-main-city',
+            title: 'مدينة جازان',
+            subtitle: 'لؤلؤة الجنوب وشواطئ الفخامة',
+            regionName: 'منطقة جازان',
+            subRegionId: 'jizan',
+            count: getDynamicHallCount('جازان', 'جازان', 38),
+            query: 'جازان',
+            city: 'جازان',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'najran-main-city',
+            title: 'مدينة نجران',
+            subtitle: 'أخدود التاريخ وقصور الطين والضيافة',
+            regionName: 'منطقة نجران',
+            subRegionId: 'najran',
+            count: getDynamicHallCount('نجران', 'نجران', 22),
+            query: 'نجران',
+            city: 'نجران',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'namas-city',
+            title: 'محافظة النماص',
+            subtitle: 'مدينة الضباب وقصور المناسبات الطبيعية',
+            regionName: 'منطقة عسير',
+            subRegionId: 'asir',
+            count: getDynamicHallCount('النماص', 'عسير', 14),
+            query: 'عسير',
+            city: 'النماص',
+            image: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'baljurashi-city',
+            title: 'محافظة بلجرشي',
+            subtitle: 'عروس الباحة وقاعات المناسبات الجبلية',
+            regionName: 'منطقة الباحة',
+            subRegionId: 'baha',
+            count: getDynamicHallCount('بلجرشي', 'الباحة', 12),
+            query: 'الباحة',
+            city: 'بلجرشي',
+            image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'sabya-city',
+            title: 'محافظة صبيا',
+            subtitle: 'حاضرة جازان وقصور الأفراح والضيافة',
+            regionName: 'منطقة جازان',
+            subRegionId: 'jizan',
+            count: getDynamicHallCount('صبيا', 'جازان', 15),
+            query: 'جازان',
+            city: 'صبيا',
+            image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'sharurah-city',
+            title: 'محافظة شرورة',
+            subtitle: 'عروس الربع الخالي وقاعات الاحتفالات',
+            regionName: 'منطقة نجران',
+            subRegionId: 'najran',
+            count: getDynamicHallCount('شرورة', 'نجران', 10),
+            query: 'نجران',
+            city: 'شرورة',
+            image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'abu-arish-city',
+            title: 'محافظة أبو عريش',
+            subtitle: 'واحات الفل وقاعات المناسبات',
+            regionName: 'منطقة جازان',
+            subRegionId: 'jizan',
+            count: getDynamicHallCount('أبو عريش', 'جازان', 11),
+            query: 'جازان',
+            city: 'أبو عريش',
+            image: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ]
+      }
+    };
+  }, [hallsList]);
+
+  const regionTabs = useMemo(() => [
+    { id: 'all', label: 'كل المناطق' },
+    { id: 'central', label: 'الوسطى' },
+    { id: 'western', label: 'الغربية' },
+    { id: 'eastern', label: 'الشرقية' },
+    { id: 'northern', label: 'الشمالية' },
+    { id: 'southern', label: 'الجنوبية' },
+  ], []);
+
+  const activeZone = (zoneDataMap as any)[selectedMetroTab] || zoneDataMap.all;
+
+  // Filter tiles based on sub-region selection
+  const filteredTiles = useMemo(() => {
+    const tiles = activeZone.tiles || [];
+    if (selectedMetroTab === 'all' || selectedSubRegion === 'all') {
+      return tiles;
+    }
+    return tiles.filter((t: any) => t.subRegionId === selectedSubRegion);
+  }, [activeZone, selectedMetroTab, selectedSubRegion]);
+
+  const totalMetroPages = Math.max(1, Math.ceil(filteredTiles.length / 5));
+
+  // Current 5 tiles for the Metro 90-degree Grid
+  const currentTiles = useMemo(() => {
+    const validPageIndex = Math.min(metroPageIndex, totalMetroPages - 1);
+    const start = validPageIndex * 5;
+    return filteredTiles.slice(start, start + 5);
+  }, [filteredTiles, metroPageIndex, totalMetroPages]);
+
+  const handlePrevMetroTab = () => {
+    if (metroPageIndex > 0) {
+      setMetroPageIndex(prev => prev - 1);
+    } else {
+      const currentIndex = regionTabs.findIndex(t => t.id === selectedMetroTab);
+      const prevIndex = (currentIndex - 1 + regionTabs.length) % regionTabs.length;
+      const nextTabId = regionTabs[prevIndex].id;
+      setSelectedMetroTab(nextTabId);
+      setSelectedSubRegion('all');
+      setMetroPageIndex(0);
+    }
+  };
+
+  const handleNextMetroTab = () => {
+    if (metroPageIndex < totalMetroPages - 1) {
+      setMetroPageIndex(prev => prev + 1);
+    } else {
+      const currentIndex = regionTabs.findIndex(t => t.id === selectedMetroTab);
+      const nextIndex = (currentIndex + 1) % regionTabs.length;
+      const nextTabId = regionTabs[nextIndex].id;
+      setSelectedMetroTab(nextTabId);
+      setSelectedSubRegion('all');
+      setMetroPageIndex(0);
+    }
+  };
 
   // Search widget state variables / متغيرات حالة شريط البحث
   const [searchTerm, setSearchTerm] = useState('');
@@ -286,38 +1114,6 @@ export default function HomePage() {
     }
   }, []);
 
-  const [hallsList, setHallsList] = useState(() => getStoredHalls());
-
-  useEffect(() => {
-    const fetchHallsFromDB = async () => {
-      try {
-        const res = await fetch('/api/bookings/halls');
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setHallsList(data);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed fetching halls from external DB API, fallback to local storage:", err);
-      }
-    };
-
-    fetchHallsFromDB();
-
-    const handleHallsUpdate = () => {
-      fetchHallsFromDB();
-    };
-    window.addEventListener('storage', handleHallsUpdate);
-    window.addEventListener('settingsUpdated', handleHallsUpdate);
-    window.addEventListener('hallsUpdated', handleHallsUpdate);
-    return () => {
-      window.removeEventListener('storage', handleHallsUpdate);
-      window.removeEventListener('settingsUpdated', handleHallsUpdate);
-      window.removeEventListener('hallsUpdated', handleHallsUpdate);
-    };
-  }, []);
-
   const approvedHalls = hallsList.filter(h => h.status === 'approved' && h.activationStatus !== 'موقوف');
   const featuredHalls = (() => {
     const list = approvedHalls.filter(h => h.featured);
@@ -380,8 +1176,26 @@ export default function HomePage() {
       return 0;
     });
 
-    return list.slice(0, 3);
+    let showcaseHalls = [...list];
+    if (showcaseHalls.length < 20) {
+      const remaining = approvedHalls.filter(h => !showcaseHalls.some(f => f.id === h.id));
+      showcaseHalls = [...showcaseHalls, ...remaining];
+    }
+    return showcaseHalls.slice(0, 20);
   })();
+
+  const featuredScrollRef = useRef<HTMLDivElement>(null);
+  const scrollFeaturedHalls = (direction: 'left' | 'right') => {
+    if (featuredScrollRef.current) {
+      const scrollAmount = featuredScrollRef.current.clientWidth * 0.9;
+      // In RTL, left arrow moves viewport left (forward in content), right arrow moves viewport right (back)
+      featuredScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const latestHalls = [...approvedHalls].reverse().slice(0, 4);
 
   const handleSearch = () => {
@@ -762,84 +1576,152 @@ export default function HomePage() {
       {/* 4. Featured Halls */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="flex justify-between items-end mb-10">
+          <div className="flex justify-between items-end mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-blue-950 mb-2">أبرز القاعات والاستراحات</h2>
-              <p className="text-slate-500">استكشف أفضل الوجهات الموصى بها لمناسبتك القادمة</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-blue-950 mb-2">أبرز القاعات والاستراحات</h2>
+              <p className="text-slate-500 text-xs sm:text-sm">استكشف أفضل الوجهات الموصى بها لمناسبتك القادمة</p>
             </div>
-            <Link to="/explore" className="hidden border border-amber-500 text-amber-600 hover:bg-amber-50 px-6 py-2 rounded-xl font-medium sm:block transition-colors">
+            <Link to="/explore" className="hidden sm:inline-flex border border-amber-500 text-amber-600 hover:bg-amber-50 px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors">
               عرض الكل
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredHalls.map((hall) => (
-              <div key={hall.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group flex flex-col justify-between">
-                <div className="relative h-64 overflow-hidden">
-                  <img src={hall.image} alt={hall.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  <FavoriteHeartButton hallId={hall.id} />
-                  <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
-                  <div className="absolute top-4 left-4 flex flex-col gap-2 items-start z-10 pl-14">
-                    <PricingPatternBadge bookingType={hall.bookingType} />
-                  </div>
-                  <div className="absolute top-4 right-20 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-sm z-10">
-                    <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
-                  </div>
-                </div>
-                <div className="p-6 flex-grow flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-bold text-blue-950 flex items-center gap-2">
-                        {hall.name}
-                        {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
-                          <button onClick={(e) => openProviderChat(e, hall.provider, hall.name)} className="text-amber-500 hover:text-amber-600 transition-colors p-1" title="مراسلة المزود">
-                             <MessageCircle className="w-5 h-5" />
-                          </button>
-                        )}
-                      </h3>
-                      <div className="flex items-center gap-1 text-sm font-medium text-slate-700">
-                        <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
-                        {hall.rating}
+          {/* 2 * 4 Showcase Carousel with Floating Circular Navigation Arrows (No Text) */}
+          <div className="relative group">
+            {/* Right Floating Circular Arrow (السابق - يمين) */}
+            <button
+              onClick={() => scrollFeaturedHalls('right')}
+              className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 flex items-center justify-center backdrop-blur-xs transition-all hover:scale-110 cursor-pointer hover:border-amber-400 hover:text-amber-600 active:scale-95"
+              aria-label="السابق"
+              title="السابق"
+            >
+              <ChevronRight className="w-6 h-6 stroke-[2.5]" />
+            </button>
+
+            {/* Left Floating Circular Arrow (التالي - يسار) */}
+            <button
+              onClick={() => scrollFeaturedHalls('left')}
+              className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 flex items-center justify-center backdrop-blur-xs transition-all hover:scale-110 cursor-pointer hover:border-amber-400 hover:text-amber-600 active:scale-95"
+              aria-label="التالي"
+              title="التالي"
+            >
+              <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
+            </button>
+
+            {/* 2 Rows x 4 Columns per View Horizontal Scroll Grid with No Scrollbars */}
+            <div
+              ref={featuredScrollRef}
+              className="grid grid-rows-2 auto-cols-[calc(100%-8px)] sm:auto-cols-[calc(50%-10px)] md:auto-cols-[calc(33.333%-12px)] lg:auto-cols-[calc(25%-12px)] grid-flow-col gap-3.5 sm:gap-4 overflow-x-auto scroll-smooth scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory py-2 px-1"
+            >
+              {featuredHalls.map((hall) => {
+                const basePrice = Number(hall.price) || 2000;
+                const morningPrice = hall.morningPrice || Math.floor(basePrice * 0.6);
+                const nightPrice = hall.nightPrice || Math.floor(basePrice * 0.8);
+                const fullDayPrice = hall.fullDayPrice || Math.floor(basePrice * 1.3);
+
+                return (
+                  <div 
+                    key={hall.id} 
+                    className="bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 border border-slate-100 hover:border-amber-200/70 group/card flex flex-col justify-between snap-start"
+                  >
+                    {/* Compact Image Container */}
+                    <div className="relative h-40 sm:h-44 overflow-hidden shrink-0">
+                      <img 
+                        src={hall.image} 
+                        alt={hall.name} 
+                        className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" 
+                        referrerPolicy="no-referrer"
+                      />
+                      <FavoriteHeartButton hallId={hall.id} />
+                      <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
+                      <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start z-10 pl-12">
+                        <PricingPatternBadge bookingType={hall.bookingType} />
+                      </div>
+                      <div className="absolute top-3 right-16 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-2xs z-10">
+                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
                       </div>
                     </div>
-                    <p className="text-slate-500 text-sm mb-4 flex items-center gap-1">
-                      <MapPin className="w-4 h-4" /> {hall.location}
-                    </p>
-                    {hall.showProvider !== false && isProviderNameVisible(hall.provider) && (
-                      <div className="bg-slate-50 rounded-lg p-2.5 mb-2 flex items-center justify-between border border-slate-100">
-                         <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="text-xs text-slate-400 shrink-0">مقدم الخدمة:</span>
-                            <Link 
-                              to={`/provider-profile/${encodeURIComponent(hall.provider)}`} 
-                              className="text-xs font-bold text-blue-950 hover:text-amber-600 transition-colors truncate underline decoration-amber-400 decoration-1 underline-offset-2"
-                              title="عرض ملف الشريك والموثوقية"
-                            >
-                              {hall.provider}
-                            </Link>
-                         </div>
-                         <Link 
-                            to={`/provider-profile/${encodeURIComponent(hall.provider)}`} 
-                            className="text-[10px] font-extrabold text-amber-800 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded-full transition-colors shrink-0 flex items-center gap-1"
-                         >
-                            <span>ملف الشريك</span>
-                            <span>💎</span>
-                         </Link>
-                      </div>
-                    )}
-                    
-                    {/* Modular Pricing, Comparison and Gold Line */}
-                    <HallPricingAndCompare hall={hall} />
-                  </div>
 
-                  <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
-                    <HallCapacityLabel capacity={hall.capacity} />
-                    <Link to={`/hall/${hall.id}`} className="bg-blue-950 hover:bg-blue-900 text-white px-5 py-2 rounded-xl text-sm font-medium shadow-sm transition-all hover:-translate-y-0.5">
-                      التفاصيل
-                    </Link>
+                    {/* Compact Content Details */}
+                    <div className="p-3.5 sm:p-4 flex-grow flex flex-col justify-between">
+                      <div>
+                        {/* Title & Rating */}
+                        <div className="flex justify-between items-start mb-1 gap-1.5">
+                          <h3 className="text-sm sm:text-base font-bold text-blue-950 flex items-center gap-1.5 line-clamp-1 group-hover/card:text-amber-600 transition-colors">
+                            <span className="truncate">{hall.name}</span>
+                            {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
+                              <button 
+                                onClick={(e) => openProviderChat(e, hall.provider, hall.name)} 
+                                className="text-amber-500 hover:text-amber-600 transition-colors p-0.5 shrink-0" 
+                                title="مراسلة المزود"
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                          </h3>
+                          <div className="flex items-center gap-1 text-xs font-black text-slate-800 shrink-0 bg-amber-50/80 px-1.5 py-0.5 rounded-md border border-amber-100/60">
+                            <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                            {hall.rating}
+                          </div>
+                        </div>
+
+                        {/* Location */}
+                        <p className="text-slate-500 text-xs mb-2 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{hall.location}</span>
+                        </p>
+
+                        {/* Soft light gray horizontal divider line above pricing */}
+                        <div className="border-t border-slate-100 my-2.5"></div>
+
+                        {/* Transparent Pricing Periods with Soft Vertical Line Dividers */}
+                        <div className="grid grid-cols-3 divide-x divide-x-reverse divide-slate-200/80 text-center py-0.5">
+                          {/* Morning Period */}
+                          <div className="px-1 flex flex-col items-center justify-center">
+                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">الصباحية</span>
+                            <span className="text-xs font-black text-blue-950 leading-tight">
+                              {morningPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
+                            </span>
+                          </div>
+
+                          {/* Evening Period */}
+                          <div className="px-1 flex flex-col items-center justify-center">
+                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">المسائية</span>
+                            <span className="text-xs font-black text-blue-950 leading-tight">
+                              {nightPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
+                            </span>
+                          </div>
+
+                          {/* Full Day Period */}
+                          <div className="px-1 flex flex-col items-center justify-center">
+                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">اليوم كاملاً</span>
+                            <span className="text-xs font-black text-orange-600 leading-tight">
+                              {fullDayPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Footer: Clean Capacity (الاستيعاب بدون مربع وبدون إطار وخلفية شفافة) + Details Button */}
+                      <div className="flex justify-between items-center pt-3 border-t border-slate-100 mt-2.5">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                          <Users className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>
+                            الاستيعاب: <strong className="text-amber-600 font-black">{hall.capacity || '500'}</strong> شخص
+                          </span>
+                        </div>
+                        <Link 
+                          to={`/hall/${hall.id}`} 
+                          className="bg-blue-950 hover:bg-amber-500 text-white hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-all hover:-translate-y-0.5 shrink-0"
+                        >
+                          التفاصيل
+                        </Link>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -855,23 +1737,453 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. Search By Region */}
-      <section className="py-16 bg-slate-50 border-y border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
-          <h2 className="text-3xl font-bold text-blue-950 mb-10">اكتشف القاعات حسب منطقتك</h2>
-          <div className="flex flex-wrap justify-center gap-8">
-            {regionsList.map((region) => (
-              <Link to={`/explore?region=${region.name}`} key={region.id || region.name} className="flex flex-col items-center gap-4 cursor-pointer group">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg group-hover:border-amber-400 group-hover:shadow-amber-500/20 transition-all relative">
-                  <img src={region.image || 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'} alt={region.name} className="w-full h-full object-cover mix-blend-multiply opacity-80 group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <MapPin className="text-amber-500 w-10 h-10 opacity-90 drop-shadow-md" />
+      {/* 6. Discover Halls By Region - Metro UI 90-Degree Layout */}
+      <section className="py-12 bg-slate-50 border-y border-slate-200/80 relative overflow-hidden">
+        <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6">
+          
+          {/* Header Row: Title & Emoji strictly on the RIGHT, Map Explorer Button strictly on the LEFT */}
+          <div className="flex flex-row items-center justify-between gap-4 mb-2">
+            {/* Right: Title & Emblem (First in DOM = Right side in RTL) */}
+            <div className="flex items-center gap-2.5 text-right">
+              <span className="text-amber-500 text-xl sm:text-2xl font-bold">✨</span>
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-blue-950 tracking-tight">
+                اكتشف القاعات حسب منطقتك
+              </h2>
+            </div>
+
+            {/* Left Action: Map Explorer Button (Second in DOM = Left side in RTL) */}
+            <div className="shrink-0">
+              <Link 
+                to="/map-explorer"
+                className="inline-flex items-center gap-2.5 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#0f1e36] hover:bg-[#182c4d] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md hover:shadow-xl transition-all duration-300 group cursor-pointer border border-slate-700/60 hover:-translate-y-0.5"
+              >
+                <MapPin className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>استكشاف خريطة القاعات</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Subtitle / Descriptive motivation text strictly aligned to the RIGHT */}
+          <p className="text-slate-500 text-xs sm:text-sm md:text-base mb-6 text-right font-medium max-w-4xl leading-relaxed">
+            تصفح أرقى القاعات والاستراحات والمنتجعات موزعة بدقة حسب مناطق ومحافظات المملكة بنمط الميترو التفاعلي
+          </p>
+
+          {/* Primary Region Tabs (Pill selector) */}
+          <div className="flex items-center justify-center mb-4 overflow-x-auto scrollbar-none py-1">
+            <div className="inline-flex items-center gap-1 p-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs">
+              {regionTabs.map((tab) => {
+                const isActive = selectedMetroTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setSelectedMetroTab(tab.id);
+                      setSelectedSubRegion('all');
+                      setMetroPageIndex(0);
+                    }}
+                    className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#0f1e36] text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100/70'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sub-Regions Bar (تبويب فرعي أسفل شريط المناطق يظهر عند اختيار منطقة جغرافية) */}
+          {activeZone.subRegions && activeZone.subRegions.length > 0 && (
+            <div className="flex items-center justify-center mb-6 overflow-x-auto scrollbar-none py-1 animate-fadeIn">
+              <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 border border-slate-200 rounded-xl">
+                {activeZone.subRegions.map((sub: any) => {
+                  const isSubActive = selectedSubRegion === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => {
+                        setSelectedSubRegion(sub.id);
+                        setMetroPageIndex(0);
+                      }}
+                      className={`px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        isSubActive
+                          ? 'bg-amber-500 text-blue-950 shadow-xs font-black'
+                          : 'text-slate-600 hover:text-blue-950 hover:bg-white/80'
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Metro Grid Container with Floating Circular Navigation Arrows */}
+          <div className="relative group/metro">
+            
+            {/* Right Circular Floating Navigation Button (السابق) - Navigates across main geographic regions */}
+            <button
+              onClick={handlePrevMetroTab}
+              className="absolute -right-2 sm:-right-4 lg:-right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+              title="المنطقة السابقة"
+              aria-label="المنطقة السابقة"
+            >
+              <ChevronRight className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+            </button>
+
+            {/* Left Circular Floating Navigation Button (التالي) - Navigates across main geographic regions */}
+            <button
+              onClick={handleNextMetroTab}
+              className="absolute -left-2 sm:-left-4 lg:-left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+              title="المنطقة التالية"
+              aria-label="المنطقة التالية"
+            >
+              <ChevronLeft className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+            </button>
+
+            {/* Dynamic Metro UI 90-degree Grid (480px height on md+, connected tiles) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 h-auto md:h-[480px] w-full select-none">
+              
+              {/* Tile 1: Hero Tile (Spans Col-Span-4, Full 480px Height) */}
+              {currentTiles[0] && (
+                <div 
+                  onClick={() => {
+                    const target = currentTiles[0];
+                    const query = target.city 
+                      ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
+                      : `/explore?region=${encodeURIComponent(target.query)}`;
+                    navigate(query);
+                  }}
+                  className="group/tile relative md:col-span-4 h-[320px] md:h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                >
+                  <img 
+                    src={currentTiles[0].image} 
+                    alt={currentTiles[0].title} 
+                    className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+
+                  {/* Top Info: Title, Subtitle, & Map Pin + Count */}
+                  <div className="absolute top-5 right-5 text-right z-10">
+                    <div className="flex items-center gap-2 justify-end mb-1">
+                      <h3 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{currentTiles[0].title}</h3>
+                      <MapPin className="w-6 h-6 text-amber-400 shrink-0 drop-shadow" />
+                    </div>
+                    {currentTiles[0].subtitle && (
+                      <p className="text-xs text-amber-200/90 font-medium mb-2 drop-shadow-sm">{currentTiles[0].subtitle}</p>
+                    )}
+                    <div className="text-right">
+                      <span className="text-2xl sm:text-3xl font-black text-white font-mono leading-none block">{currentTiles[0].count}</span>
+                      <span className="text-xs font-bold text-slate-300">قاعة ومنتجع متاح</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Pill */}
+                  <div className="absolute bottom-5 left-5 z-10">
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                      <span>استكشاف القاعات</span>
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                    </span>
                   </div>
                 </div>
-                <span className="text-lg font-bold text-blue-950 group-hover:text-amber-600 transition-colors">{region.name}</span>
-              </Link>
-            ))}
+              )}
+
+              {/* Column 2: Middle Column (Tiles 1 & 2 in currentTiles array) */}
+              <div className="md:col-span-4 grid grid-rows-2 gap-3 h-[480px]">
+                
+                {/* Tile 2 (Top) */}
+                {currentTiles[1] && (
+                  <div 
+                    onClick={() => {
+                      const target = currentTiles[1];
+                      const query = target.city 
+                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
+                        : `/explore?region=${encodeURIComponent(target.query)}`;
+                      navigate(query);
+                    }}
+                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                  >
+                    <img 
+                      src={currentTiles[1].image} 
+                      alt={currentTiles[1].title} 
+                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+
+                    <div className="absolute top-4 right-4 text-right z-10">
+                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[1].title}</h3>
+                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
+                      </div>
+                      {currentTiles[1].subtitle && (
+                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[1].subtitle}</p>
+                      )}
+                      <div className="text-right">
+                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[1].count}</span>
+                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 z-10">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                        <span>استكشاف</span>
+                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tile 3 (Bottom) */}
+                {currentTiles[2] && (
+                  <div 
+                    onClick={() => {
+                      const target = currentTiles[2];
+                      const query = target.city 
+                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
+                        : `/explore?region=${encodeURIComponent(target.query)}`;
+                      navigate(query);
+                    }}
+                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                  >
+                    <img 
+                      src={currentTiles[2].image} 
+                      alt={currentTiles[2].title} 
+                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+
+                    <div className="absolute top-4 right-4 text-right z-10">
+                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[2].title}</h3>
+                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
+                      </div>
+                      {currentTiles[2].subtitle && (
+                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[2].subtitle}</p>
+                      )}
+                      <div className="text-right">
+                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[2].count}</span>
+                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 z-10">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                        <span>استكشاف</span>
+                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Column 3: Right Column (Tiles 3 & 4 in currentTiles array) */}
+              <div className="md:col-span-4 grid grid-rows-2 gap-3 h-[480px]">
+                
+                {/* Tile 4 (Top) */}
+                {currentTiles[3] && (
+                  <div 
+                    onClick={() => {
+                      const target = currentTiles[3];
+                      const query = target.city 
+                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
+                        : `/explore?region=${encodeURIComponent(target.query)}`;
+                      navigate(query);
+                    }}
+                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                  >
+                    <img 
+                      src={currentTiles[3].image} 
+                      alt={currentTiles[3].title} 
+                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+
+                    <div className="absolute top-4 right-4 text-right z-10">
+                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[3].title}</h3>
+                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
+                      </div>
+                      {currentTiles[3].subtitle && (
+                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[3].subtitle}</p>
+                      )}
+                      <div className="text-right">
+                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[3].count}</span>
+                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 z-10">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                        <span>استكشاف</span>
+                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tile 5 (Bottom) */}
+                {currentTiles[4] && (
+                  <div 
+                    onClick={() => {
+                      const target = currentTiles[4];
+                      const query = target.city 
+                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
+                        : `/explore?region=${encodeURIComponent(target.query)}`;
+                      navigate(query);
+                    }}
+                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                  >
+                    <img 
+                      src={currentTiles[4].image} 
+                      alt={currentTiles[4].title} 
+                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+
+                    <div className="absolute top-4 right-4 text-right z-10">
+                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
+                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[4].title}</h3>
+                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
+                      </div>
+                      {currentTiles[4].subtitle && (
+                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[4].subtitle}</p>
+                      )}
+                      <div className="text-right">
+                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[4].count}</span>
+                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-4 left-4 z-10">
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                        <span>استكشاف</span>
+                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+
+            {/* Dot Pagination Indicators & City Navigator */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 px-2">
+              
+              {/* Region Indicators (التبديل السريع بين المناطق) */}
+              <div className="flex items-center gap-1.5 order-2 sm:order-1">
+                {regionTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setSelectedMetroTab(tab.id);
+                      setSelectedSubRegion('all');
+                      setMetroPageIndex(0);
+                    }}
+                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
+                      selectedMetroTab === tab.id 
+                        ? 'w-7 bg-blue-950' 
+                        : 'w-2 bg-slate-300 hover:bg-slate-400'
+                    }`}
+                    aria-label={`تحديد ${tab.label}`}
+                    title={tab.label}
+                  />
+                ))}
+              </div>
+
+              {/* City Page Navigator if multiple pages exist for this zone/sub-region */}
+              {totalMetroPages > 1 ? (
+                <div className="flex items-center gap-2 order-1 sm:order-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+                  <span className="text-xs font-bold text-slate-500">
+                    صفحة {metroPageIndex + 1} من {totalMetroPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalMetroPages }).map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setMetroPageIndex(idx)}
+                        className={`h-2.5 transition-all duration-300 rounded-full cursor-pointer ${
+                          metroPageIndex === idx
+                            ? 'w-6 bg-amber-500 shadow-xs'
+                            : 'w-2.5 bg-slate-200 hover:bg-slate-300'
+                        }`}
+                        aria-label={`الصفحة ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="order-1 sm:order-2" />
+              )}
+
+              {/* Quick Summary Pill */}
+              <div className="order-3 text-xs font-bold text-slate-500 hidden sm:block">
+                <span>{filteredTiles.length} مدينة ومحافظة متاحة</span>
+              </div>
+            </div>
           </div>
+
+          {/* 5-Item Trust & Guarantees Bar (Matching Screenshot) */}
+          <div className="mt-8 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100">
+              
+              {/* Feature 1: مزودون معتمدون */}
+              <div className="flex flex-col items-center text-center px-3 pt-4 lg:pt-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mb-3 shadow-xs">
+                  <ShieldCheck className="w-6 h-6 text-amber-600" />
+                </div>
+                <h4 className="text-base font-black text-blue-950 mb-1">مزودون معتمدون</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">جميع القاعات والمزودين معتمدون من منصة ليلة</p>
+              </div>
+
+              {/* Feature 2: جودة مضمونة */}
+              <div className="flex flex-col items-center text-center px-3 pt-4 lg:pt-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mb-3 shadow-xs">
+                  <Star className="w-6 h-6 text-amber-600" />
+                </div>
+                <h4 className="text-base font-black text-blue-950 mb-1">جودة مضمونة</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">معايير جودة عالية وتجارب ممتازة لضيوفك</p>
+              </div>
+
+              {/* Feature 3: أسعار شفافة */}
+              <div className="flex flex-col items-center text-center px-3 pt-4 lg:pt-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mb-3 shadow-xs">
+                  <CheckCircle2 className="w-6 h-6 text-amber-600" />
+                </div>
+                <h4 className="text-base font-black text-blue-950 mb-1">أسعار شفافة</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">أسعار واضحة شاملة الضريبة (15%)</p>
+              </div>
+
+              {/* Feature 4: دعم على مدار الساعة */}
+              <div className="flex flex-col items-center text-center px-3 pt-4 lg:pt-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mb-3 shadow-xs">
+                  <Headset className="w-6 h-6 text-amber-600" />
+                </div>
+                <h4 className="text-base font-black text-blue-950 mb-1">دعم على مدار الساعة</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">فريق دعم جاهز لمساعدتك 24/7</p>
+              </div>
+
+              {/* Feature 5: حجز آمن وسريع */}
+              <div className="flex flex-col items-center text-center px-3 pt-4 lg:pt-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/60 flex items-center justify-center mb-3 shadow-xs">
+                  <Lock className="w-6 h-6 text-amber-600" />
+                </div>
+                <h4 className="text-base font-black text-blue-950 mb-1">حجز آمن وسريع</h4>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">حجز فوري وآمن في خطوات بسيطة</p>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </section>
 
