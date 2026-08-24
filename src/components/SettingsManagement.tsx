@@ -798,6 +798,7 @@ export const SettingsManagement = ({
 
   // Sync settings on mount with server database
   useEffect(() => {
+    let isMounted = true;
     const fetchServerConfigs = async () => {
       try {
         const res = await fetch('/api/system/configs');
@@ -805,7 +806,8 @@ export const SettingsManagement = ({
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) return;
         const data = await res.json();
-        if (data.success && data.configs) {
+        if (!isMounted) return;
+        if (data && data.success && data.configs) {
           const c = data.configs;
           if (c.SETTINGS_INV_SUPPLIER_APPROVAL !== undefined) {
             setSupplierApprovalWorkflow(c.SETTINGS_INV_SUPPLIER_APPROVAL);
@@ -880,10 +882,13 @@ export const SettingsManagement = ({
           }
         }
       } catch (err) {
-        console.error("Failed to fetch server-side settings in SettingsManagement:", err);
+        console.warn("Using offline/local configuration fallback in SettingsManagement:", err);
       }
     };
     fetchServerConfigs();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const tabs = [

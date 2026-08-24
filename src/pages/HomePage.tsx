@@ -19,7 +19,10 @@ import {
   Search, MapPin, Calendar as CalendarIcon, 
   Star, Crown, ShieldCheck, Map, Smartphone, 
   Percent, ThumbsUp, Headset, MessageCircle, AlertCircle, X,
-  ArrowLeft, ArrowRight, Lock, CheckCircle2, Sparkles, Users
+  ArrowLeft, ArrowRight, Lock, CheckCircle2, Sparkles, Users,
+  Car, Utensils, Clock, Camera, Music, Palette, Gift, Zap, Layers,
+  Compass, Plus, ChevronRight, ChevronLeft, Navigation, RefreshCw,
+  ClipboardList, BadgePercent, LayoutGrid
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LPASPublicPage from './LPASPublicPage';
@@ -28,12 +31,13 @@ import { arSA } from 'date-fns/locale';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ProviderChatModal from '../components/ProviderChatModal';
+import ServiceDetailsModal from '../components/ServiceDetailsModal';
+import RequestServiceModal from '../components/RequestServiceModal';
 import { AdBanner } from '../components/AdBanner';
 import { FavoriteHeartButton, HallPricingAndCompare, HallCapacityLabel, PricingPatternBadge, HallStatusBadges } from '../components/HallCardAddons';
-import { halls, getStoredHalls, isProviderNameVisible, providers as fallbackProviders, getPartnerLevel } from '../data/mockData';
+import { halls, getStoredHalls, isProviderNameVisible, providers as fallbackProviders, getPartnerLevel, getServices, syncServicesFromApi, EventService } from '../data/mockData';
 import { getFullDateInfo, CalendarType } from '../utils/dateUtils';
 import { useCalendar } from '../context/CalendarContext';
-import { ChevronRight, ChevronLeft, Navigation, RefreshCw } from 'lucide-react';
 
 /**
  * دالة مساعدة لتحديد صورة الشريك بناءً على الفئة أو الاسم
@@ -158,6 +162,143 @@ export default function HomePage() {
   const [selectedMetroTab, setSelectedMetroTab] = useState<string>('all');
   const [selectedSubRegion, setSelectedSubRegion] = useState<string>('all');
   const [metroPageIndex, setMetroPageIndex] = useState<number>(0);
+
+  // -------------------------------------------------------------
+  // Services & Smart Planner Tier State (قسم الخدمات والتخطيط المطور)
+  // -------------------------------------------------------------
+  const [servicesList, setServicesList] = useState<EventService[]>(() => getServices());
+  const [selectedServiceCategory, setSelectedServiceCategory] = useState<string>('all');
+  const [serviceCarouselIndex, setServiceCarouselIndex] = useState<number>(0);
+  const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<EventService | null>(null);
+  const [selectedServiceForRequest, setSelectedServiceForRequest] = useState<EventService | null>(null);
+  const [isServiceDetailsOpen, setIsServiceDetailsOpen] = useState<boolean>(false);
+  const [isServiceRequestOpen, setIsServiceRequestOpen] = useState<boolean>(false);
+
+  const [currentUserData, setCurrentUserData] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem('currentUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [userBookings, setUserBookings] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem('ais_user_bookings');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const data = await syncServicesFromApi();
+        if (Array.isArray(data) && data.length > 0) {
+          setServicesList(data);
+        }
+      } catch {
+        setServicesList(getServices());
+      }
+    };
+    fetchServices();
+
+    const handleServicesUpdate = () => {
+      setServicesList(getServices());
+      try {
+        const storedUser = localStorage.getItem('currentUser');
+        setCurrentUserData(storedUser ? JSON.parse(storedUser) : null);
+        const storedBookings = localStorage.getItem('ais_user_bookings');
+        setUserBookings(storedBookings ? JSON.parse(storedBookings) : []);
+      } catch {}
+    };
+
+    window.addEventListener('servicesUpdated', handleServicesUpdate);
+    window.addEventListener('storage', handleServicesUpdate);
+    return () => {
+      window.removeEventListener('servicesUpdated', handleServicesUpdate);
+      window.removeEventListener('storage', handleServicesUpdate);
+    };
+  }, []);
+
+  // Service categories with rich iconography and background photos for the circular quick carousel
+  const serviceCategories = useMemo(() => [
+    { id: 'all', name: 'الكل', label: 'جميع الخدمات', icon: Sparkles, image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=300&q=80' },
+    { id: 'بوفيه وضيافة', name: 'بوفيه وضيافة', label: 'الضيافة والبوفيهات', icon: Utensils, image: 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=300&q=80' },
+    { id: 'تصوير', name: 'تصوير وتوثيق', label: 'التصوير والتوثيق', icon: Camera, image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=300&q=80' },
+    { id: 'تنسيق قاعات', name: 'كوش وتنسيق', label: 'الكوش وتنسيق القاعات', icon: Palette, image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?auto=format&fit=crop&w=300&q=80' },
+    { id: 'دي جي وفِرق', name: 'دي جي وفِرق', label: 'الدي جي والفرق الغنائية', icon: Music, image: 'https://images.unsplash.com/photo-1470229722913-7c090be5f524?auto=format&fit=crop&w=300&q=80' },
+    { id: 'إضاءة ومؤثرات', name: 'إضاءة ومؤثرات', label: 'الإضاءة وهندسة الصوت', icon: Zap, image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=300&q=80' },
+    { id: 'تنظيم وأمن', name: 'تنظيم وعبايات', label: 'الأمن وتنظيم العبايات', icon: ShieldCheck, image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=300&q=80' },
+  ], []);
+
+  // Filtered services (up to 30 items) based on active category
+  const allFilteredServices = useMemo(() => {
+    const active = servicesList.filter(s => (s as any).status !== 'blocked' && (s as any).activationStatus !== 'موقوف');
+    if (selectedServiceCategory === 'all') {
+      return active.slice(0, 30);
+    }
+    const catFiltered = active.filter(s => {
+      const cat = (s.category || '').toLowerCase();
+      const cls = (s.classification || '').toLowerCase();
+      const name = (s.name || '').toLowerCase();
+      
+      if (selectedServiceCategory === 'بوفيه وضيافة') {
+        return cat.includes('ضيافة') || cat.includes('بوفيه') || cls.includes('ضيافة') || name.includes('ضيافة') || name.includes('بوفيه') || name.includes('قهوة');
+      }
+      if (selectedServiceCategory === 'تصوير') {
+        return cat.includes('تصوير') || cls.includes('تصوير') || name.includes('تصوير') || name.includes('فوتو') || name.includes('سينمائي');
+      }
+      if (selectedServiceCategory === 'تنسيق قاعات') {
+        return cat.includes('تنسيق') || cat.includes('كوش') || cls.includes('تنسيق') || name.includes('كوش') || name.includes('زهور') || name.includes('ورد');
+      }
+      if (selectedServiceCategory === 'دي جي وفِرق') {
+        return cat.includes('دي جي') || cat.includes('فرق') || cls.includes('دي جي') || name.includes('دي جي') || name.includes('فرقة') || name.includes('ألحان') || name.includes('صوت');
+      }
+      if (selectedServiceCategory === 'إضاءة ومؤثرات') {
+        return cat.includes('إضاءة') || cat.includes('مؤثرات') || cls.includes('إضاءة') || name.includes('إضاءة') || name.includes('ليزر') || name.includes('دخان');
+      }
+      if (selectedServiceCategory === 'تنظيم وأمن') {
+        return cat.includes('تنظيم') || cat.includes('أمن') || cls.includes('تنظيم') || name.includes('أمن') || name.includes('عبايات') || name.includes('استقبال');
+      }
+      return s.category === selectedServiceCategory;
+    });
+
+    if (catFiltered.length < 5) {
+      const remaining = active.filter(s => !catFiltered.some(c => c.id === s.id));
+      return [...catFiltered, ...remaining].slice(0, 30);
+    }
+    return catFiltered.slice(0, 30);
+  }, [servicesList, selectedServiceCategory]);
+
+  // Current visible 5 golden cards
+  const visibleServices = useMemo(() => {
+    const total = allFilteredServices.length;
+    if (total === 0) return [];
+    if (total <= 5) return allFilteredServices;
+    const start = Math.min(serviceCarouselIndex, Math.max(0, total - 5));
+    return allFilteredServices.slice(start, start + 5);
+  }, [allFilteredServices, serviceCarouselIndex]);
+
+  const handlePrevServices = () => {
+    setServiceCarouselIndex(prev => {
+      if (prev <= 0) {
+        return Math.max(0, allFilteredServices.length - 5);
+      }
+      return Math.max(0, prev - 5);
+    });
+  };
+
+  const handleNextServices = () => {
+    setServiceCarouselIndex(prev => {
+      if (prev + 5 >= allFilteredServices.length) {
+        return 0;
+      }
+      return Math.min(Math.max(0, allFilteredServices.length - 5), prev + 5);
+    });
+  };
 
   /**
    * دالة مساعدة لحساب عدد القاعات المتاحة لكل مدينة أو منطقة من قاعدة البيانات السحابية
@@ -1573,160 +1714,753 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4. Featured Halls */}
-      <section className="py-16 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="flex justify-between items-end mb-8">
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-blue-950 mb-2">أبرز القاعات والاستراحات</h2>
-              <p className="text-slate-500 text-xs sm:text-sm">استكشف أفضل الوجهات الموصى بها لمناسبتك القادمة</p>
+      {/* 4. Featured Halls - Ultra Compact Asymmetric Bento Grid (Under 720px Total Height, All 7 Cards Visible, No Amenities) */}
+      <section className="py-5 sm:py-6 bg-slate-50 border-b border-slate-200/80">
+        <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 md:px-6">
+          
+          {/* Header Row: Compact Header with Sparkle and Explore Map Link */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-3.5">
+            {/* Right: Title */}
+            <div className="text-right">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-400 shrink-0" />
+                <h2 className="text-lg sm:text-xl font-black text-blue-950 tracking-tight">
+                  أبرز القاعات
+                </h2>
+              </div>
+              <p className="text-slate-500 text-[11px] font-medium">
+                اكتشف أرقى القاعات والاستراحات والمنتجعات المناسبة لكل مناسباتك
+              </p>
             </div>
-            <Link to="/explore" className="hidden sm:inline-flex border border-amber-500 text-amber-600 hover:bg-amber-50 px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors">
-              عرض الكل
+
+            {/* Left: Map Explorer Button */}
+            <Link
+              to="/explore?view=map"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-950 hover:bg-blue-900 text-white text-[11px] font-bold shadow-xs hover:shadow-sm transition-all hover:scale-[1.02] active:scale-95 border border-blue-900"
+            >
+              <span>استكشاف خريطة القاعات</span>
+              <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
             </Link>
           </div>
 
-          {/* 2 * 4 Showcase Carousel with Floating Circular Navigation Arrows (No Text) */}
-          <div className="relative group">
-            {/* Right Floating Circular Arrow (السابق - يمين) */}
-            <button
-              onClick={() => scrollFeaturedHalls('right')}
-              className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 flex items-center justify-center backdrop-blur-xs transition-all hover:scale-110 cursor-pointer hover:border-amber-400 hover:text-amber-600 active:scale-95"
-              aria-label="السابق"
-              title="السابق"
-            >
-              <ChevronRight className="w-6 h-6 stroke-[2.5]" />
-            </button>
+          {/* Bento Grid Container */}
+          {(() => {
+            if (!featuredHalls || featuredHalls.length === 0) {
+              return (
+                <div className="bg-white rounded-xl p-6 text-center border border-slate-200 shadow-xs text-slate-500">
+                  <p className="font-bold text-xs">لا توجد قاعات متاحة للعرض حالياً</p>
+                </div>
+              );
+            }
 
-            {/* Left Floating Circular Arrow (التالي - يسار) */}
-            <button
-              onClick={() => scrollFeaturedHalls('left')}
-              className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 flex items-center justify-center backdrop-blur-xs transition-all hover:scale-110 cursor-pointer hover:border-amber-400 hover:text-amber-600 active:scale-95"
-              aria-label="التالي"
-              title="التالي"
-            >
-              <ChevronLeft className="w-6 h-6 stroke-[2.5]" />
-            </button>
+            // Up to 8 Featured Halls for the Bento Composition
+            const h1 = featuredHalls[0] || featuredHalls[0];
+            const h2 = featuredHalls[1] || featuredHalls[0];
+            const h3 = featuredHalls[2] || featuredHalls[0]; // Tall Right Portrait Hall
+            const h4 = featuredHalls[3] || featuredHalls[0];
+            const h4_extra = featuredHalls[7] || featuredHalls[3] || featuredHalls[0]; // Extra Middle Card between h4 & h5
+            const h5 = featuredHalls[4] || featuredHalls[0];
+            const h6 = featuredHalls[5] || featuredHalls[0];
+            const h7 = featuredHalls[6] || featuredHalls[0];
 
-            {/* 2 Rows x 4 Columns per View Horizontal Scroll Grid with No Scrollbars */}
-            <div
-              ref={featuredScrollRef}
-              className="grid grid-rows-2 auto-cols-[calc(100%-8px)] sm:auto-cols-[calc(50%-10px)] md:auto-cols-[calc(33.333%-12px)] lg:auto-cols-[calc(25%-12px)] grid-flow-col gap-3.5 sm:gap-4 overflow-x-auto scroll-smooth scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory py-2 px-1"
-            >
-              {featuredHalls.map((hall) => {
-                const basePrice = Number(hall.price) || 2000;
-                const morningPrice = hall.morningPrice || Math.floor(basePrice * 0.6);
-                const nightPrice = hall.nightPrice || Math.floor(basePrice * 0.8);
-                const fullDayPrice = hall.fullDayPrice || Math.floor(basePrice * 1.3);
+            const getPrices = (hall: any) => {
+              const base = Number(hall?.price) || 2000;
+              const morning = hall?.morningPrice || Math.floor(base * 0.6);
+              const evening = hall?.nightPrice || Math.floor(base * 0.85);
+              const fullDay = hall?.fullDayPrice || Math.floor(base * 1.35);
+              return { morning, evening, fullDay };
+            };
 
-                return (
-                  <div 
-                    key={hall.id} 
-                    className="bg-white rounded-2xl overflow-hidden shadow-2xs hover:shadow-xl transition-all duration-300 border border-slate-100 hover:border-amber-200/70 group/card flex flex-col justify-between snap-start"
-                  >
-                    {/* Compact Image Container */}
-                    <div className="relative h-40 sm:h-44 overflow-hidden shrink-0">
-                      <img 
-                        src={hall.image} 
-                        alt={hall.name} 
-                        className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <FavoriteHeartButton hallId={hall.id} />
-                      <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
-                      <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start z-10 pl-12">
-                        <PricingPatternBadge bookingType={hall.bookingType} />
+            const getRatingCount = (hall: any) => {
+              const seed = (String(hall?.name || '').length * 37) % 350 + 120;
+              return hall?.reviewsCount || seed;
+            };
+
+            return (
+              <div className="space-y-2.5 select-none">
+                
+                {/* Upper Grid: 1 Tall Card on Right (3 cols on lg / h3 in RTL) + Left/Middle Cards Area (9 cols on lg) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
+                  
+                  {/* Right Block: Tall Grand Portrait Hall Card (Spans 3 Cols on lg -25% width for sleek ratio, sits on Right in RTL) */}
+                  {h3 && (() => {
+                    const p = getPrices(h3);
+                    const rCount = getRatingCount(h3);
+                    return (
+                      <div 
+                        onClick={() => navigate(`/hall/${h3.id}`)}
+                        className="lg:col-span-3 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                      >
+                        {/* Tall Image with Concave Scoop and Name Overlay */}
+                        <div className="relative h-48 sm:h-52 lg:h-[245px] overflow-hidden bg-slate-900 shrink-0">
+                          <img 
+                            src={h3.image} 
+                            alt={h3.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{h3.rating || '4.9'}</span>
+                            <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                          </div>
+
+                          {/* Hall Name & Shield with increased font and +5px bottom margin (bottom-[19px]) */}
+                          <div className="absolute bottom-[19px] right-3 left-3 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                              {h3.name}
+                            </h3>
+                          </div>
+
+                          <svg className="absolute -bottom-0.5 inset-x-0 w-full h-5 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 35" preserveAspectRatio="none">
+                            <path d="M0,35 L0,18 Q120,30 220,10 T400,0 L400,35 Z" />
+                          </svg>
+                        </div>
+
+                        {/* Tall Card Details */}
+                        <div className="p-2.5 pt-1 flex flex-col justify-between flex-grow">
+                          <div>
+                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                              <div className="flex items-center gap-1 truncate max-w-[60%]">
+                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="truncate">{h3.city || 'الدمام'}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
+                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <span>حتى {h3.capacity || '1000'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Pricing & Action */}
+                          <div>
+                            <div className="grid grid-cols-3 divide-x divide-x-reverse divide-slate-200 text-center py-1 border-t border-slate-100 mb-1.5">
+                              <div>
+                                <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
+                                <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="block text-[8.5px] text-slate-500 font-bold">مساء</span>
+                                <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="block text-[8.5px] text-slate-500 font-bold">صباح</span>
+                                <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.morning.toLocaleString()}</span>
+                              </div>
+                            </div>
+
+                            <Link
+                              to={`/hall/${h3.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                            >
+                              <span>عرض التفاصيل</span>
+                              <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-1 transition-transform" />
+                            </Link>
+                          </div>
+                        </div>
                       </div>
-                      <div className="absolute top-3 right-16 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-2xs z-10">
-                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
-                      </div>
+                    );
+                  })()}
+
+                  {/* Left & Middle Cards Grid (Spans 9 Cols on Desktop / Adjusted for +25% room from h3) */}
+                  <div className="lg:col-span-9 flex flex-col gap-2.5">
+                    
+                    {/* Top Sub-Row: h1 (5 cols) + h2 (7 cols) */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                      
+                      {/* Card 1 (Top-Left / h1) */}
+                      {h1 && (() => {
+                        const p = getPrices(h1);
+                        const rCount = getRatingCount(h1);
+                        return (
+                          <div 
+                            onClick={() => navigate(`/hall/${h1.id}`)}
+                            className="md:col-span-5 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                          >
+                            {/* Compact Image Container with Hall Name Overlay & Wave Cutout */}
+                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
+                              <img 
+                                src={h1.image} 
+                                alt={h1.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              {/* Top & Bottom Gradient Shadows for High Contrast */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                              {/* Rating Float Badge (Top-Right in RTL) */}
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>{h1.rating || '4.9'}</span>
+                                <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                              </div>
+
+                              {/* Hall Name & Shield inside the Image (+3px bottom margin -> bottom-[17px]) */}
+                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                                <h3 className="text-[15px] sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                  {h1.name}
+                                </h3>
+                              </div>
+
+                              {/* Organic Wave Cutout */}
+                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
+                                <path d="M0,30 L0,12 Q130,28 240,12 T400,0 L400,30 Z" />
+                              </svg>
+                            </div>
+
+                            {/* Content Details */}
+                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
+                              <div>
+                                {/* Location & Capacity in Single Balanced Row */}
+                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate">{h1.city || 'الرياض'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span>حتى {h1.capacity || '800'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Pricing Row & Details Action */}
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <Link
+                                  to={`/hall/${h1.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                >
+                                  <span>التفاصيل</span>
+                                  <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                                </Link>
+
+                                <div className="flex items-center gap-1.5 text-center">
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-px h-3.5 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">مساء</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-px h-3.5 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">صباح</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.morning.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Card 2 (Top-Right / h2) */}
+                      {h2 && (() => {
+                        const p = getPrices(h2);
+                        const rCount = getRatingCount(h2);
+                        return (
+                          <div 
+                            onClick={() => navigate(`/hall/${h2.id}`)}
+                            className="md:col-span-7 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                          >
+                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
+                              <img 
+                                src={h2.image} 
+                                alt={h2.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>{h2.rating || '4.8'}</span>
+                                <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                              </div>
+
+                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                                <h3 className="text-sm sm:text-[15px] font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                  {h2.name}
+                                </h3>
+                              </div>
+
+                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
+                                <path d="M0,30 L0,0 Q160,26 270,10 T400,16 L400,30 Z" />
+                              </svg>
+                            </div>
+
+                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
+                              <div>
+                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                                  <div className="flex items-center gap-1 truncate max-w-[62%]">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate">{h2.city || 'جدة'} - {h2.location || 'حي الشاطئ'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span>حتى {h2.capacity || '600'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                                <Link
+                                  to={`/hall/${h2.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                                >
+                                  <span>التفاصيل</span>
+                                  <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                                </Link>
+
+                                <div className="flex items-center gap-2 text-center">
+                                  <div>
+                                    <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
+                                    <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                                  </div>
+                                  <div className="w-px h-4 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[9px] text-slate-500 font-bold">مسائية</span>
+                                    <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                                  </div>
+                                  <div className="w-px h-4 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[9px] text-slate-500 font-bold">صباحية</span>
+                                    <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.morning.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
-                    {/* Compact Content Details */}
-                    <div className="p-3.5 sm:p-4 flex-grow flex flex-col justify-between">
-                      <div>
-                        {/* Title & Rating */}
-                        <div className="flex justify-between items-start mb-1 gap-1.5">
-                          <h3 className="text-sm sm:text-base font-bold text-blue-950 flex items-center gap-1.5 line-clamp-1 group-hover/card:text-amber-600 transition-colors">
-                            <span className="truncate">{hall.name}</span>
-                            {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
-                              <button 
-                                onClick={(e) => openProviderChat(e, hall.provider, hall.name)} 
-                                className="text-amber-500 hover:text-amber-600 transition-colors p-0.5 shrink-0" 
-                                title="مراسلة المزود"
-                              >
-                                <MessageCircle className="w-4 h-4" />
-                              </button>
-                            )}
-                          </h3>
-                          <div className="flex items-center gap-1 text-xs font-black text-slate-800 shrink-0 bg-amber-50/80 px-1.5 py-0.5 rounded-md border border-amber-100/60">
-                            <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                            {hall.rating}
+                    {/* Middle Sub-Row: 3 Cards (h4 on left + h4_extra in middle + h5 on right) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      
+                      {/* Card 4 (Mid-Left / h4) */}
+                      {h4 && (() => {
+                        const p = getPrices(h4);
+                        const rCount = getRatingCount(h4);
+                        return (
+                          <div 
+                            onClick={() => navigate(`/hall/${h4.id}`)}
+                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                          >
+                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
+                              <img 
+                                src={h4.image} 
+                                alt={h4.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>{h4.rating || '4.7'}</span>
+                                <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                              </div>
+
+                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                  {h4.name}
+                                </h3>
+                              </div>
+
+                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
+                                <path d="M0,30 L0,14 Q140,24 260,8 T400,20 L400,30 Z" />
+                              </svg>
+                            </div>
+
+                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
+                              <div>
+                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate">{h4.city || 'الرياض'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span>حتى {h4.capacity || '300'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <Link
+                                  to={`/hall/${h4.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                >
+                                  <span>التفاصيل</span>
+                                  <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                                </Link>
+
+                                <div className="flex items-center gap-1.5 text-center">
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-px h-3.5 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">مساء</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        );
+                      })()}
 
-                        {/* Location */}
-                        <p className="text-slate-500 text-xs mb-2 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{hall.location}</span>
-                        </p>
+                      {/* Card Added Between h4 and h5 (Mid-Center / h4_extra) */}
+                      {h4_extra && (() => {
+                        const p = getPrices(h4_extra);
+                        const rCount = getRatingCount(h4_extra);
+                        return (
+                          <div 
+                            onClick={() => navigate(`/hall/${h4_extra.id}`)}
+                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                          >
+                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
+                              <img 
+                                src={h4_extra.image} 
+                                alt={h4_extra.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
 
-                        {/* Soft light gray horizontal divider line above pricing */}
-                        <div className="border-t border-slate-100 my-2.5"></div>
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>{h4_extra.rating || '4.9'}</span>
+                                <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                              </div>
 
-                        {/* Transparent Pricing Periods with Soft Vertical Line Dividers */}
-                        <div className="grid grid-cols-3 divide-x divide-x-reverse divide-slate-200/80 text-center py-0.5">
-                          {/* Morning Period */}
-                          <div className="px-1 flex flex-col items-center justify-center">
-                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">الصباحية</span>
-                            <span className="text-xs font-black text-blue-950 leading-tight">
-                              {morningPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
-                            </span>
+                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                  {h4_extra.name}
+                                </h3>
+                              </div>
+
+                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
+                                <path d="M0,30 L0,10 Q200,26 400,8 L400,30 Z" />
+                              </svg>
+                            </div>
+
+                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
+                              <div>
+                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate">{h4_extra.city || 'الدمام'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span>حتى {h4_extra.capacity || '500'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <Link
+                                  to={`/hall/${h4_extra.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                >
+                                  <span>التفاصيل</span>
+                                  <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                                </Link>
+
+                                <div className="flex items-center gap-1.5 text-center">
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-px h-3.5 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">مساء</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
+                        );
+                      })()}
 
-                          {/* Evening Period */}
-                          <div className="px-1 flex flex-col items-center justify-center">
-                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">المسائية</span>
-                            <span className="text-xs font-black text-blue-950 leading-tight">
-                              {nightPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
-                            </span>
+                      {/* Card 5 (Mid-Right / h5) */}
+                      {h5 && (() => {
+                        const p = getPrices(h5);
+                        const rCount = getRatingCount(h5);
+                        return (
+                          <div 
+                            onClick={() => navigate(`/hall/${h5.id}`)}
+                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                          >
+                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
+                              <img 
+                                src={h5.image} 
+                                alt={h5.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                <span>{h5.rating || '4.8'}</span>
+                                <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
+                              </div>
+
+                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                  {h5.name}
+                                </h3>
+                              </div>
+
+                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
+                                <path d="M0,30 L0,6 Q180,28 300,12 T400,2 L400,30 Z" />
+                              </svg>
+                            </div>
+
+                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
+                              <div>
+                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span className="truncate">{h5.city || 'الخبر'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
+                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                    <span>حتى {h5.capacity || '700'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                                <Link
+                                  to={`/hall/${h5.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                >
+                                  <span>التفاصيل</span>
+                                  <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                                </Link>
+
+                                <div className="flex items-center gap-1.5 text-center">
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-px h-3.5 bg-slate-200" />
+                                  <div>
+                                    <span className="block text-[8.5px] text-slate-500 font-bold">مساء</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-
-                          {/* Full Day Period */}
-                          <div className="px-1 flex flex-col items-center justify-center">
-                            <span className="text-[10px] text-slate-400 font-bold mb-0.5">اليوم كاملاً</span>
-                            <span className="text-xs font-black text-orange-600 leading-tight">
-                              {fullDayPrice.toLocaleString()} <span className="text-[8px] font-normal text-slate-400">ريال</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Card Footer: Clean Capacity (الاستيعاب بدون مربع وبدون إطار وخلفية شفافة) + Details Button */}
-                      <div className="flex justify-between items-center pt-3 border-t border-slate-100 mt-2.5">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
-                          <Users className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>
-                            الاستيعاب: <strong className="text-amber-600 font-black">{hall.capacity || '500'}</strong> شخص
-                          </span>
-                        </div>
-                        <Link 
-                          to={`/hall/${hall.id}`} 
-                          className="bg-blue-950 hover:bg-amber-500 text-white hover:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-all hover:-translate-y-0.5 shrink-0"
-                        >
-                          التفاصيل
-                        </Link>
-                      </div>
+                        );
+                      })()}
                     </div>
+
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
+
+                {/* Bottom Row: 2 Panoramic Split Bento Cards (Left Card 5 cols, Right Card 7 cols) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
+                  
+                  {/* Bottom-Left Card (Spans 5 Cols on lg / h6) */}
+                  {h6 && (() => {
+                    const p = getPrices(h6);
+                    const rCount = getRatingCount(h6);
+                    return (
+                      <div 
+                        onClick={() => navigate(`/hall/${h6.id}`)}
+                        className="lg:col-span-5 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row justify-between cursor-pointer hover:border-amber-300"
+                      >
+                        <div className="relative sm:w-2/5 h-26 sm:h-auto overflow-hidden bg-slate-900 shrink-0">
+                          <img 
+                            src={h6.image} 
+                            alt={h6.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 pointer-events-none" />
+
+                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                            <span>{h6.rating || '4.6'}</span>
+                          </div>
+
+                          <div className="absolute bottom-[15px] right-2.5 left-2.5 z-10 flex items-center gap-1 drop-shadow-md">
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <h3 className="text-sm sm:text-[15px] font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                              {h6.name}
+                            </h3>
+                          </div>
+
+                          <svg className="hidden sm:block absolute -left-0.5 inset-y-0 h-full w-3.5 text-white fill-current pointer-events-none z-0" viewBox="0 0 20 100" preserveAspectRatio="none">
+                            <path d="M20,0 L0,0 Q18,50 0,100 L20,100 Z" />
+                          </svg>
+                        </div>
+
+                        <div className="p-2.5 sm:w-3/5 flex flex-col justify-between flex-grow">
+                          <div>
+                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                              <div className="flex items-center gap-1 truncate max-w-[60%]">
+                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="truncate">{h6.city || 'الرياض'} - {h6.location || 'حي العليا'}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
+                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <span>حتى {h6.capacity || '450'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                            <Link
+                              to={`/hall/${h6.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                            >
+                              <span>التفاصيل</span>
+                              <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                            </Link>
+
+                            <div className="flex items-center gap-2 text-center">
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                              <div className="w-px h-4 bg-slate-200" />
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">مسائية</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                              <div className="w-px h-4 bg-slate-200" />
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">صباحية</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.morning.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Bottom-Right Panoramic Grand Card (Spans 7 Cols on lg / h7) */}
+                  {h7 && (() => {
+                    const p = getPrices(h7);
+                    const rCount = getRatingCount(h7);
+                    return (
+                      <div 
+                        onClick={() => navigate(`/hall/${h7.id}`)}
+                        className="lg:col-span-7 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row justify-between cursor-pointer hover:border-amber-300"
+                      >
+                        {/* Panoramic Image on Right in RTL */}
+                        <div className="relative sm:w-[45%] h-26 sm:h-auto overflow-hidden bg-slate-900 shrink-0">
+                          <img 
+                            src={h7.image} 
+                            alt={h7.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 pointer-events-none" />
+
+                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                            <span>{h7.rating || '4.9'}</span>
+                          </div>
+
+                          <div className="absolute bottom-[15px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                            <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                              {h7.name}
+                            </h3>
+                          </div>
+
+                          <svg className="hidden sm:block absolute -left-0.5 inset-y-0 h-full w-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 30 100" preserveAspectRatio="none">
+                            <path d="M30,0 L0,0 Q22,50 0,100 L30,100 Z" />
+                          </svg>
+                        </div>
+
+                        {/* Panoramic Content on Left */}
+                        <div className="p-2.5 sm:w-[55%] flex flex-col justify-between flex-grow">
+                          <div>
+                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
+                              <div className="flex items-center gap-1 truncate max-w-[65%]">
+                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="truncate">{h7.city || 'جدة'} - {h7.location || 'أبحر الشمالية'}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
+                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <span>حتى {h7.capacity || '1200'}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bottom Pricing Row & Action */}
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                            <Link
+                              to={`/hall/${h7.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                            >
+                              <span>التفاصيل</span>
+                              <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
+                            </Link>
+
+                            <div className="flex items-center gap-2 text-center">
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                              <div className="w-px h-4 bg-slate-200" />
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">مسائية</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.evening.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                              <div className="w-px h-4 bg-slate-200" />
+                              <div>
+                                <span className="block text-[9px] text-slate-500 font-bold">صباحية</span>
+                                <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.morning.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                </div>
+
+              </div>
+            );
+          })()}
+
         </div>
       </section>
 
-      {/* 5. First Triple Ad section */}
+      {/* 6. First Triple Ad section */}
       <section className="py-8 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1737,8 +2471,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. Discover Halls By Region - Metro UI 90-Degree Layout */}
+      {/* 6. Discover Halls By Region - Metro UI Full-Width Edge-to-Edge Adaptive Layout */}
       <section className="py-12 bg-slate-50 border-y border-slate-200/80 relative overflow-hidden">
+        {/* Header Container (Comfortably padded inside max container) */}
         <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6">
           
           {/* Header Row: Title & Emoji strictly on the RIGHT, Map Explorer Button strictly on the LEFT */}
@@ -1820,315 +2555,308 @@ export default function HomePage() {
               </div>
             </div>
           )}
+        </div>
 
-          {/* Metro Grid Container with Floating Circular Navigation Arrows */}
-          <div className="relative group/metro">
-            
-            {/* Right Circular Floating Navigation Button (السابق) - Navigates across main geographic regions */}
-            <button
-              onClick={handlePrevMetroTab}
-              className="absolute -right-2 sm:-right-4 lg:-right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
-              title="المنطقة السابقة"
-              aria-label="المنطقة السابقة"
-            >
-              <ChevronRight className="w-6 h-6 text-slate-800 stroke-[2.5]" />
-            </button>
+        {/* Full-Width Edge-to-Edge Metro Grid Container with Floating Circular Navigation Arrows */}
+        <div className="relative w-full group/metro my-2 overflow-hidden">
+          
+          {/* Right Circular Floating Navigation Button (السابق) */}
+          <button
+            onClick={handlePrevMetroTab}
+            className="absolute right-3 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+            title="السابق"
+            aria-label="السابق"
+          >
+            <ChevronRight className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+          </button>
 
-            {/* Left Circular Floating Navigation Button (التالي) - Navigates across main geographic regions */}
-            <button
-              onClick={handleNextMetroTab}
-              className="absolute -left-2 sm:-left-4 lg:-left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
-              title="المنطقة التالية"
-              aria-label="المنطقة التالية"
-            >
-              <ChevronLeft className="w-6 h-6 text-slate-800 stroke-[2.5]" />
-            </button>
+          {/* Left Circular Floating Navigation Button (التالي) */}
+          <button
+            onClick={handleNextMetroTab}
+            className="absolute left-3 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+            title="التالي"
+            aria-label="التالي"
+          >
+            <ChevronLeft className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+          </button>
 
-            {/* Dynamic Metro UI 90-degree Grid (480px height on md+, connected tiles) */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 h-auto md:h-[480px] w-full select-none">
-              
-              {/* Tile 1: Hero Tile (Spans Col-Span-4, Full 480px Height) */}
-              {currentTiles[0] && (
+          {/* Dynamic Adaptive Metro Grid (Full-Width Edge-to-Edge with Automatic Page Pattern Shifting) */}
+          {(() => {
+            const count = currentTiles.length;
+            if (count === 0) {
+              return (
+                <div className="w-full py-16 text-center text-slate-500 bg-white/50">
+                  <MapPin className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm font-bold">لا توجد مدن مضافة حالياً في هذا النطاق</p>
+                </div>
+              );
+            }
+
+            const renderMetroTile = (tile: any, isHero: boolean = false, customClass: string = '') => {
+              if (!tile) return null;
+              return (
                 <div 
+                  key={tile.id || tile.title}
                   onClick={() => {
-                    const target = currentTiles[0];
-                    const query = target.city 
-                      ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
-                      : `/explore?region=${encodeURIComponent(target.query)}`;
+                    const query = tile.city 
+                      ? `/explore?region=${encodeURIComponent(tile.query)}&city=${encodeURIComponent(tile.city)}`
+                      : `/explore?region=${encodeURIComponent(tile.query)}`;
                     navigate(query);
                   }}
-                  className="group/tile relative md:col-span-4 h-[320px] md:h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
+                  className={`group/tile relative overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-xs hover:shadow-lg ring-0 hover:ring-2 hover:ring-amber-400 select-none min-h-0 min-w-0 ${customClass}`}
                 >
                   <img 
-                    src={currentTiles[0].image} 
-                    alt={currentTiles[0].title} 
+                    src={tile.image} 
+                    alt={tile.title} 
                     className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500" />
 
                   {/* Top Info: Title, Subtitle, & Map Pin + Count */}
-                  <div className="absolute top-5 right-5 text-right z-10">
+                  <div className={`absolute ${isHero ? 'top-5 sm:top-7 right-5 sm:right-7' : 'top-3.5 sm:top-4 right-3.5 sm:right-4'} text-right z-10 max-w-[85%]`}>
                     <div className="flex items-center gap-2 justify-end mb-1">
-                      <h3 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">{currentTiles[0].title}</h3>
-                      <MapPin className="w-6 h-6 text-amber-400 shrink-0 drop-shadow" />
+                      <h3 className={`${isHero ? 'text-2xl sm:text-3xl lg:text-4xl' : 'text-base sm:text-lg lg:text-xl'} font-black text-white drop-shadow-md truncate`}>
+                        {tile.title}
+                      </h3>
+                      <MapPin className={`${isHero ? 'w-6 h-6 sm:w-7 sm:h-7' : 'w-4 h-4 sm:w-5 sm:h-5'} text-amber-400 shrink-0 drop-shadow`} />
                     </div>
-                    {currentTiles[0].subtitle && (
-                      <p className="text-xs text-amber-200/90 font-medium mb-2 drop-shadow-sm">{currentTiles[0].subtitle}</p>
+                    {tile.subtitle && (
+                      <p className={`${isHero ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'} text-amber-200/90 font-medium mb-1.5 drop-shadow-sm truncate`}>
+                        {tile.subtitle}
+                      </p>
                     )}
                     <div className="text-right">
-                      <span className="text-2xl sm:text-3xl font-black text-white font-mono leading-none block">{currentTiles[0].count}</span>
-                      <span className="text-xs font-bold text-slate-300">قاعة ومنتجع متاح</span>
+                      <span className={`${isHero ? 'text-2xl sm:text-3xl lg:text-4xl' : 'text-base sm:text-xl'} font-black text-white font-mono leading-none block`}>
+                        {tile.count}
+                      </span>
+                      <span className={`${isHero ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'} font-bold text-slate-300`}>
+                        قاعة ومنتجع متاح
+                      </span>
                     </div>
                   </div>
 
                   {/* Bottom Action Pill */}
-                  <div className="absolute bottom-5 left-5 z-10">
-                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
+                  <div className={`absolute ${isHero ? 'bottom-5 sm:bottom-7 left-5 sm:left-7' : 'bottom-3 sm:bottom-4 left-3 sm:left-4'} z-10`}>
+                    <span className={`inline-flex items-center gap-1.5 ${isHero ? 'px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm' : 'px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs'} bg-black/40 hover:bg-black/65 backdrop-blur-md text-white font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all`}>
                       <span>استكشاف القاعات</span>
-                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
+                      <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform shrink-0" />
                     </span>
                   </div>
                 </div>
-              )}
+              );
+            };
 
-              {/* Column 2: Middle Column (Tiles 1 & 2 in currentTiles array) */}
-              <div className="md:col-span-4 grid grid-rows-2 gap-3 h-[480px]">
-                
-                {/* Tile 2 (Top) */}
-                {currentTiles[1] && (
-                  <div 
-                    onClick={() => {
-                      const target = currentTiles[1];
-                      const query = target.city 
-                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
-                        : `/explore?region=${encodeURIComponent(target.query)}`;
-                      navigate(query);
-                    }}
-                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
-                  >
-                    <img 
-                      src={currentTiles[1].image} 
-                      alt={currentTiles[1].title} 
-                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
+            // Layout Adaptations according to City Count & Page Pattern Index:
+            // 1. Single City
+            if (count === 1) {
+              return (
+                <div className="w-full h-[360px] sm:h-[440px] md:h-[480px] min-h-0">
+                  {renderMetroTile(currentTiles[0], true, 'w-full h-full')}
+                </div>
+              );
+            }
 
-                    <div className="absolute top-4 right-4 text-right z-10">
-                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
-                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[1].title}</h3>
-                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
-                      </div>
-                      {currentTiles[1].subtitle && (
-                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[1].subtitle}</p>
-                      )}
-                      <div className="text-right">
-                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[1].count}</span>
-                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
-                      </div>
-                    </div>
+            // 2. Two Cities (Distinct Proportions: 60% Hero Landscape + 40% Portrait)
+            if (count === 2) {
+              const isEven = metroPageIndex % 2 === 0;
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full min-h-0">
+                  {isEven ? (
+                    <>
+                      {renderMetroTile(currentTiles[0], true, 'md:col-span-7 h-[300px] md:h-full')}
+                      {renderMetroTile(currentTiles[1], true, 'md:col-span-5 h-[300px] md:h-full')}
+                    </>
+                  ) : (
+                    <>
+                      {renderMetroTile(currentTiles[0], true, 'md:col-span-5 h-[300px] md:h-full')}
+                      {renderMetroTile(currentTiles[1], true, 'md:col-span-7 h-[300px] md:h-full')}
+                    </>
+                  )}
+                </div>
+              );
+            }
 
-                    <div className="absolute bottom-4 left-4 z-10">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
-                        <span>استكشاف</span>
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tile 3 (Bottom) */}
-                {currentTiles[2] && (
-                  <div 
-                    onClick={() => {
-                      const target = currentTiles[2];
-                      const query = target.city 
-                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
-                        : `/explore?region=${encodeURIComponent(target.query)}`;
-                      navigate(query);
-                    }}
-                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
-                  >
-                    <img 
-                      src={currentTiles[2].image} 
-                      alt={currentTiles[2].title} 
-                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
-
-                    <div className="absolute top-4 right-4 text-right z-10">
-                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
-                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[2].title}</h3>
-                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
-                      </div>
-                      {currentTiles[2].subtitle && (
-                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[2].subtitle}</p>
-                      )}
-                      <div className="text-right">
-                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[2].count}</span>
-                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
-                      </div>
-                    </div>
-
-                    <div className="absolute bottom-4 left-4 z-10">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
-                        <span>استكشاف</span>
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
-                      </span>
+            // 3. Three Cities: Varied Asymmetric Tiles
+            if (count === 3) {
+              const isEven = metroPageIndex % 2 === 0;
+              if (isEven) {
+                // Pattern A: Right Grand Hero (7 cols) + Left 2 Stacked Cards (5 cols)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full min-h-0">
+                    {renderMetroTile(currentTiles[0], true, 'md:col-span-7 h-[300px] md:h-full')}
+                    <div className="md:col-span-5 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                      {renderMetroTile(currentTiles[1], false, 'h-full')}
+                      {renderMetroTile(currentTiles[2], false, 'h-full')}
                     </div>
                   </div>
-                )}
-
-              </div>
-
-              {/* Column 3: Right Column (Tiles 3 & 4 in currentTiles array) */}
-              <div className="md:col-span-4 grid grid-rows-2 gap-3 h-[480px]">
-                
-                {/* Tile 4 (Top) */}
-                {currentTiles[3] && (
-                  <div 
-                    onClick={() => {
-                      const target = currentTiles[3];
-                      const query = target.city 
-                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
-                        : `/explore?region=${encodeURIComponent(target.query)}`;
-                      navigate(query);
-                    }}
-                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
-                  >
-                    <img 
-                      src={currentTiles[3].image} 
-                      alt={currentTiles[3].title} 
-                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
-
-                    <div className="absolute top-4 right-4 text-right z-10">
-                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
-                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[3].title}</h3>
-                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
-                      </div>
-                      {currentTiles[3].subtitle && (
-                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[3].subtitle}</p>
-                      )}
-                      <div className="text-right">
-                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[3].count}</span>
-                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
-                      </div>
+                );
+              } else {
+                // Pattern B: Left 2 Stacked (5 cols) + Right Grand Hero (7 cols)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full min-h-0">
+                    <div className="md:col-span-5 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                      {renderMetroTile(currentTiles[0], false, 'h-full')}
+                      {renderMetroTile(currentTiles[1], false, 'h-full')}
                     </div>
-
-                    <div className="absolute bottom-4 left-4 z-10">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
-                        <span>استكشاف</span>
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
-                      </span>
-                    </div>
+                    {renderMetroTile(currentTiles[2], true, 'md:col-span-7 h-[300px] md:h-full')}
                   </div>
-                )}
+                );
+              }
+            }
 
-                {/* Tile 5 (Bottom) */}
-                {currentTiles[4] && (
-                  <div 
-                    onClick={() => {
-                      const target = currentTiles[4];
-                      const query = target.city 
-                        ? `/explore?region=${encodeURIComponent(target.query)}&city=${encodeURIComponent(target.city)}`
-                        : `/explore?region=${encodeURIComponent(target.query)}`;
-                      navigate(query);
-                    }}
-                    className="group/tile relative h-full overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-md ring-0 hover:ring-2 hover:ring-amber-400"
-                  >
-                    <img 
-                      src={currentTiles[4].image} 
-                      alt={currentTiles[4].title} 
-                      className="w-full h-full object-cover group-hover/tile:scale-105 transition-transform duration-700 ease-out"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/50 group-hover/tile:via-black/20 transition-all duration-500"></div>
-
-                    <div className="absolute top-4 right-4 text-right z-10">
-                      <div className="flex items-center gap-1.5 justify-end mb-0.5">
-                        <h3 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">{currentTiles[4].title}</h3>
-                        <MapPin className="w-5 h-5 text-amber-400 shrink-0 drop-shadow" />
-                      </div>
-                      {currentTiles[4].subtitle && (
-                        <p className="text-[11px] text-amber-200/90 font-medium mb-1 drop-shadow-sm">{currentTiles[4].subtitle}</p>
-                      )}
-                      <div className="text-right">
-                        <span className="text-lg sm:text-xl font-black text-white font-mono leading-none block">{currentTiles[4].count}</span>
-                        <span className="text-[11px] font-bold text-slate-300">قاعة ومنتجع</span>
-                      </div>
+            // 4. Four Cities: Distinct Modular Asymmetric Tile Geometry
+            if (count === 4) {
+              const isEven = metroPageIndex % 2 === 0;
+              if (isEven) {
+                // Pattern A: Right Hero (5 cols) + Middle Top Panorama (4 cols) & Bottom Mini (4 cols) + Left Slim (3 cols)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full min-h-0 select-none">
+                    {renderMetroTile(currentTiles[0], true, 'md:col-span-5 h-[300px] md:h-full')}
+                    <div className="md:col-span-4 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                      {renderMetroTile(currentTiles[1], false, 'h-full')}
+                      {renderMetroTile(currentTiles[2], false, 'h-full')}
                     </div>
-
-                    <div className="absolute bottom-4 left-4 z-10">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/40 hover:bg-black/65 backdrop-blur-md text-white text-xs font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all">
-                        <span>استكشاف</span>
-                        <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform" />
-                      </span>
-                    </div>
+                    {renderMetroTile(currentTiles[3], true, 'md:col-span-3 h-[280px] md:h-full')}
                   </div>
-                )}
+                );
+              } else {
+                // Pattern B: Left Hero (5 cols) + Right 3 Dynamic Tiles (7 cols)
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full min-h-0 select-none">
+                    {renderMetroTile(currentTiles[0], true, 'md:col-span-3 h-[280px] md:h-full')}
+                    <div className="md:col-span-4 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                      {renderMetroTile(currentTiles[1], false, 'h-full')}
+                      {renderMetroTile(currentTiles[2], false, 'h-full')}
+                    </div>
+                    {renderMetroTile(currentTiles[3], true, 'md:col-span-5 h-[300px] md:h-full')}
+                  </div>
+                );
+              }
+            }
 
-              </div>
+            // 5. Five or more Cities: 3 Unique Architectural Tile Formats with Distinct Proportions
+            const pagePattern = metroPageIndex % 3;
 
-            </div>
+            if (pagePattern === 0) {
+              // Pattern 0: Asymmetric Grand Right (Hero 5 cols) + Middle Dual (4 cols) + Left Vertical Slims (3 cols)
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full select-none min-h-0">
+                  {/* Right Grand Hero (5 Columns Full Height) */}
+                  {renderMetroTile(currentTiles[0], true, 'md:col-span-5 h-[300px] md:h-full')}
 
-            {/* Dot Pagination Indicators & City Navigator */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5 px-2">
-              
-              {/* Region Indicators (التبديل السريع بين المناطق) */}
-              <div className="flex items-center gap-1.5 order-2 sm:order-1">
-                {regionTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setSelectedMetroTab(tab.id);
-                      setSelectedSubRegion('all');
-                      setMetroPageIndex(0);
-                    }}
-                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
-                      selectedMetroTab === tab.id 
-                        ? 'w-7 bg-blue-950' 
-                        : 'w-2 bg-slate-300 hover:bg-slate-400'
-                    }`}
-                    aria-label={`تحديد ${tab.label}`}
-                    title={tab.label}
-                  />
-                ))}
-              </div>
+                  {/* Middle Column Stacked (4 Columns) */}
+                  <div className="md:col-span-4 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                    {renderMetroTile(currentTiles[1], false, 'h-full')}
+                    {renderMetroTile(currentTiles[2], false, 'h-full')}
+                  </div>
 
-              {/* City Page Navigator if multiple pages exist for this zone/sub-region */}
-              {totalMetroPages > 1 ? (
-                <div className="flex items-center gap-2 order-1 sm:order-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
-                  <span className="text-xs font-bold text-slate-500">
-                    صفحة {metroPageIndex + 1} من {totalMetroPages}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalMetroPages }).map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setMetroPageIndex(idx)}
-                        className={`h-2.5 transition-all duration-300 rounded-full cursor-pointer ${
-                          metroPageIndex === idx
-                            ? 'w-6 bg-amber-500 shadow-xs'
-                            : 'w-2.5 bg-slate-200 hover:bg-slate-300'
-                        }`}
-                        aria-label={`الصفحة ${idx + 1}`}
-                      />
-                    ))}
+                  {/* Left Column Stacked (3 Columns) */}
+                  <div className="md:col-span-3 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                    {renderMetroTile(currentTiles[3], false, 'h-full')}
+                    {renderMetroTile(currentTiles[4], false, 'h-full')}
                   </div>
                 </div>
-              ) : (
-                <div className="order-1 sm:order-2" />
-              )}
+              );
+            }
 
-              {/* Quick Summary Pill */}
-              <div className="order-3 text-xs font-bold text-slate-500 hidden sm:block">
-                <span>{filteredTiles.length} مدينة ومحافظة متاحة</span>
+            if (pagePattern === 1) {
+              // Pattern 1: Asymmetric Left Hero (5 cols) + Right Stacked (3 cols) + Middle Stacked (4 cols)
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full select-none min-h-0">
+                  {/* Right Column Stacked (3 Columns) */}
+                  <div className="md:col-span-3 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                    {renderMetroTile(currentTiles[0], false, 'h-full')}
+                    {renderMetroTile(currentTiles[1], false, 'h-full')}
+                  </div>
+
+                  {/* Middle Column Stacked (4 Columns) */}
+                  <div className="md:col-span-4 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                    {renderMetroTile(currentTiles[2], false, 'h-full')}
+                    {renderMetroTile(currentTiles[3], false, 'h-full')}
+                  </div>
+
+                  {/* Left Grand Hero (5 Columns Full Height) */}
+                  {renderMetroTile(currentTiles[4], true, 'md:col-span-5 h-[300px] md:h-full')}
+                </div>
+              );
+            }
+
+            // Pattern 2: Center Majestic Pavilion (6 cols) + Flanking Stacked Wings (3 cols + 3 cols)
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-1 md:gap-1.5 h-auto md:h-[480px] w-full select-none min-h-0">
+                {/* Right Wing Stacked (3 Columns) */}
+                <div className="md:col-span-3 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                  {renderMetroTile(currentTiles[0], false, 'h-full')}
+                  {renderMetroTile(currentTiles[1], false, 'h-full')}
+                </div>
+
+                {/* Center Majestic Hero (6 Columns) */}
+                {renderMetroTile(currentTiles[2], true, 'md:col-span-6 h-[300px] md:h-full')}
+
+                {/* Left Wing Stacked (3 Columns) */}
+                <div className="md:col-span-3 grid grid-rows-2 gap-1 md:gap-1.5 h-[420px] md:h-full min-h-0">
+                  {renderMetroTile(currentTiles[3], false, 'h-full')}
+                  {renderMetroTile(currentTiles[4], false, 'h-full')}
+                </div>
               </div>
+            );
+          })()}
+        </div>
+
+        {/* Footer Container: Dot Pagination Indicators, City Navigator & Trust Guarantees Bar */}
+        <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-1">
+            
+            {/* Region Indicators (التبديل السريع بين المناطق) */}
+            <div className="flex items-center gap-1.5 order-2 sm:order-1">
+              {regionTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setSelectedMetroTab(tab.id);
+                    setSelectedSubRegion('all');
+                    setMetroPageIndex(0);
+                  }}
+                  className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
+                    selectedMetroTab === tab.id 
+                      ? 'w-7 bg-blue-950' 
+                      : 'w-2 bg-slate-300 hover:bg-slate-400'
+                  }`}
+                  aria-label={`تحديد ${tab.label}`}
+                  title={tab.label}
+                />
+              ))}
+            </div>
+
+            {/* City Page Navigator if multiple pages exist for this zone/sub-region */}
+            {totalMetroPages > 1 ? (
+              <div className="flex items-center gap-2 order-1 sm:order-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-xs font-bold text-slate-500">
+                  صفحة {metroPageIndex + 1} من {totalMetroPages}
+                </span>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalMetroPages }).map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setMetroPageIndex(idx)}
+                      className={`h-2.5 transition-all duration-300 rounded-full cursor-pointer ${
+                        metroPageIndex === idx
+                          ? 'w-6 bg-amber-500 shadow-xs'
+                          : 'w-2.5 bg-slate-200 hover:bg-slate-300'
+                      }`}
+                      aria-label={`الصفحة ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="order-1 sm:order-2" />
+            )}
+
+            {/* Quick Summary Pill */}
+            <div className="order-3 text-xs font-bold text-slate-500 hidden sm:block">
+              <span>{filteredTiles.length} مدينة ومحافظة متاحة</span>
             </div>
           </div>
 
@@ -2186,6 +2914,360 @@ export default function HomePage() {
 
         </div>
       </section>
+
+      {/* ========================================================================= */}
+      {/* 🚀 قسم الخدمات والتخطيط المطورة: «توليفة التصفح والتخطيط الذكي المكتملة» */}
+      {/* ========================================================================= */}
+      <section className="py-14 sm:py-16 bg-slate-50/70 border-y border-slate-200/80 relative overflow-hidden" id="event-services-planner-section">
+        {/* Subtle Ambient Light Decoration */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-200/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+
+          {/* 1. رأس القسم والعنوان الجذاب (Header & Title) */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+            <div className="text-right">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-700 text-xs font-black mb-2.5 shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                <span>خدمات وتخطيط المناسبات 🌟</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-blue-950 tracking-tight leading-tight">
+                عندك مناسبة وتحتاج خدمة؟!
+              </h2>
+              <p className="text-slate-500 text-xs sm:text-sm md:text-base mt-2 font-medium max-w-2xl leading-relaxed">
+                اكتشف أفضل الخدمات المعتمدة لمناسبتك واطلبها بكل سهولة.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex items-center gap-2 self-start md:self-auto">
+              <Link
+                to="/services"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 text-blue-950 text-xs sm:text-sm font-black rounded-xl border border-slate-200 shadow-xs hover:shadow-md hover:border-amber-400 transition-all duration-300 group cursor-pointer"
+              >
+                <span>استعراض جميع الخدمات</span>
+                <ArrowLeft className="w-4 h-4 text-amber-500 group-hover:-translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+
+          {/* 2. شريط الدوائر السريع (Quick Circular Category Carousel) */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3 sm:gap-6 overflow-x-auto scrollbar-none py-2 px-1 justify-start md:justify-center">
+              {serviceCategories.map((cat) => {
+                const isActive = selectedServiceCategory === cat.id;
+                const Icon = cat.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedServiceCategory(cat.id);
+                      setServiceCarouselIndex(0);
+                    }}
+                    className={`flex flex-col items-center gap-2 group cursor-pointer shrink-0 transition-all duration-300 focus:outline-none`}
+                  >
+                    <div className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full p-0.5 transition-all duration-300 ${
+                      isActive 
+                        ? 'ring-3 ring-amber-500 ring-offset-2 scale-105 shadow-lg shadow-amber-500/25' 
+                        : 'ring-1 ring-slate-200 hover:ring-amber-300 hover:scale-105 shadow-xs'
+                    }`}>
+                      <div className="w-full h-full rounded-full overflow-hidden relative">
+                        <img 
+                          src={cat.image} 
+                          alt={cat.name} 
+                          className="w-full h-full object-cover group-hover:scale-115 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className={`absolute inset-0 transition-all duration-300 flex items-center justify-center ${
+                          isActive 
+                            ? 'bg-blue-950/65' 
+                            : 'bg-black/40 group-hover:bg-black/25'
+                        }`}>
+                          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${
+                            isActive ? 'text-amber-400 scale-110' : 'text-white group-hover:scale-110'
+                          }`} />
+                        </div>
+                      </div>
+                      {isActive && (
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white" />
+                      )}
+                    </div>
+
+                    <span className={`text-[11px] sm:text-xs font-black transition-colors whitespace-nowrap ${
+                      isActive ? 'text-amber-600 font-black' : 'text-slate-600 group-hover:text-blue-950'
+                    }`}>
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* دائرة المزيد - في الجهة المقابلة لدائرة الكل للانتقال المباشر لصفحة الخدمات */}
+              <Link
+                to="/services"
+                className="flex flex-col items-center gap-2 group cursor-pointer shrink-0 transition-all duration-300 focus:outline-none"
+              >
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full p-0.5 transition-all duration-300 ring-1 ring-slate-200 hover:ring-amber-400 hover:scale-105 shadow-xs">
+                  <div className="w-full h-full rounded-full overflow-hidden relative bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950">
+                    <img
+                      src="https://images.unsplash.com/photo-1469371670807-013ccf25f16a?auto=format&fit=crop&w=300&q=80"
+                      alt="المزيد من الخدمات"
+                      className="w-full h-full object-cover opacity-35 group-hover:scale-115 group-hover:opacity-55 transition-all duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-blue-950/60 group-hover:bg-blue-950/30 transition-colors flex items-center justify-center">
+                      <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                  </div>
+                </div>
+
+                <span className="text-[11px] sm:text-xs font-black text-slate-600 group-hover:text-amber-600 transition-colors whitespace-nowrap">
+                  المزيد
+                </span>
+              </Link>
+            </div>
+          </div>
+
+          {/* 3. صف البطاقات الخمسة الذهبية مع أزرار التنقل العائمة */}
+          <div className="relative mb-12">
+            {/* Floating Navigation Controls (Right & Left White Circular Buttons - No Text) */}
+            {allFilteredServices.length > 5 && (
+              <>
+                {/* Right Floating Button (السابق في RTL) */}
+                <button
+                  onClick={handlePrevServices}
+                  aria-label="السابق"
+                  className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                >
+                  <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
+                </button>
+
+                {/* Left Floating Button (التالي في RTL) */}
+                <button
+                  onClick={handleNextServices}
+                  aria-label="التالي"
+                  className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                >
+                  <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
+                </button>
+              </>
+            )}
+
+            {/* 5 Cards Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-stretch">
+              {visibleServices.map((service, sIdx) => {
+                return (
+                  <div
+                    key={service.id || `service-${sIdx}`}
+                    onClick={() => {
+                      setSelectedServiceForDetails(service);
+                      setIsServiceDetailsOpen(true);
+                    }}
+                    className="group relative bg-white rounded-2xl border border-slate-200/90 hover:border-amber-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer hover:-translate-y-1"
+                  >
+                    {/* Top Image Box */}
+                    <div className="relative h-40 sm:h-44 w-full overflow-hidden bg-slate-100">
+                      <img
+                        src={service.image}
+                        alt={service.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+
+                      {/* Rating Badge (Top Right in RTL) */}
+                      <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-black/55 backdrop-blur-md border border-white/20 text-white text-[11px] font-black shadow-xs">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{service.rating || '4.8'}</span>
+                      </div>
+
+                      {/* Category Pill (Top Left in RTL) */}
+                      <div className="absolute top-2.5 left-2.5 z-10">
+                        <span className="px-2 py-0.5 rounded-lg bg-amber-500/95 backdrop-blur-md text-slate-950 text-[10px] font-black shadow-xs">
+                          {service.category}
+                        </span>
+                      </div>
+
+                      {/* Location Badge (Bottom of Image) */}
+                      <div className="absolute bottom-2.5 right-2.5 left-2.5 z-10 flex items-center justify-between text-white text-[11px] font-medium">
+                        <div className="flex items-center gap-1 drop-shadow">
+                          <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                          <span className="truncate">{service.city || 'الرياض'}</span>
+                        </div>
+                        <span className="text-[10px] text-amber-300 font-bold bg-black/40 px-1.5 py-0.5 rounded">معتمد</span>
+                      </div>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-3.5 flex flex-col flex-grow justify-between text-right">
+                      <div>
+                        <h3 className="text-sm sm:text-[15px] font-black text-blue-950 group-hover:text-amber-600 transition-colors line-clamp-1 leading-snug mb-1">
+                          {service.name}
+                        </h3>
+
+                        {/* Provider Info */}
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span className="truncate font-medium">{service.provider}</span>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Order CTA */}
+                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex flex-col text-right">
+                          <span className="text-[10px] text-slate-400 font-bold">السعر يبدأ من</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm sm:text-base font-black text-blue-950 font-mono">
+                              {Number(service.price).toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-normal">ر.س</span>
+                          </div>
+                          <span className="text-[8px] text-emerald-600 font-bold">شامل الضريبة 15%</span>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedServiceForRequest(service);
+                            setIsServiceRequestOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 hover:bg-amber-500 text-amber-700 hover:text-white rounded-xl text-xs font-black border border-amber-200 hover:border-amber-500 transition-all duration-200 shadow-2xs group/btn cursor-pointer"
+                        >
+                          <span>طلب</span>
+                          <ArrowLeft className="w-3 h-3 transition-transform group-hover/btn:-translate-x-0.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 4. شريط/بانر التخطيط الذكي السفلي (Smart Event Planner Bar) - تصميم مخصص فاخر RTL مطابق للصورة */}
+          <div className="relative rounded-3xl overflow-hidden shadow-sm border border-[#eadecc] bg-[#fdfbf7]">
+            <div className="flex flex-col lg:flex-row items-stretch">
+              {/* Right Hero Side (في الجهة اليمنى حسب اتجاه RTL): العنوان + النص + زر ابدأ التخطيط + الرسم الديكوري */}
+              <div className="lg:w-[38%] xl:w-[36%] shrink-0 bg-[#f7f1e6] border-b lg:border-b-0 lg:border-l border-[#ecdcc9] p-6 sm:p-7 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden text-right">
+                <div className="relative z-10 flex flex-col items-start text-right max-w-xs">
+                  <h3 className="text-2xl sm:text-[26px] xl:text-3xl font-black text-[#0c1a30] leading-tight">
+                    خطط لمناسبتك الآن
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium mt-2 leading-relaxed">
+                    سنساعدك في اختيار القاعة<br className="hidden sm:inline" /> والخدمات المناسبة لك
+                  </p>
+
+                  <Link
+                    to="/budget-planner"
+                    className="inline-flex items-center gap-2.5 px-6 py-2.5 bg-[#0c1a30] hover:bg-[#162744] text-white font-black text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all group mt-4 cursor-pointer hover:scale-105 border border-amber-400/30"
+                  >
+                    <span>ابدأ التخطيط</span>
+                    <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+
+                {/* الركن البصري الديكوري الفاخر (الكرسي المخملي والأباجورة والزهور) */}
+                <div className="relative z-10 w-32 sm:w-36 lg:w-40 h-32 sm:h-36 lg:h-40 shrink-0 flex items-center justify-center">
+                  <img
+                    src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80"
+                    alt="Event Planner Decor"
+                    className="w-full h-full object-contain mix-blend-multiply drop-shadow-md"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </div>
+
+              {/* Left Steps Side (في الجهة اليسرى حسب اتجاه RTL): الخطوات الخمس المرقمة والمتصلة بنقاط ذهبية */}
+              <div className="flex-1 p-6 sm:p-7 flex items-center justify-center bg-[#fdfbf7]">
+                <div className="flex items-center justify-between w-full gap-2 sm:gap-4 overflow-x-auto scrollbar-none py-2">
+                  {[
+                    {
+                      num: '01',
+                      title: 'اختر مناسبتك',
+                      subtitle: 'حدد نوع المناسبة',
+                      icon: CalendarIcon,
+                      path: '/budget-planner?step=1',
+                    },
+                    {
+                      num: '02',
+                      title: 'حدد المدينة والمنطقة',
+                      subtitle: 'اختر موقع المناسبة',
+                      icon: MapPin,
+                      path: '/budget-planner?step=2',
+                    },
+                    {
+                      num: '03',
+                      title: 'اختر الخدمات',
+                      subtitle: 'اختر الخدمات التي تحتاجها',
+                      icon: ClipboardList,
+                      path: '/services',
+                    },
+                    {
+                      num: '04',
+                      title: 'احصل على عروض الأسعار',
+                      subtitle: 'قارن بين أفضل العروض',
+                      icon: BadgePercent,
+                      path: '/explore?view=offers',
+                    },
+                    {
+                      num: '05',
+                      title: 'أكيد طلبك',
+                      subtitle: 'احجز الخدمة بكل سهولة',
+                      icon: ShieldCheck,
+                      path: '/bookings',
+                    },
+                  ].map((step, idx, arr) => {
+                    const StepIcon = step.icon;
+                    return (
+                      <React.Fragment key={idx}>
+                        <Link
+                          to={step.path}
+                          className="group flex flex-col items-center shrink-0 min-w-[90px] sm:min-w-[110px] text-center cursor-pointer focus:outline-none"
+                        >
+                          {/* Number Badge */}
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c1a30] text-white font-black text-xs flex items-center justify-center shadow-xs mx-auto mb-2 border border-white/20">
+                            {step.num}
+                          </div>
+
+                          {/* Outer Circle with Gold Border & Icon */}
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full bg-white border-2 border-[#caa455] shadow-xs flex items-center justify-center mx-auto group-hover:scale-105 group-hover:border-amber-500 group-hover:shadow-md transition-all duration-300">
+                            <StepIcon className="w-6 h-6 sm:w-7 sm:h-7 text-[#b88628] stroke-[1.75]" />
+                          </div>
+
+                          {/* Step Title */}
+                          <h4 className="font-black text-xs sm:text-sm text-[#0c1a30] group-hover:text-amber-700 transition-colors mt-2.5 text-center whitespace-nowrap">
+                            {step.title}
+                          </h4>
+
+                          {/* Step Subtitle */}
+                          <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-0.5 text-center whitespace-nowrap">
+                            {step.subtitle}
+                          </p>
+                        </Link>
+
+                        {/* Dotted Separator between steps */}
+                        {idx < arr.length - 1 && (
+                          <div className="hidden md:flex flex-1 items-center justify-center min-w-[14px] max-w-[48px] pb-10">
+                            <span className="text-[#caa455]/80 font-black text-base sm:text-lg tracking-widest select-none">
+                              ······
+                            </span>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Middle Wide Ad Banner */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 my-8">
+        <AdBanner placement="الإعلان الأوسط - عريض" layout="banner" className="h-32 rounded-2xl shadow-xs" />
+      </div>
 
       {/* 7. Interactive Calendar & Latest Halls */}
       <section className="py-16 bg-white">
@@ -2861,6 +3943,41 @@ export default function HomePage() {
       )}
 
       <ProviderChatModal isOpen={isProviderChatOpen} onClose={() => setIsProviderChatOpen(false)} providerName={chatData.providerName} hallName={chatData.hallName} />
+
+      {/* Service Details Modal */}
+      {selectedServiceForDetails && (
+        <ServiceDetailsModal
+          isOpen={isServiceDetailsOpen}
+          onClose={() => {
+            setIsServiceDetailsOpen(false);
+            setSelectedServiceForDetails(null);
+          }}
+          service={selectedServiceForDetails}
+          onRequest={(svc) => {
+            setIsServiceDetailsOpen(false);
+            setSelectedServiceForRequest(svc);
+            setIsServiceRequestOpen(true);
+          }}
+        />
+      )}
+
+      {/* Request Service Modal */}
+      {selectedServiceForRequest && (
+        <RequestServiceModal
+          isOpen={isServiceRequestOpen}
+          onClose={() => {
+            setIsServiceRequestOpen(false);
+            setSelectedServiceForRequest(null);
+          }}
+          service={selectedServiceForRequest}
+          currentUserData={currentUserData}
+          userBookings={userBookings}
+          onSuccess={() => {
+            setIsServiceRequestOpen(false);
+            setSelectedServiceForRequest(null);
+          }}
+        />
+      )}
 
       <Footer />
     </div>

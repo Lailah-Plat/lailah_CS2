@@ -57,7 +57,7 @@ export default function SensitiveDataApprovalsPanel({ showNotification }: Sensit
         setPendingUpdates(data.pendingUpdates || []);
       }
     } catch (err) {
-      console.error('Failed to fetch pending profile updates:', err);
+      console.warn('Could not fetch pending profile updates, using local state:', err);
     } finally {
       setLoading(false);
     }

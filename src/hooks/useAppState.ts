@@ -1481,7 +1481,7 @@ export function useAppState() {
           setIntegrationKeys(data.keys);
         }
       } catch (e) {
-        console.error("Failed to fetch payment gateway secrets from the server:", e);
+        console.warn("Using offline payment gateway configuration in useAppState:", e);
       }
     };
     fetchPaymentKeys();

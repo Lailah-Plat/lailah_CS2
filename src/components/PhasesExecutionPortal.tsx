@@ -164,7 +164,7 @@ export const PhasesExecutionPortal: React.FC<{ userRole?: string; providerId?: s
         if (data.success) setAuditEvents(data.events);
       }
     } catch (e) {
-      console.error('Failed to fetch phase data:', e);
+      console.warn('Could not fetch phase data, maintaining local fallback state:', e);
     } finally {
       setLoading(false);
     }

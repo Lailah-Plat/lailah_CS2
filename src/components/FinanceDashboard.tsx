@@ -887,7 +887,7 @@ export default function FinanceDashboard({
         });
       }
     } catch (err) {
-      console.error('Failed to fetch customer wallets:', err);
+      console.warn('Could not fetch customer wallets, using local state fallback:', err);
     } finally {
       setIsLoadingWallets(false);
     }
