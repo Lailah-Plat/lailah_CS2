@@ -175,8 +175,16 @@ export default function ServicesPage() {
 
   const filteredServices = allServices.filter(service => {
     const sAny = service as any;
-    return (sAny.status === 'approved' || sAny.adminStatus === 'approved') &&
-      sAny.activationStatus !== 'موقوف' &&
+    // توحيد القاموس: الحالة النشطة هي أي خدمة ليست موقوفة وليست محظورة
+    const isSuspendedOrBlocked = 
+      sAny.status === 'blocked' || 
+      sAny.status === 'suspended' || 
+      sAny.status === 'موقوف' || 
+      sAny.activationStatus === 'موقوف' || 
+      sAny.activationStatus === 'blocked' || 
+      sAny.activationStatus === 'suspended';
+    
+    return !isSuspendedOrBlocked &&
       (((service.name || '').includes(searchTerm) || (service.city || '').includes(searchTerm))) &&
       (selectedCategory === '' || (service.category || '') === selectedCategory);
   });

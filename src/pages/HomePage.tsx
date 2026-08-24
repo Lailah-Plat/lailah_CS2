@@ -169,6 +169,7 @@ export default function HomePage() {
   const [servicesList, setServicesList] = useState<EventService[]>(() => getServices());
   const [selectedServiceCategory, setSelectedServiceCategory] = useState<string>('all');
   const [serviceCarouselIndex, setServiceCarouselIndex] = useState<number>(0);
+  const [bentoGridHallIndex, setBentoGridHallIndex] = useState<number>(0);
   const [selectedServiceForDetails, setSelectedServiceForDetails] = useState<EventService | null>(null);
   const [selectedServiceForRequest, setSelectedServiceForRequest] = useState<EventService | null>(null);
   const [isServiceDetailsOpen, setIsServiceDetailsOpen] = useState<boolean>(false);
@@ -234,12 +235,24 @@ export default function HomePage() {
     { id: 'تنظيم وأمن', name: 'تنظيم وعبايات', label: 'الأمن وتنظيم العبايات', icon: ShieldCheck, image: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=300&q=80' },
   ], []);
 
-  // Filtered services (up to 30 items) based on active category
+  // Filtered services (up to 30 items) based on active category - strictly actual items
   const allFilteredServices = useMemo(() => {
-    const active = servicesList.filter(s => (s as any).status !== 'blocked' && (s as any).activationStatus !== 'موقوف');
+    const active = servicesList.filter(s => {
+      const sAny = s as any;
+      const isSuspendedOrBlocked = 
+        sAny.status === 'blocked' || 
+        sAny.status === 'suspended' || 
+        sAny.status === 'موقوف' || 
+        sAny.activationStatus === 'موقوف' || 
+        sAny.activationStatus === 'blocked' || 
+        sAny.activationStatus === 'suspended';
+      return !isSuspendedOrBlocked;
+    });
+
     if (selectedServiceCategory === 'all') {
       return active.slice(0, 30);
     }
+
     const catFiltered = active.filter(s => {
       const cat = (s.category || '').toLowerCase();
       const cls = (s.classification || '').toLowerCase();
@@ -266,37 +279,35 @@ export default function HomePage() {
       return s.category === selectedServiceCategory;
     });
 
-    if (catFiltered.length < 5) {
-      const remaining = active.filter(s => !catFiltered.some(c => c.id === s.id));
-      return [...catFiltered, ...remaining].slice(0, 30);
-    }
+    // الاكتفاء بإظهار البطاقات الفعلية حسب التصنيف بدون زيادة أو استكمال من تصنيفات أخرى
     return catFiltered.slice(0, 30);
   }, [servicesList, selectedServiceCategory]);
 
-  // Current visible 5 golden cards
+  // Current visible 5 golden cards per page
   const visibleServices = useMemo(() => {
     const total = allFilteredServices.length;
     if (total === 0) return [];
     if (total <= 5) return allFilteredServices;
-    const start = Math.min(serviceCarouselIndex, Math.max(0, total - 5));
+    const pageIndex = Math.floor(serviceCarouselIndex / 5);
+    const start = pageIndex * 5;
     return allFilteredServices.slice(start, start + 5);
   }, [allFilteredServices, serviceCarouselIndex]);
 
   const handlePrevServices = () => {
     setServiceCarouselIndex(prev => {
-      if (prev <= 0) {
-        return Math.max(0, allFilteredServices.length - 5);
-      }
-      return Math.max(0, prev - 5);
+      const totalPages = Math.max(1, Math.ceil(allFilteredServices.length / 5));
+      const currentPage = Math.floor(prev / 5);
+      const prevPage = currentPage <= 0 ? totalPages - 1 : currentPage - 1;
+      return prevPage * 5;
     });
   };
 
   const handleNextServices = () => {
     setServiceCarouselIndex(prev => {
-      if (prev + 5 >= allFilteredServices.length) {
-        return 0;
-      }
-      return Math.min(Math.max(0, allFilteredServices.length - 5), prev + 5);
+      const totalPages = Math.max(1, Math.ceil(allFilteredServices.length / 5));
+      const currentPage = Math.floor(prev / 5);
+      const nextPage = currentPage + 1 >= totalPages ? 0 : currentPage + 1;
+      return nextPage * 5;
     });
   };
 
@@ -1753,15 +1764,45 @@ export default function HomePage() {
               );
             }
 
-            // Up to 8 Featured Halls for the Bento Composition
-            const h1 = featuredHalls[0] || featuredHalls[0];
-            const h2 = featuredHalls[1] || featuredHalls[0];
-            const h3 = featuredHalls[2] || featuredHalls[0]; // Tall Right Portrait Hall
-            const h4 = featuredHalls[3] || featuredHalls[0];
-            const h4_extra = featuredHalls[7] || featuredHalls[3] || featuredHalls[0]; // Extra Middle Card between h4 & h5
-            const h5 = featuredHalls[4] || featuredHalls[0];
-            const h6 = featuredHalls[5] || featuredHalls[0];
-            const h7 = featuredHalls[6] || featuredHalls[0];
+            // Total available halls for pagination in Bento Grid
+            const totalHallsCount = featuredHalls.length;
+            const bentoPageSize = 8;
+            const currentBentoPage = Math.floor(bentoGridHallIndex / bentoPageSize);
+            const totalBentoPages = Math.max(1, Math.ceil(totalHallsCount / bentoPageSize));
+
+            // Up to 8 Featured Halls for the Current Bento Composition
+            const getHallAt = (offset: number) => {
+              if (totalHallsCount === 0) return null;
+              const idx = (bentoGridHallIndex + offset) % totalHallsCount;
+              return featuredHalls[idx] || featuredHalls[0];
+            };
+
+            const h1 = getHallAt(0);
+            const h2 = getHallAt(1);
+            const h3 = getHallAt(2); // Tall Right Portrait Hall
+            const h4 = getHallAt(3);
+            const h4_extra = getHallAt(7); // Extra Middle Card between h4 & h5
+            const h5 = getHallAt(4);
+            const h6 = getHallAt(5);
+            const h7 = getHallAt(6);
+
+            const handlePrevBentoHalls = () => {
+              setBentoGridHallIndex(prev => {
+                if (prev <= 0) {
+                  return Math.max(0, (totalBentoPages - 1) * bentoPageSize);
+                }
+                return Math.max(0, prev - bentoPageSize);
+              });
+            };
+
+            const handleNextBentoHalls = () => {
+              setBentoGridHallIndex(prev => {
+                if (prev + bentoPageSize >= totalHallsCount) {
+                  return 0;
+                }
+                return prev + bentoPageSize;
+              });
+            };
 
             const getPrices = (hall: any) => {
               const base = Number(hall?.price) || 2000;
@@ -1777,7 +1818,30 @@ export default function HomePage() {
             };
 
             return (
-              <div className="space-y-2.5 select-none">
+              <div className="relative space-y-2.5 select-none">
+                
+                {/* Floating Navigation Controls for Bento Grid (White Circular Buttons without Text) */}
+                {totalHallsCount > bentoPageSize && (
+                  <>
+                    {/* Right Floating Button (السابق في RTL) */}
+                    <button
+                      onClick={handlePrevBentoHalls}
+                      aria-label="السابق"
+                      className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                    >
+                      <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
+                    </button>
+
+                    {/* Left Floating Button (التالي في RTL) */}
+                    <button
+                      onClick={handleNextBentoHalls}
+                      aria-label="التالي"
+                      className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                    >
+                      <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
+                    </button>
+                  </>
+                )}
                 
                 {/* Upper Grid: 1 Tall Card on Right (3 cols on lg / h3 in RTL) + Left/Middle Cards Area (9 cols on lg) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
@@ -3028,7 +3092,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 3. صف البطاقات الخمسة الذهبية مع أزرار التنقل العائمة */}
+          {/* 3. صف البطاقات الخمسة الذهبية مع أزرار التنقل العائمة والمؤشرات النقطية */}
           <div className="relative mb-12">
             {/* Floating Navigation Controls (Right & Left White Circular Buttons - No Text) */}
             {allFilteredServices.length > 5 && (
@@ -3037,7 +3101,7 @@ export default function HomePage() {
                 <button
                   onClick={handlePrevServices}
                   aria-label="السابق"
-                  className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  className="absolute -right-2 sm:-right-4 md:-right-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-xl hover:shadow-2xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
                 >
                   <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
                 </button>
@@ -3046,7 +3110,7 @@ export default function HomePage() {
                 <button
                   onClick={handleNextServices}
                   aria-label="التالي"
-                  className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-lg hover:shadow-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  className="absolute -left-2 sm:-left-4 md:-left-6 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white shadow-xl hover:shadow-2xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-blue-950 flex items-center justify-center transition-all cursor-pointer hover:scale-110 active:scale-95"
                 >
                   <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 text-slate-800" />
                 </button>
@@ -3142,15 +3206,47 @@ export default function HomePage() {
                 );
               })}
             </div>
+
+            {/* أشرطة المؤشرات النقطية للتنقل السريع بين كروت الخدمات (Pagination Dots) */}
+            {allFilteredServices.length > 5 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                {Array.from({ length: Math.ceil(allFilteredServices.length / 5) }).map((_, pageIdx) => {
+                  const isActivePage = Math.floor(serviceCarouselIndex / 5) === pageIdx;
+                  return (
+                    <button
+                      key={pageIdx}
+                      onClick={() => setServiceCarouselIndex(pageIdx * 5)}
+                      aria-label={`انتقل إلى صفحة الخدمات ${pageIdx + 1}`}
+                      className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                        isActivePage
+                          ? 'w-8 bg-amber-500 shadow-xs'
+                          : 'w-2.5 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 4. شريط/بانر التخطيط الذكي السفلي (Smart Event Planner Bar) - تصميم مخصص فاخر RTL مطابق للصورة */}
           <div className="relative rounded-3xl overflow-hidden shadow-sm border border-[#eadecc] bg-[#fdfbf7]">
             <div className="flex flex-col lg:flex-row items-stretch">
-              {/* Right Hero Side (في الجهة اليمنى حسب اتجاه RTL): العنوان + النص + زر ابدأ التخطيط + الرسم الديكوري */}
-              <div className="lg:w-[38%] xl:w-[36%] shrink-0 bg-[#f7f1e6] border-b lg:border-b-0 lg:border-l border-[#ecdcc9] p-6 sm:p-7 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden text-right">
-                <div className="relative z-10 flex flex-col items-start text-right max-w-xs">
-                  <h3 className="text-2xl sm:text-[26px] xl:text-3xl font-black text-[#0c1a30] leading-tight">
+              {/* Right Hero Side (-20% width => lg:w-[30%] xl:w-[28%], Full image background with #f7f1e6 gradient) */}
+              <div className="lg:w-[30%] xl:w-[28%] shrink-0 relative overflow-hidden border-b lg:border-b-0 lg:border-l border-[#ecdcc9] p-6 sm:p-7 flex flex-col justify-between text-right">
+                {/* Full Background Image with #f7f1e6 tint overlay */}
+                <div className="absolute inset-0 z-0">
+                  <img
+                    src="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=800&q=80"
+                    alt="Event background"
+                    className="w-full h-full object-cover opacity-25"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-l from-[#f7f1e6]/95 via-[#f7f1e6]/90 to-[#f7f1e6]/98" />
+                </div>
+
+                <div className="relative z-10 flex flex-col items-start text-right">
+                  <h3 className="text-xl sm:text-2xl xl:text-[26px] font-black text-[#0c1a30] leading-tight">
                     خطط لمناسبتك الآن
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 font-medium mt-2 leading-relaxed">
@@ -3159,27 +3255,29 @@ export default function HomePage() {
 
                   <Link
                     to="/budget-planner"
-                    className="inline-flex items-center gap-2.5 px-6 py-2.5 bg-[#0c1a30] hover:bg-[#162744] text-white font-black text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all group mt-4 cursor-pointer hover:scale-105 border border-amber-400/30"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0c1a30] hover:bg-[#162744] text-white font-black text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all group mt-5 cursor-pointer hover:scale-105 border border-amber-400/30"
                   >
                     <span>ابدأ التخطيط</span>
                     <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
                   </Link>
                 </div>
 
-                {/* الركن البصري الديكوري الفاخر (الكرسي المخملي والأباجورة والزهور) */}
-                <div className="relative z-10 w-32 sm:w-36 lg:w-40 h-32 sm:h-36 lg:h-40 shrink-0 flex items-center justify-center">
-                  <img
-                    src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80"
-                    alt="Event Planner Decor"
-                    className="w-full h-full object-contain mix-blend-multiply drop-shadow-md"
-                    referrerPolicy="no-referrer"
-                  />
+                {/* الركن البصري الديكوري الفاخر */}
+                <div className="relative z-10 mt-4 flex justify-end">
+                  <div className="w-24 sm:w-28 h-24 sm:h-28 shrink-0 flex items-center justify-center">
+                    <img
+                      src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=300&q=80"
+                      alt="Event Planner Decor"
+                      className="w-full h-full object-contain mix-blend-multiply drop-shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Left Steps Side (في الجهة اليسرى حسب اتجاه RTL): الخطوات الخمس المرقمة والمتصلة بنقاط ذهبية */}
-              <div className="flex-1 p-6 sm:p-7 flex items-center justify-center bg-[#fdfbf7]">
-                <div className="flex items-center justify-between w-full gap-2 sm:gap-4 overflow-x-auto scrollbar-none py-2">
+              {/* Left Steps Side (في الجهة اليسرى حسب اتجاه RTL): إظهار الخطوات الخمس كاملة بدوائر أكبر وهوامش أضيق */}
+              <div className="flex-1 p-4 sm:p-6 flex items-center justify-center bg-[#fdfbf7]">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2 w-full items-center justify-items-center py-1">
                   {[
                     {
                       num: '01',
@@ -3211,49 +3309,39 @@ export default function HomePage() {
                     },
                     {
                       num: '05',
-                      title: 'أكيد طلبك',
+                      title: 'أكّد طلبك',
                       subtitle: 'احجز الخدمة بكل سهولة',
                       icon: ShieldCheck,
                       path: '/bookings',
                     },
-                  ].map((step, idx, arr) => {
+                  ].map((step, idx) => {
                     const StepIcon = step.icon;
                     return (
-                      <React.Fragment key={idx}>
-                        <Link
-                          to={step.path}
-                          className="group flex flex-col items-center shrink-0 min-w-[90px] sm:min-w-[110px] text-center cursor-pointer focus:outline-none"
-                        >
-                          {/* Number Badge */}
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c1a30] text-white font-black text-xs flex items-center justify-center shadow-xs mx-auto mb-2 border border-white/20">
-                            {step.num}
-                          </div>
+                      <Link
+                        key={idx}
+                        to={step.path}
+                        className="group flex flex-col items-center w-full max-w-[155px] text-center cursor-pointer focus:outline-none py-1 px-0.5"
+                      >
+                        {/* Number Badge */}
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#0c1a30] text-white font-black text-xs flex items-center justify-center shadow-xs mx-auto mb-1.5 border-2 border-white">
+                          {step.num}
+                        </div>
 
-                          {/* Outer Circle with Gold Border & Icon */}
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 rounded-full bg-white border-2 border-[#caa455] shadow-xs flex items-center justify-center mx-auto group-hover:scale-105 group-hover:border-amber-500 group-hover:shadow-md transition-all duration-300">
-                            <StepIcon className="w-6 h-6 sm:w-7 sm:h-7 text-[#b88628] stroke-[1.75]" />
-                          </div>
+                        {/* Outer Circle with Gold Border & Icon - Enriched and Enlarged */}
+                        <div className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-full bg-white border-2 border-[#caa455] shadow-xs flex items-center justify-center mx-auto group-hover:scale-105 group-hover:border-amber-500 group-hover:shadow-md transition-all duration-300">
+                          <StepIcon className="w-7 h-7 sm:w-8 sm:h-8 text-[#b88628] stroke-[1.75]" />
+                        </div>
 
-                          {/* Step Title */}
-                          <h4 className="font-black text-xs sm:text-sm text-[#0c1a30] group-hover:text-amber-700 transition-colors mt-2.5 text-center whitespace-nowrap">
-                            {step.title}
-                          </h4>
+                        {/* Step Title */}
+                        <h4 className="font-black text-xs sm:text-sm text-[#0c1a30] group-hover:text-amber-700 transition-colors mt-2 text-center truncate w-full">
+                          {step.title}
+                        </h4>
 
-                          {/* Step Subtitle */}
-                          <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-0.5 text-center whitespace-nowrap">
-                            {step.subtitle}
-                          </p>
-                        </Link>
-
-                        {/* Dotted Separator between steps */}
-                        {idx < arr.length - 1 && (
-                          <div className="hidden md:flex flex-1 items-center justify-center min-w-[14px] max-w-[48px] pb-10">
-                            <span className="text-[#caa455]/80 font-black text-base sm:text-lg tracking-widest select-none">
-                              ······
-                            </span>
-                          </div>
-                        )}
-                      </React.Fragment>
+                        {/* Step Subtitle */}
+                        <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium mt-0.5 text-center truncate w-full">
+                          {step.subtitle}
+                        </p>
+                      </Link>
                     );
                   })}
                 </div>
