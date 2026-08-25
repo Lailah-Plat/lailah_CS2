@@ -22,7 +22,7 @@ import {
   ArrowLeft, ArrowRight, Lock, CheckCircle2, Sparkles, Users,
   Car, Utensils, Clock, Camera, Music, Palette, Gift, Zap, Layers,
   Compass, Plus, ChevronRight, ChevronLeft, Navigation, RefreshCw,
-  ClipboardList, BadgePercent, LayoutGrid
+  ClipboardList, BadgePercent, LayoutGrid, Globe
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import LPASPublicPage from './LPASPublicPage';
@@ -158,9 +158,11 @@ export default function HomePage() {
   const { calendarType, setCalendarType } = useCalendar();
   const navigate = useNavigate();
 
-  // Metro Region UI Active Tab state & Sub-region state & pagination
-  const [selectedMetroTab, setSelectedMetroTab] = useState<string>('all');
-  const [selectedSubRegion, setSelectedSubRegion] = useState<string>('all');
+  // Hierarchical Drill-Down Metro State:
+  // level: 'zones' (المناطق الجغرافية الـ 5) -> 'regions' (المناطق الإدارية للمنطقة الجغرافية) -> 'cities' (المدن والمحافظات)
+  const [drillLevel, setDrillLevel] = useState<'zones' | 'regions' | 'cities'>('zones');
+  const [selectedGeoZoneId, setSelectedGeoZoneId] = useState<string>(''); // e.g. 'central', 'western', etc.
+  const [selectedAdminRegionId, setSelectedAdminRegionId] = useState<string>(''); // e.g. 'riyadh', 'qassim', etc.
   const [metroPageIndex, setMetroPageIndex] = useState<number>(0);
 
   // -------------------------------------------------------------
@@ -331,13 +333,14 @@ export default function HomePage() {
     return {
       all: {
         id: 'all',
-        label: 'كل المناطق',
+        label: 'كل المناطق الجغرافية',
         subRegions: [],
         tiles: [
           {
-            id: 'central-all',
+            id: 'central-zone',
+            zoneId: 'central',
             title: 'المنطقة الوسطى',
-            subtitle: 'منطقة الرياض ومنطقة القصيم ومنطقة حائل',
+            subtitle: 'منطقة الرياض، منطقة القصيم، منطقة حائل',
             count: getDynamicHallCount('', 'الرياض', 312),
             query: 'الرياض',
             city: '',
@@ -345,9 +348,10 @@ export default function HomePage() {
             layout: 'hero',
           },
           {
-            id: 'western-all',
+            id: 'western-zone',
+            zoneId: 'western',
             title: 'المنطقة الغربية',
-            subtitle: 'منطقة مكة المكرمة ومنطقة المدينة المنورة',
+            subtitle: 'منطقة مكة المكرمة، منطقة المدينة المنورة',
             count: getDynamicHallCount('', 'مكة المكرمة', 286),
             query: 'مكة المكرمة',
             city: '',
@@ -355,9 +359,10 @@ export default function HomePage() {
             layout: 'grid',
           },
           {
-            id: 'southern-all',
+            id: 'southern-zone',
+            zoneId: 'southern',
             title: 'المنطقة الجنوبية',
-            subtitle: 'عسير والباحة وجازان ونجران',
+            subtitle: 'منطقة عسير، منطقة الباحة، منطقة جازان، منطقة نجران',
             count: getDynamicHallCount('', 'عسير', 164),
             query: 'عسير',
             city: '',
@@ -365,9 +370,10 @@ export default function HomePage() {
             layout: 'grid',
           },
           {
-            id: 'eastern-all',
+            id: 'eastern-zone',
+            zoneId: 'eastern',
             title: 'المنطقة الشرقية',
-            subtitle: 'الدمام والخبر والأحساء والجبيل والقطيف',
+            subtitle: 'الدمام، الخبر، الأحساء، الجبيل، القطيف، حفر الباطن',
             count: getDynamicHallCount('', 'المنطقة الشرقية', 198),
             query: 'المنطقة الشرقية',
             city: '',
@@ -375,9 +381,10 @@ export default function HomePage() {
             layout: 'grid',
           },
           {
-            id: 'northern-all',
+            id: 'northern-zone',
+            zoneId: 'northern',
             title: 'المنطقة الشمالية',
-            subtitle: 'منطقة الجوف ومنطقة تبوك والحدود الشمالية',
+            subtitle: 'منطقة الجوف، منطقة تبوك، منطقة الحدود الشمالية',
             count: getDynamicHallCount('', 'تبوك', 142),
             query: 'تبوك',
             city: '',
@@ -388,9 +395,37 @@ export default function HomePage() {
       },
       central: {
         id: 'central',
-        label: 'الوسطى',
+        label: 'المنطقة الوسطى',
+        adminRegions: [
+          {
+            id: 'riyadh',
+            title: 'منطقة الرياض',
+            subtitle: 'العاصمة والدرعية والخرج والمجمعة والدوادمي والزلفي',
+            count: getDynamicHallCount('', 'الرياض', 298),
+            query: 'الرياض',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'qassim',
+            title: 'منطقة القصيم',
+            subtitle: 'بريدة وعنيزة والرس والبكيرية والمذنب',
+            count: getDynamicHallCount('', 'القصيم', 96),
+            query: 'القصيم',
+            image: 'https://images.unsplash.com/photo-1582236371728-4ce67cfab7ef?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'hail',
+            title: 'منطقة حائل',
+            subtitle: 'عروس الشمال ومضايف الكرم الحاتمي وبقعاء',
+            count: getDynamicHallCount('', 'حائل', 42),
+            query: 'حائل',
+            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ],
         subRegions: [
-          { id: 'all', name: 'كل المنطقة الوسطى', query: 'الرياض' },
           { id: 'riyadh', name: 'منطقة الرياض', query: 'الرياض' },
           { id: 'qassim', name: 'منطقة القصيم', query: 'القصيم' },
           { id: 'hail', name: 'منطقة حائل', query: 'حائل' },
@@ -544,9 +579,28 @@ export default function HomePage() {
       },
       western: {
         id: 'western',
-        label: 'الغربية',
+        label: 'المنطقة الغربية',
+        adminRegions: [
+          {
+            id: 'makkah',
+            title: 'منطقة مكة المكرمة',
+            subtitle: 'جدة ومكة المكرمة والطائف ورابغ والقنفذة والليث',
+            count: getDynamicHallCount('', 'مكة المكرمة', 246),
+            query: 'مكة المكرمة',
+            image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'madinah',
+            title: 'منطقة المدينة المنورة',
+            subtitle: 'طيبة الطيبة وينبع ومحافظة العلا وبدر والمهد',
+            count: getDynamicHallCount('', 'المدينة المنورة', 78),
+            query: 'المدينة المنورة',
+            image: 'https://images.unsplash.com/photo-1591462002164-81ebd02d6b38?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ],
         subRegions: [
-          { id: 'all', name: 'كل المنطقة الغربية', query: 'مكة المكرمة' },
           { id: 'makkah', name: 'منطقة مكة المكرمة', query: 'مكة المكرمة' },
           { id: 'madinah', name: 'منطقة المدينة المنورة', query: 'المدينة المنورة' },
         ],
@@ -663,9 +717,19 @@ export default function HomePage() {
       },
       eastern: {
         id: 'eastern',
-        label: 'الشرقية',
+        label: 'المنطقة الشرقية',
+        adminRegions: [
+          {
+            id: 'eastern-region',
+            title: 'المنطقة الشرقية',
+            subtitle: 'الدمام والخبر والأحساء والجبيل والقطيف والظهران وحفر الباطن والخفجي',
+            count: getDynamicHallCount('', 'المنطقة الشرقية', 198),
+            query: 'المنطقة الشرقية',
+            image: 'https://images.unsplash.com/photo-1578306338421-2a061bb0e271?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          }
+        ],
         subRegions: [
-          { id: 'all', name: 'كل المنطقة الشرقية', query: 'المنطقة الشرقية' },
           { id: 'eastern-region', name: 'المنطقة الشرقية', query: 'المنطقة الشرقية' },
         ],
         tiles: [
@@ -769,9 +833,37 @@ export default function HomePage() {
       },
       northern: {
         id: 'northern',
-        label: 'الشمالية',
+        label: 'المنطقة الشمالية',
+        adminRegions: [
+          {
+            id: 'tabuk',
+            title: 'منطقة تبوك',
+            subtitle: 'بوابة الشمال ونيوم وضباء والوجه وأملج وتيماء',
+            count: getDynamicHallCount('', 'تبوك', 76),
+            query: 'تبوك',
+            image: 'https://images.unsplash.com/photo-1647432243886-42ab22c95333?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'jouf',
+            title: 'منطقة الجوف',
+            subtitle: 'سكاكا والقريات ودومة الجندل وطبرجل',
+            count: getDynamicHallCount('', 'الجوف', 48),
+            query: 'الجوف',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'northern-borders',
+            title: 'منطقة الحدود الشمالية',
+            subtitle: 'عرعر ورفحاء وطريف والعويقيلة',
+            count: getDynamicHallCount('', 'الحدود الشمالية', 34),
+            query: 'الحدود الشمالية',
+            image: 'https://images.unsplash.com/photo-1625695507914-7f152d127a92?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ],
         subRegions: [
-          { id: 'all', name: 'كل المنطقة الشمالية', query: 'تبوك' },
           { id: 'jouf', name: 'منطقة الجوف', query: 'الجوف' },
           { id: 'tabuk', name: 'منطقة تبوك', query: 'تبوك' },
           { id: 'northern-borders', name: 'منطقة الحدود الشمالية', query: 'الحدود الشمالية' },
@@ -901,9 +993,46 @@ export default function HomePage() {
       },
       southern: {
         id: 'southern',
-        label: 'الجنوبية',
+        label: 'المنطقة الجنوبية',
+        adminRegions: [
+          {
+            id: 'asir',
+            title: 'منطقة عسير',
+            subtitle: 'أبها وخميس مشيط ومحافظة النماص ومحايل ورجال ألمع وتنومة',
+            count: getDynamicHallCount('', 'عسير', 84),
+            query: 'عسير',
+            image: 'https://images.unsplash.com/photo-1627998656608-f40b28ecda90?auto=format&fit=crop&w=1200&q=80',
+            layout: 'hero',
+          },
+          {
+            id: 'jizan',
+            title: 'منطقة جازان',
+            subtitle: 'جازان وصبيا وأبو عريش وفرسان وصامطة والدرب',
+            count: getDynamicHallCount('', 'جازان', 46),
+            query: 'جازان',
+            image: 'https://images.unsplash.com/photo-1586724237569-f3d0c1dee8c6?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'baha',
+            title: 'منطقة الباحة',
+            subtitle: 'مدينة الباحة وبلجرشي والمندق والمخواة وقلوة',
+            count: getDynamicHallCount('', 'الباحة', 32),
+            query: 'الباحة',
+            image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          },
+          {
+            id: 'najran',
+            title: 'منطقة نجران',
+            subtitle: 'مدينة نجران وشرورة وحبونا وبدر الجنوب',
+            count: getDynamicHallCount('', 'نجران', 28),
+            query: 'نجران',
+            image: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80',
+            layout: 'grid',
+          }
+        ],
         subRegions: [
-          { id: 'all', name: 'كل المنطقة الجنوبية', query: 'عسير' },
           { id: 'asir', name: 'منطقة عسير', query: 'عسير' },
           { id: 'baha', name: 'منطقة الباحة', query: 'الباحة' },
           { id: 'jizan', name: 'منطقة جازان', query: 'جازان' },
@@ -1035,45 +1164,44 @@ export default function HomePage() {
     };
   }, [hallsList]);
 
-  const regionTabs = useMemo(() => [
-    { id: 'all', label: 'كل المناطق' },
-    { id: 'central', label: 'الوسطى' },
-    { id: 'western', label: 'الغربية' },
-    { id: 'eastern', label: 'الشرقية' },
-    { id: 'northern', label: 'الشمالية' },
-    { id: 'southern', label: 'الجنوبية' },
-  ], []);
-
-  const activeZone = (zoneDataMap as any)[selectedMetroTab] || zoneDataMap.all;
-
-  // Filter tiles based on sub-region selection
-  const filteredTiles = useMemo(() => {
-    const tiles = activeZone.tiles || [];
-    if (selectedMetroTab === 'all' || selectedSubRegion === 'all') {
-      return tiles;
+  // Current active tiles based on drill level:
+  // Level 1: 'zones' -> 5 Major Geographic Zones
+  // Level 2: 'regions' -> Administrative Regions of the selected Geo Zone
+  // Level 3: 'cities' -> Cities/Governorates of the selected Admin Region
+  const hierarchicalMetroTiles = useMemo(() => {
+    if (drillLevel === 'zones') {
+      return zoneDataMap.all.tiles;
     }
-    return tiles.filter((t: any) => t.subRegionId === selectedSubRegion);
-  }, [activeZone, selectedMetroTab, selectedSubRegion]);
 
-  const totalMetroPages = Math.max(1, Math.ceil(filteredTiles.length / 5));
+    const currentZone = (zoneDataMap as any)[selectedGeoZoneId] || zoneDataMap.central;
 
-  // Current 5 tiles for the Metro 90-degree Grid
+    if (drillLevel === 'regions') {
+      return currentZone.adminRegions || [];
+    }
+
+    if (drillLevel === 'cities') {
+      const allZoneCities = currentZone.tiles || [];
+      if (!selectedAdminRegionId) return allZoneCities;
+      return allZoneCities.filter((t: any) => t.subRegionId === selectedAdminRegionId);
+    }
+
+    return zoneDataMap.all.tiles;
+  }, [drillLevel, selectedGeoZoneId, selectedAdminRegionId, zoneDataMap]);
+
+  const totalMetroPages = Math.max(1, Math.ceil(hierarchicalMetroTiles.length / 5));
+
+  // Current 5 tiles for the Metro Grid
   const currentTiles = useMemo(() => {
     const validPageIndex = Math.min(metroPageIndex, totalMetroPages - 1);
     const start = validPageIndex * 5;
-    return filteredTiles.slice(start, start + 5);
-  }, [filteredTiles, metroPageIndex, totalMetroPages]);
+    return hierarchicalMetroTiles.slice(start, start + 5);
+  }, [hierarchicalMetroTiles, metroPageIndex, totalMetroPages]);
 
   const handlePrevMetroTab = () => {
     if (metroPageIndex > 0) {
       setMetroPageIndex(prev => prev - 1);
     } else {
-      const currentIndex = regionTabs.findIndex(t => t.id === selectedMetroTab);
-      const prevIndex = (currentIndex - 1 + regionTabs.length) % regionTabs.length;
-      const nextTabId = regionTabs[prevIndex].id;
-      setSelectedMetroTab(nextTabId);
-      setSelectedSubRegion('all');
-      setMetroPageIndex(0);
+      setMetroPageIndex(totalMetroPages - 1);
     }
   };
 
@@ -1081,14 +1209,13 @@ export default function HomePage() {
     if (metroPageIndex < totalMetroPages - 1) {
       setMetroPageIndex(prev => prev + 1);
     } else {
-      const currentIndex = regionTabs.findIndex(t => t.id === selectedMetroTab);
-      const nextIndex = (currentIndex + 1) % regionTabs.length;
-      const nextTabId = regionTabs[nextIndex].id;
-      setSelectedMetroTab(nextTabId);
-      setSelectedSubRegion('all');
       setMetroPageIndex(0);
     }
   };
+
+  // Helper labels for current drill breadcrumb
+  const currentZoneObject = (zoneDataMap as any)[selectedGeoZoneId];
+  const currentAdminRegionObject = currentZoneObject?.adminRegions?.find((r: any) => r.id === selectedAdminRegionId);
 
   // Search widget state variables / متغيرات حالة شريط البحث
   const [searchTerm, setSearchTerm] = useState('');
@@ -1846,62 +1973,63 @@ export default function HomePage() {
                 {/* Upper Grid: 1 Tall Card on Right (3 cols on lg / h3 in RTL) + Left/Middle Cards Area (9 cols on lg) */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
                   
-                  {/* Right Block: Tall Grand Portrait Hall Card (Spans 3 Cols on lg -25% width for sleek ratio, sits on Right in RTL) */}
+                  {/* Right Block: Tall Grand Portrait Hall Card (Spans 3 Cols on lg / h3 in RTL) - Full Overlay Style */}
                   {h3 && (() => {
                     const p = getPrices(h3);
                     const rCount = getRatingCount(h3);
                     return (
                       <div 
                         onClick={() => navigate(`/hall/${h3.id}`)}
-                        className="lg:col-span-3 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                        className="lg:col-span-3 group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[340px] sm:min-h-[360px] lg:min-h-[370px]"
                       >
-                        {/* Tall Image with Concave Scoop and Name Overlay */}
-                        <div className="relative h-48 sm:h-52 lg:h-[245px] overflow-hidden bg-slate-900 shrink-0">
-                          <img 
-                            src={h3.image} 
-                            alt={h3.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                        {/* 100% Background Image */}
+                        <img 
+                          src={h3.image} 
+                          alt={h3.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                          referrerPolicy="no-referrer"
+                        />
 
-                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                        {/* Top Dark Scrim for Rating Contrast */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                        {/* 40% Transparent White Gradient Overlay (تدرج أبيض شفاف يمتد إلى 40% من الأسفل) */}
+                        <div className="absolute inset-x-0 bottom-0 h-[48%] sm:h-[42%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
+
+                        {/* Top Rating Badge */}
+                        <div className="relative z-10 p-2.5 flex items-center justify-between">
+                          <div className="bg-black/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                             <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                             <span>{h3.rating || '4.9'}</span>
                             <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                           </div>
+                        </div>
 
-                          {/* Hall Name & Shield with increased font and +5px bottom margin (bottom-[19px]) */}
-                          <div className="absolute bottom-[19px] right-3 left-3 z-10 flex items-center gap-1.5 drop-shadow-md">
+                        {/* Bottom Content Area */}
+                        <div className="relative z-10 p-2.5 flex flex-col justify-end">
+                          {/* Hall Name */}
+                          <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                            <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                               {h3.name}
                             </h3>
                           </div>
 
-                          <svg className="absolute -bottom-0.5 inset-x-0 w-full h-5 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 35" preserveAspectRatio="none">
-                            <path d="M0,35 L0,18 Q120,30 220,10 T400,0 L400,35 Z" />
-                          </svg>
-                        </div>
-
-                        {/* Tall Card Details */}
-                        <div className="p-2.5 pt-1 flex flex-col justify-between flex-grow">
-                          <div>
-                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                              <div className="flex items-center gap-1 truncate max-w-[60%]">
-                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                <span className="truncate">{h3.city || 'الدمام'}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
-                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <span>حتى {h3.capacity || '1000'}</span>
-                              </div>
+                          {/* Location & Capacity */}
+                          <div className="flex items-center justify-between text-white text-[15px] font-bold mb-2 drop-shadow-md">
+                            <div className="flex items-center gap-1 truncate max-w-[60%]">
+                              <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                              <span className="truncate">{h3.city || 'الدمام'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                              <Users className="w-4 h-4 text-white/90 shrink-0" />
+                              <span>حتى {h3.capacity || '1000'}</span>
                             </div>
                           </div>
 
-                          {/* Bottom Pricing & Action */}
+                          {/* Bottom Pricing (White Background) & Action */}
                           <div>
-                            <div className="grid grid-cols-3 divide-x divide-x-reverse divide-slate-200 text-center py-1 border-t border-slate-100 mb-1.5">
+                            <div className="grid grid-cols-3 divide-x divide-x-reverse divide-slate-200 text-center py-1.5 px-2 bg-white rounded-lg border border-slate-200 shadow-xs mb-1.5">
                               <div>
                                 <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
                                 <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
@@ -1919,7 +2047,7 @@ export default function HomePage() {
                             <Link
                               to={`/hall/${h3.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs"
                             >
                               <span>عرض التفاصيل</span>
                               <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-1 transition-transform" />
@@ -1930,10 +2058,10 @@ export default function HomePage() {
                     );
                   })()}
 
-                  {/* Left & Middle Cards Grid (Spans 9 Cols on Desktop / Adjusted for +25% room from h3) */}
+                  {/* Left & Middle Cards Grid (Spans 9 Cols on Desktop) */}
                   <div className="lg:col-span-9 flex flex-col gap-2.5">
                     
-                    {/* Top Sub-Row: h1 (5 cols) + h2 (7 cols) */}
+                    {/* Top Sub-Row: h1 (5 cols) + h2 (7 cols) - Full Overlay Style */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
                       
                       {/* Card 1 (Top-Left / h1) */}
@@ -1943,68 +2071,55 @@ export default function HomePage() {
                         return (
                           <div 
                             onClick={() => navigate(`/hall/${h1.id}`)}
-                            className="md:col-span-5 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                            className="md:col-span-5 group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                           >
-                            {/* Compact Image Container with Hall Name Overlay & Wave Cutout */}
-                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
-                              <img 
-                                src={h1.image} 
-                                alt={h1.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                referrerPolicy="no-referrer"
-                              />
-                              {/* Top & Bottom Gradient Shadows for High Contrast */}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                            <img 
+                              src={h1.image} 
+                              alt={h1.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                              {/* Rating Float Badge (Top-Right in RTL) */}
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <div className="relative z-10 p-2 flex items-center justify-between">
+                              <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                 <span>{h1.rating || '4.9'}</span>
                                 <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                               </div>
+                            </div>
 
-                              {/* Hall Name & Shield inside the Image (+3px bottom margin -> bottom-[17px]) */}
-                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                              <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-[15px] sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                                   {h1.name}
                                 </h3>
                               </div>
 
-                              {/* Organic Wave Cutout */}
-                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-                                <path d="M0,30 L0,12 Q130,28 240,12 T400,0 L400,30 Z" />
-                              </svg>
-                            </div>
-
-                            {/* Content Details */}
-                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
-                              <div>
-                                {/* Location & Capacity in Single Balanced Row */}
-                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                    <span className="truncate">{h1.city || 'الرياض'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
-                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                    <span>حتى {h1.capacity || '800'}</span>
-                                  </div>
+                              <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{h1.city || 'الرياض'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                  <Users className="w-4 h-4 text-white/90 shrink-0" />
+                                  <span>حتى {h1.capacity || '800'}</span>
                                 </div>
                               </div>
 
-                              {/* Pricing Row & Details Action */}
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1">
                                 <Link
                                   to={`/hall/${h1.id}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs shrink-0"
                                 >
                                   <span>التفاصيل</span>
                                   <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                                 </Link>
 
-                                <div className="flex items-center gap-1.5 text-center">
+                                <div className="flex items-center gap-1.5 text-center bg-white px-2 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                                   <div>
                                     <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
                                     <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
@@ -2033,60 +2148,55 @@ export default function HomePage() {
                         return (
                           <div 
                             onClick={() => navigate(`/hall/${h2.id}`)}
-                            className="md:col-span-7 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                            className="md:col-span-7 group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                           >
-                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
-                              <img 
-                                src={h2.image} 
-                                alt={h2.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                            <img 
+                              src={h2.image} 
+                              alt={h2.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <div className="relative z-10 p-2 flex items-center justify-between">
+                              <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                 <span>{h2.rating || '4.8'}</span>
                                 <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                               </div>
+                            </div>
 
-                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                              <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-sm sm:text-[15px] font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                                   {h2.name}
                                 </h3>
                               </div>
 
-                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-                                <path d="M0,30 L0,0 Q160,26 270,10 T400,16 L400,30 Z" />
-                              </svg>
-                            </div>
-
-                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
-                              <div>
-                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                                  <div className="flex items-center gap-1 truncate max-w-[62%]">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                    <span className="truncate">{h2.city || 'جدة'} - {h2.location || 'حي الشاطئ'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
-                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                    <span>حتى {h2.capacity || '600'}</span>
-                                  </div>
+                              <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                                <div className="flex items-center gap-1 truncate max-w-[62%]">
+                                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{h2.city || 'جدة'} - {h2.location || 'حي الشاطئ'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                  <Users className="w-4 h-4 text-white/90 shrink-0" />
+                                  <span>حتى {h2.capacity || '600'}</span>
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                              <div className="flex items-center justify-between gap-1.5">
                                 <Link
                                   to={`/hall/${h2.id}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs"
                                 >
                                   <span>التفاصيل</span>
                                   <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                                 </Link>
 
-                                <div className="flex items-center gap-2 text-center">
+                                <div className="flex items-center gap-2 text-center bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                                   <div>
                                     <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
                                     <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
@@ -2109,7 +2219,7 @@ export default function HomePage() {
                       })()}
                     </div>
 
-                    {/* Middle Sub-Row: 3 Cards (h4 on left + h4_extra in middle + h5 on right) */}
+                    {/* Middle Sub-Row: 3 Cards (h4 on left + h4_extra in middle + h5 on right) - Full Overlay Style */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                       
                       {/* Card 4 (Mid-Left / h4) */}
@@ -2119,60 +2229,55 @@ export default function HomePage() {
                         return (
                           <div 
                             onClick={() => navigate(`/hall/${h4.id}`)}
-                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                            className="group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                           >
-                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
-                              <img 
-                                src={h4.image} 
-                                alt={h4.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                            <img 
+                              src={h4.image} 
+                              alt={h4.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <div className="relative z-10 p-2 flex items-center justify-between">
+                              <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                 <span>{h4.rating || '4.7'}</span>
                                 <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                               </div>
+                            </div>
 
-                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                              <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                                   {h4.name}
                                 </h3>
                               </div>
 
-                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-                                <path d="M0,30 L0,14 Q140,24 260,8 T400,20 L400,30 Z" />
-                              </svg>
-                            </div>
-
-                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
-                              <div>
-                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                    <span className="truncate">{h4.city || 'الرياض'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
-                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                    <span>حتى {h4.capacity || '300'}</span>
-                                  </div>
+                              <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{h4.city || 'الرياض'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                  <Users className="w-4 h-4 text-white/90 shrink-0" />
+                                  <span>حتى {h4.capacity || '300'}</span>
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1">
                                 <Link
                                   to={`/hall/${h4.id}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs shrink-0"
                                 >
                                   <span>التفاصيل</span>
                                   <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                                 </Link>
 
-                                <div className="flex items-center gap-1.5 text-center">
+                                <div className="flex items-center gap-1.5 text-center bg-white px-1.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                                   <div>
                                     <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
                                     <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
@@ -2196,60 +2301,55 @@ export default function HomePage() {
                         return (
                           <div 
                             onClick={() => navigate(`/hall/${h4_extra.id}`)}
-                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                            className="group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                           >
-                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
-                              <img 
-                                src={h4_extra.image} 
-                                alt={h4_extra.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                            <img 
+                              src={h4_extra.image} 
+                              alt={h4_extra.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <div className="relative z-10 p-2 flex items-center justify-between">
+                              <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                 <span>{h4_extra.rating || '4.9'}</span>
                                 <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                               </div>
+                            </div>
 
-                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                              <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                                   {h4_extra.name}
                                 </h3>
                               </div>
 
-                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-                                <path d="M0,30 L0,10 Q200,26 400,8 L400,30 Z" />
-                              </svg>
-                            </div>
-
-                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
-                              <div>
-                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                    <span className="truncate">{h4_extra.city || 'الدمام'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
-                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                    <span>حتى {h4_extra.capacity || '500'}</span>
-                                  </div>
+                              <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{h4_extra.city || 'الدمام'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                  <Users className="w-4 h-4 text-white/90 shrink-0" />
+                                  <span>حتى {h4_extra.capacity || '500'}</span>
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1">
                                 <Link
                                   to={`/hall/${h4_extra.id}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs shrink-0"
                                 >
                                   <span>التفاصيل</span>
                                   <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                                 </Link>
 
-                                <div className="flex items-center gap-1.5 text-center">
+                                <div className="flex items-center gap-1.5 text-center bg-white px-1.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                                   <div>
                                     <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
                                     <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
@@ -2273,60 +2373,55 @@ export default function HomePage() {
                         return (
                           <div 
                             onClick={() => navigate(`/hall/${h5.id}`)}
-                            className="group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300"
+                            className="group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                           >
-                            <div className="relative h-28 sm:h-30 overflow-hidden bg-slate-900 shrink-0">
-                              <img 
-                                src={h5.image} 
-                                alt={h5.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+                            <img 
+                              src={h5.image} 
+                              alt={h5.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                              <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
+                            <div className="relative z-10 p-2 flex items-center justify-between">
+                              <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[11px] font-black text-white flex items-center gap-1 shadow-sm border border-white/20">
                                 <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                                 <span>{h5.rating || '4.8'}</span>
                                 <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                               </div>
+                            </div>
 
-                              <div className="absolute bottom-[17px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                            <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                              <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                                   {h5.name}
                                 </h3>
                               </div>
 
-                              <svg className="absolute -bottom-0.5 inset-x-0 w-full h-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 400 30" preserveAspectRatio="none">
-                                <path d="M0,30 L0,6 Q180,28 300,12 T400,2 L400,30 Z" />
-                              </svg>
-                            </div>
-
-                            <div className="p-2.5 pt-1.5 flex flex-col justify-between flex-grow">
-                              <div>
-                                <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                                  <div className="flex items-center gap-1 truncate max-w-[58%]">
-                                    <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                    <span className="truncate">{h5.city || 'الخبر'}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0 text-[11px]">
-                                    <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                    <span>حتى {h5.capacity || '700'}</span>
-                                  </div>
+                              <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                                  <span className="truncate">{h5.city || 'الخبر'}</span>
+                                </div>
+                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                  <Users className="w-4 h-4 text-white/90 shrink-0" />
+                                  <span>حتى {h5.capacity || '700'}</span>
                                 </div>
                               </div>
 
-                              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1">
                                 <Link
                                   to={`/hall/${h5.id}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shrink-0"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs shrink-0"
                                 >
                                   <span>التفاصيل</span>
                                   <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                                 </Link>
 
-                                <div className="flex items-center gap-1.5 text-center">
+                                <div className="flex items-center gap-1.5 text-center bg-white px-1.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                                   <div>
                                     <span className="block text-[8.5px] text-slate-500 font-bold">24 س</span>
                                     <span className="text-[11px] sm:text-xs font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()}</span>
@@ -2347,7 +2442,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Bottom Row: 2 Panoramic Split Bento Cards (Left Card 5 cols, Right Card 7 cols) */}
+                {/* Bottom Row: 2 Panoramic Bento Cards (Left Card 5 cols, Right Card 7 cols) - Full Overlay Style */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
                   
                   {/* Bottom-Left Card (Spans 5 Cols on lg / h6) */}
@@ -2357,59 +2452,55 @@ export default function HomePage() {
                     return (
                       <div 
                         onClick={() => navigate(`/hall/${h6.id}`)}
-                        className="lg:col-span-5 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row justify-between cursor-pointer hover:border-amber-300"
+                        className="lg:col-span-5 group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                       >
-                        <div className="relative sm:w-2/5 h-26 sm:h-auto overflow-hidden bg-slate-900 shrink-0">
-                          <img 
-                            src={h6.image} 
-                            alt={h6.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 pointer-events-none" />
+                        <img 
+                          src={h6.image} 
+                          alt={h6.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
+                        <div className="relative z-10 p-2 flex items-center justify-between">
+                          <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
                             <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                             <span>{h6.rating || '4.6'}</span>
+                            <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                           </div>
+                        </div>
 
-                          <div className="absolute bottom-[15px] right-2.5 left-2.5 z-10 flex items-center gap-1 drop-shadow-md">
-                            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <h3 className="text-sm sm:text-[15px] font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                        <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                          <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
+                            <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                               {h6.name}
                             </h3>
                           </div>
 
-                          <svg className="hidden sm:block absolute -left-0.5 inset-y-0 h-full w-3.5 text-white fill-current pointer-events-none z-0" viewBox="0 0 20 100" preserveAspectRatio="none">
-                            <path d="M20,0 L0,0 Q18,50 0,100 L20,100 Z" />
-                          </svg>
-                        </div>
-
-                        <div className="p-2.5 sm:w-3/5 flex flex-col justify-between flex-grow">
-                          <div>
-                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                              <div className="flex items-center gap-1 truncate max-w-[60%]">
-                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                <span className="truncate">{h6.city || 'الرياض'} - {h6.location || 'حي العليا'}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
-                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <span>حتى {h6.capacity || '450'}</span>
-                              </div>
+                          <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                            <div className="flex items-center gap-1 truncate max-w-[60%]">
+                              <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                              <span className="truncate">{h6.city || 'الرياض'} - {h6.location || 'حي العليا'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                              <Users className="w-4 h-4 text-white/90 shrink-0" />
+                              <span>حتى {h6.capacity || '450'}</span>
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                          <div className="flex items-center justify-between gap-1.5">
                             <Link
                               to={`/hall/${h6.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs"
                             >
                               <span>التفاصيل</span>
                               <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                             </Link>
 
-                            <div className="flex items-center gap-2 text-center">
+                            <div className="flex items-center gap-2 text-center bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                               <div>
                                 <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
                                 <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
@@ -2438,62 +2529,55 @@ export default function HomePage() {
                     return (
                       <div 
                         onClick={() => navigate(`/hall/${h7.id}`)}
-                        className="lg:col-span-7 group bg-white rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row justify-between cursor-pointer hover:border-amber-300"
+                        className="lg:col-span-7 group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between cursor-pointer hover:border-amber-300 min-h-[175px]"
                       >
-                        {/* Panoramic Image on Right in RTL */}
-                        <div className="relative sm:w-[45%] h-26 sm:h-auto overflow-hidden bg-slate-900 shrink-0">
-                          <img 
-                            src={h7.image} 
-                            alt={h7.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40 pointer-events-none" />
+                        <img 
+                          src={h7.image} 
+                          alt={h7.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute inset-x-0 bottom-0 h-[52%] sm:h-[44%] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
 
-                          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
+                        <div className="relative z-10 p-2 flex items-center justify-between">
+                          <div className="bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-black text-white flex items-center gap-0.5 shadow-sm border border-white/20">
                             <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                             <span>{h7.rating || '4.9'}</span>
+                            <span className="text-white/70 font-bold text-[9px]">({rCount})</span>
                           </div>
+                        </div>
 
-                          <div className="absolute bottom-[15px] right-2.5 left-2.5 z-10 flex items-center gap-1.5 drop-shadow-md">
+                        <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
+                          <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                            <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
                               {h7.name}
                             </h3>
                           </div>
 
-                          <svg className="hidden sm:block absolute -left-0.5 inset-y-0 h-full w-4 text-white fill-current pointer-events-none z-0" viewBox="0 0 30 100" preserveAspectRatio="none">
-                            <path d="M30,0 L0,0 Q22,50 0,100 L30,100 Z" />
-                          </svg>
-                        </div>
-
-                        {/* Panoramic Content on Left */}
-                        <div className="p-2.5 sm:w-[55%] flex flex-col justify-between flex-grow">
-                          <div>
-                            <div className="flex items-center justify-between text-slate-600 text-xs font-semibold mb-2">
-                              <div className="flex items-center gap-1 truncate max-w-[65%]">
-                                <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                <span className="truncate">{h7.city || 'جدة'} - {h7.location || 'أبحر الشمالية'}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-slate-700 font-bold shrink-0">
-                                <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                                <span>حتى {h7.capacity || '1200'}</span>
-                              </div>
+                          <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
+                            <div className="flex items-center gap-1 truncate max-w-[65%]">
+                              <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
+                              <span className="truncate">{h7.city || 'جدة'} - {h7.location || 'أبحر الشمالية'}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                              <Users className="w-4 h-4 text-white/90 shrink-0" />
+                              <span>حتى {h7.capacity || '1200'}</span>
                             </div>
                           </div>
 
-                          {/* Bottom Pricing Row & Action */}
-                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                          <div className="flex items-center justify-between gap-1.5">
                             <Link
                               to={`/hall/${h7.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700 text-xs font-bold transition-colors shadow-xs"
                             >
                               <span>التفاصيل</span>
                               <ArrowLeft className="w-3 h-3 text-amber-500 group-hover:-translate-x-0.5 transition-transform" />
                             </Link>
 
-                            <div className="flex items-center gap-2 text-center">
+                            <div className="flex items-center gap-2 text-center bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-xs">
                               <div>
                                 <span className="block text-[9px] text-slate-500 font-bold">24 ساعة</span>
                                 <span className="text-xs sm:text-[13px] font-black text-blue-950 font-mono leading-tight">{p.fullDay.toLocaleString()} <span className="text-[9px] font-normal">ر.س</span></span>
@@ -2535,7 +2619,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 6. Discover Halls By Region - Metro UI Full-Width Edge-to-Edge Adaptive Layout */}
+      {/* 6. Discover Halls By Region - Metro UI Hierarchical Drill-Down Adaptive Layout */}
       <section className="py-12 bg-slate-50 border-y border-slate-200/80 relative overflow-hidden">
         {/* Header Container (Comfortably padded inside max container) */}
         <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6">
@@ -2563,86 +2647,118 @@ export default function HomePage() {
           </div>
 
           {/* Subtitle / Descriptive motivation text strictly aligned to the RIGHT */}
-          <p className="text-slate-500 text-xs sm:text-sm md:text-base mb-6 text-right font-medium max-w-4xl leading-relaxed">
-            تصفح أرقى القاعات والاستراحات والمنتجعات موزعة بدقة حسب مناطق ومحافظات المملكة بنمط الميترو التفاعلي
+          <p className="text-slate-500 text-xs sm:text-sm md:text-base mb-4 text-right font-medium max-w-4xl leading-relaxed">
+            {drillLevel === 'zones' && 'اختر منطقتك الجغرافية للانتقال إلى تقسيم المناطق الإدارية والمحافظات بنمط الميترو التفاعلي'}
+            {drillLevel === 'regions' && `المناطق الإدارية في ${currentZoneObject?.label || 'المنطقة المختارة'} - اختر المنطقة الإدارية لاستعراض مدنها ومحافظاتها`}
+            {drillLevel === 'cities' && `مدن ومحافظات ${currentAdminRegionObject?.title || currentZoneObject?.label || 'المنطقة'} - اضغط على المدينة للانتقال لنتائج القاعات المتاحة`}
           </p>
 
-          {/* Primary Region Tabs (Pill selector) */}
-          <div className="flex items-center justify-center mb-4 overflow-x-auto scrollbar-none py-1">
-            <div className="inline-flex items-center gap-1 p-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs">
-              {regionTabs.map((tab) => {
-                const isActive = selectedMetroTab === tab.id;
-                return (
+          {/* Hierarchical Drill-down Breadcrumbs & Navigation Bar (بدل التبويبات العلوية) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-2 sm:p-3 bg-white border border-slate-200/90 rounded-2xl shadow-xs">
+            {/* Breadcrumb Navigation Path */}
+            <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold">
+              {/* Root: All Geographic Zones */}
+              <button
+                onClick={() => {
+                  setDrillLevel('zones');
+                  setSelectedGeoZoneId('');
+                  setSelectedAdminRegionId('');
+                  setMetroPageIndex(0);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  drillLevel === 'zones'
+                    ? 'bg-[#0f1e36] text-white shadow-xs font-black'
+                    : 'text-slate-700 hover:text-blue-950 hover:bg-slate-100'
+                }`}
+              >
+                <Globe className="w-4 h-4 text-amber-400" />
+                <span>المناطق الجغرافية بالمملكة</span>
+              </button>
+
+              {/* Level 2: Selected Geo Zone */}
+              {selectedGeoZoneId && currentZoneObject && (
+                <>
+                  <ChevronLeft className="w-4 h-4 text-slate-400" />
                   <button
-                    key={tab.id}
                     onClick={() => {
-                      setSelectedMetroTab(tab.id);
-                      setSelectedSubRegion('all');
+                      setDrillLevel('regions');
+                      setSelectedAdminRegionId('');
                       setMetroPageIndex(0);
                     }}
-                    className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? 'bg-[#0f1e36] text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100/70'
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                      drillLevel === 'regions'
+                        ? 'bg-[#0f1e36] text-white shadow-xs font-black'
+                        : 'text-slate-700 hover:text-blue-950 hover:bg-slate-100'
                     }`}
                   >
-                    {tab.label}
+                    <Compass className="w-4 h-4 text-amber-400" />
+                    <span>{currentZoneObject.label}</span>
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </>
+              )}
 
-          {/* Sub-Regions Bar (تبويب فرعي أسفل شريط المناطق يظهر عند اختيار منطقة جغرافية) */}
-          {activeZone.subRegions && activeZone.subRegions.length > 0 && (
-            <div className="flex items-center justify-center mb-6 overflow-x-auto scrollbar-none py-1 animate-fadeIn">
-              <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 border border-slate-200 rounded-xl">
-                {activeZone.subRegions.map((sub: any) => {
-                  const isSubActive = selectedSubRegion === sub.id;
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => {
-                        setSelectedSubRegion(sub.id);
-                        setMetroPageIndex(0);
-                      }}
-                      className={`px-3.5 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                        isSubActive
-                          ? 'bg-amber-500 text-blue-950 shadow-xs font-black'
-                          : 'text-slate-600 hover:text-blue-950 hover:bg-white/80'
-                      }`}
-                    >
-                      {sub.name}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Level 3: Selected Admin Region */}
+              {selectedAdminRegionId && currentAdminRegionObject && (
+                <>
+                  <ChevronLeft className="w-4 h-4 text-slate-400" />
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-blue-950 shadow-xs font-black">
+                    <MapPin className="w-4 h-4 text-blue-950" />
+                    <span>{currentAdminRegionObject.title}</span>
+                  </div>
+                </>
+              )}
             </div>
-          )}
+
+            {/* Back Navigation Button when inside drill levels */}
+            {drillLevel !== 'zones' && (
+              <button
+                onClick={() => {
+                  if (drillLevel === 'cities') {
+                    setDrillLevel('regions');
+                    setSelectedAdminRegionId('');
+                    setMetroPageIndex(0);
+                  } else if (drillLevel === 'regions') {
+                    setDrillLevel('zones');
+                    setSelectedGeoZoneId('');
+                    setSelectedAdminRegionId('');
+                    setMetroPageIndex(0);
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black text-slate-700 hover:text-blue-950 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <span>العودة للمستوى السابق</span>
+                <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-amber-600" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Full-Width Edge-to-Edge Metro Grid Container with Floating Circular Navigation Arrows */}
         <div className="relative w-full group/metro my-2 overflow-hidden">
           
           {/* Right Circular Floating Navigation Button (السابق) */}
-          <button
-            onClick={handlePrevMetroTab}
-            className="absolute right-3 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
-            title="السابق"
-            aria-label="السابق"
-          >
-            <ChevronRight className="w-6 h-6 text-slate-800 stroke-[2.5]" />
-          </button>
+          {totalMetroPages > 1 && (
+            <button
+              onClick={handlePrevMetroTab}
+              className="absolute right-3 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+              title="السابق"
+              aria-label="السابق"
+            >
+              <ChevronRight className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+            </button>
+          )}
 
           {/* Left Circular Floating Navigation Button (التالي) */}
-          <button
-            onClick={handleNextMetroTab}
-            className="absolute left-3 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
-            title="التالي"
-            aria-label="التالي"
-          >
-            <ChevronLeft className="w-6 h-6 text-slate-800 stroke-[2.5]" />
-          </button>
+          {totalMetroPages > 1 && (
+            <button
+              onClick={handleNextMetroTab}
+              className="absolute left-3 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 shadow-2xl border border-slate-200/90 backdrop-blur-md flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer opacity-90 hover:opacity-100"
+              title="التالي"
+              aria-label="التالي"
+            >
+              <ChevronLeft className="w-6 h-6 text-slate-800 stroke-[2.5]" />
+            </button>
+          )}
 
           {/* Dynamic Adaptive Metro Grid (Full-Width Edge-to-Edge with Automatic Page Pattern Shifting) */}
           {(() => {
@@ -2651,22 +2767,47 @@ export default function HomePage() {
               return (
                 <div className="w-full py-16 text-center text-slate-500 bg-white/50">
                   <MapPin className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm font-bold">لا توجد مدن مضافة حالياً في هذا النطاق</p>
+                  <p className="text-sm font-bold">لا توجد بيانات متاحة حالياً في هذا النطاق</p>
                 </div>
               );
             }
+
+            const handleTileClick = (tile: any) => {
+              if (!tile) return;
+
+              // Level 1: Click on Geographic Zone Tile -> Drill to Administrative Regions
+              if (drillLevel === 'zones') {
+                const zId = tile.zoneId || (tile.id ? tile.id.replace('-zone', '').replace('-all', '') : 'central');
+                setSelectedGeoZoneId(zId);
+                setSelectedAdminRegionId('');
+                setDrillLevel('regions');
+                setMetroPageIndex(0);
+                return;
+              }
+
+              // Level 2: Click on Administrative Region Tile -> Drill to Cities/Governorates
+              if (drillLevel === 'regions') {
+                setSelectedAdminRegionId(tile.id);
+                setDrillLevel('cities');
+                setMetroPageIndex(0);
+                return;
+              }
+
+              // Level 3: Click on City/Governorate Tile -> Navigate to halls page with region and city filter applied
+              if (drillLevel === 'cities') {
+                const query = tile.city 
+                  ? `/explore?region=${encodeURIComponent(tile.query)}&city=${encodeURIComponent(tile.city)}`
+                  : `/explore?region=${encodeURIComponent(tile.query)}`;
+                navigate(query);
+              }
+            };
 
             const renderMetroTile = (tile: any, isHero: boolean = false, customClass: string = '') => {
               if (!tile) return null;
               return (
                 <div 
                   key={tile.id || tile.title}
-                  onClick={() => {
-                    const query = tile.city 
-                      ? `/explore?region=${encodeURIComponent(tile.query)}&city=${encodeURIComponent(tile.city)}`
-                      : `/explore?region=${encodeURIComponent(tile.query)}`;
-                    navigate(query);
-                  }}
+                  onClick={() => handleTileClick(tile)}
                   className={`group/tile relative overflow-hidden cursor-pointer transition-all duration-300 rounded-none hover:brightness-105 shadow-xs hover:shadow-lg ring-0 hover:ring-2 hover:ring-amber-400 select-none min-h-0 min-w-0 ${customClass}`}
                 >
                   <img 
@@ -2695,7 +2836,7 @@ export default function HomePage() {
                         {tile.count}
                       </span>
                       <span className={`${isHero ? 'text-xs sm:text-sm' : 'text-[10px] sm:text-xs'} font-bold text-slate-300`}>
-                        قاعة ومنتجع متاح
+                        {drillLevel === 'zones' ? 'قاعة موزعة بالمناطق' : drillLevel === 'regions' ? 'قاعة بالمحافظات' : 'قاعة ومنتجع متاح'}
                       </span>
                     </div>
                   </div>
@@ -2703,7 +2844,11 @@ export default function HomePage() {
                   {/* Bottom Action Pill */}
                   <div className={`absolute ${isHero ? 'bottom-5 sm:bottom-7 left-5 sm:left-7' : 'bottom-3 sm:bottom-4 left-3 sm:left-4'} z-10`}>
                     <span className={`inline-flex items-center gap-1.5 ${isHero ? 'px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm' : 'px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs'} bg-black/40 hover:bg-black/65 backdrop-blur-md text-white font-bold rounded-xl border border-white/25 shadow-md group-hover/tile:border-amber-400 transition-all`}>
-                      <span>استكشاف القاعات</span>
+                      <span>
+                        {drillLevel === 'zones' && 'استعراض المناطق الإدارية'}
+                        {drillLevel === 'regions' && 'استعراض المدن والمحافظات'}
+                        {drillLevel === 'cities' && 'استكشاف القاعات'}
+                      </span>
                       <ArrowLeft className="w-3.5 h-3.5 text-amber-400 group-hover/tile:-translate-x-1 transition-transform shrink-0" />
                     </span>
                   </div>
@@ -2872,28 +3017,24 @@ export default function HomePage() {
         <div className="w-full max-w-[1440px] mx-auto px-4 md:px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-1">
             
-            {/* Region Indicators (التبديل السريع بين المناطق) */}
-            <div className="flex items-center gap-1.5 order-2 sm:order-1">
-              {regionTabs.map((tab) => (
+            {/* Quick Status / Reset shortcut */}
+            <div className="flex items-center gap-2 order-2 sm:order-1">
+              {drillLevel !== 'zones' && (
                 <button
-                  key={tab.id}
                   onClick={() => {
-                    setSelectedMetroTab(tab.id);
-                    setSelectedSubRegion('all');
+                    setDrillLevel('zones');
+                    setSelectedGeoZoneId('');
+                    setSelectedAdminRegionId('');
                     setMetroPageIndex(0);
                   }}
-                  className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
-                    selectedMetroTab === tab.id 
-                      ? 'w-7 bg-blue-950' 
-                      : 'w-2 bg-slate-300 hover:bg-slate-400'
-                  }`}
-                  aria-label={`تحديد ${tab.label}`}
-                  title={tab.label}
-                />
-              ))}
+                  className="text-xs font-black text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 transition-colors cursor-pointer"
+                >
+                  العودة لكل المناطق الجغرافية
+                </button>
+              )}
             </div>
 
-            {/* City Page Navigator if multiple pages exist for this zone/sub-region */}
+            {/* Page Navigator if multiple pages exist for this drill view */}
             {totalMetroPages > 1 ? (
               <div className="flex items-center gap-2 order-1 sm:order-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
                 <span className="text-xs font-bold text-slate-500">
@@ -2920,7 +3061,11 @@ export default function HomePage() {
 
             {/* Quick Summary Pill */}
             <div className="order-3 text-xs font-bold text-slate-500 hidden sm:block">
-              <span>{filteredTiles.length} مدينة ومحافظة متاحة</span>
+              <span>
+                {drillLevel === 'zones' && `${hierarchicalMetroTiles.length} مناطق جغرافية رئيسية بالمملكة`}
+                {drillLevel === 'regions' && `${hierarchicalMetroTiles.length} مناطق إدارية رئيسية`}
+                {drillLevel === 'cities' && `${hierarchicalMetroTiles.length} مدن ومحافظات متاحة`}
+              </span>
             </div>
           </div>
 
