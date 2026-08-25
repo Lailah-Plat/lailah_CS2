@@ -2007,21 +2007,30 @@ export default function HomePage() {
 
                         {/* Bottom Content Area */}
                         <div className="relative z-10 p-2.5 flex flex-col justify-end">
-                          {/* Hall Name */}
+                          {/* Hall Name with crisp grey outline */}
                           <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                            <h3 className="text-lg sm:text-xl font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                            <h3 
+                              style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                              className="text-lg sm:text-xl font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                            >
                               {h3.name}
                             </h3>
                           </div>
 
-                          {/* Location & Capacity */}
+                          {/* Location & Capacity with crisp grey outline */}
                           <div className="flex items-center justify-between text-white text-[15px] font-bold mb-2 drop-shadow-md">
-                            <div className="flex items-center gap-1 truncate max-w-[60%]">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 truncate max-w-[60%]"
+                            >
                               <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                               <span className="truncate">{h3.city || 'الدمام'}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                            >
                               <Users className="w-4 h-4 text-white/90 shrink-0" />
                               <span>حتى {h3.capacity || '1000'}</span>
                             </div>
@@ -2093,17 +2102,26 @@ export default function HomePage() {
                             <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                               <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 
+                                  style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                                  className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                                >
                                   {h1.name}
                                 </h3>
                               </div>
 
                               <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 truncate max-w-[58%]"
+                                >
                                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                                   <span className="truncate">{h1.city || 'الرياض'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                                >
                                   <Users className="w-4 h-4 text-white/90 shrink-0" />
                                   <span>حتى {h1.capacity || '800'}</span>
                                 </div>
@@ -2170,17 +2188,26 @@ export default function HomePage() {
                             <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                               <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 
+                                  style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                                  className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                                >
                                   {h2.name}
                                 </h3>
                               </div>
 
                               <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                                <div className="flex items-center gap-1 truncate max-w-[62%]">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 truncate max-w-[62%]"
+                                >
                                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                                   <span className="truncate">{h2.city || 'جدة'} - {h2.location || 'حي الشاطئ'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                                >
                                   <Users className="w-4 h-4 text-white/90 shrink-0" />
                                   <span>حتى {h2.capacity || '600'}</span>
                                 </div>
@@ -2251,17 +2278,26 @@ export default function HomePage() {
                             <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                               <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 
+                                  style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                                  className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                                >
                                   {h4.name}
                                 </h3>
                               </div>
 
                               <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 truncate max-w-[58%]"
+                                >
                                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                                   <span className="truncate">{h4.city || 'الرياض'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                                >
                                   <Users className="w-4 h-4 text-white/90 shrink-0" />
                                   <span>حتى {h4.capacity || '300'}</span>
                                 </div>
@@ -2323,17 +2359,26 @@ export default function HomePage() {
                             <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                               <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 
+                                  style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                                  className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                                >
                                   {h4_extra.name}
                                 </h3>
                               </div>
 
                               <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 truncate max-w-[58%]"
+                                >
                                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                                   <span className="truncate">{h4_extra.city || 'الدمام'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                                >
                                   <Users className="w-4 h-4 text-white/90 shrink-0" />
                                   <span>حتى {h4_extra.capacity || '500'}</span>
                                 </div>
@@ -2395,17 +2440,26 @@ export default function HomePage() {
                             <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                               <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                                 <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                                <h3 className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                                <h3 
+                                  style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                                  className="text-sm sm:text-base font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                                >
                                   {h5.name}
                                 </h3>
                               </div>
 
                               <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                                <div className="flex items-center gap-1 truncate max-w-[58%]">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 truncate max-w-[58%]"
+                                >
                                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                                   <span className="truncate">{h5.city || 'الخبر'}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                                <div 
+                                  style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                                  className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                                >
                                   <Users className="w-4 h-4 text-white/90 shrink-0" />
                                   <span>حتى {h5.capacity || '700'}</span>
                                 </div>
@@ -2474,17 +2528,26 @@ export default function HomePage() {
                         <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                           <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                            <h3 
+                              style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                              className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                            >
                               {h6.name}
                             </h3>
                           </div>
 
                           <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                            <div className="flex items-center gap-1 truncate max-w-[60%]">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 truncate max-w-[60%]"
+                            >
                               <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                               <span className="truncate">{h6.city || 'الرياض'} - {h6.location || 'حي العليا'}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                            >
                               <Users className="w-4 h-4 text-white/90 shrink-0" />
                               <span>حتى {h6.capacity || '450'}</span>
                             </div>
@@ -2551,17 +2614,26 @@ export default function HomePage() {
                         <div className="relative z-10 p-2.5 pt-0 flex flex-col justify-end">
                           <div className="flex items-center gap-1.5 mb-1 drop-shadow-md">
                             <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                            <h3 className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1">
+                            <h3 
+                              style={{ textShadow: '0 0 1px #475569, -1px -1px 0 #475569, 1px -1px 0 #475569, -1px 1px 0 #475569, 1px 1px 0 #475569' }}
+                              className="text-base sm:text-lg font-black text-white group-hover:text-amber-300 transition-colors line-clamp-1"
+                            >
                               {h7.name}
                             </h3>
                           </div>
 
                           <div className="flex items-center justify-between text-white text-[15px] font-bold mb-1.5 drop-shadow-md">
-                            <div className="flex items-center gap-1 truncate max-w-[65%]">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 truncate max-w-[65%]"
+                            >
                               <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
                               <span className="truncate">{h7.city || 'جدة'} - {h7.location || 'أبحر الشمالية'}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-white font-black shrink-0 text-sm">
+                            <div 
+                              style={{ textShadow: '0 0 1px #475569, -0.75px -0.75px 0 #475569, 0.75px -0.75px 0 #475569, -0.75px 0.75px 0 #475569, 0.75px 0.75px 0 #475569' }}
+                              className="flex items-center gap-1 text-white font-black shrink-0 text-sm"
+                            >
                               <Users className="w-4 h-4 text-white/90 shrink-0" />
                               <span>حتى {h7.capacity || '1200'}</span>
                             </div>
