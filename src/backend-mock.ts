@@ -46,7 +46,7 @@ const mockDatabase: Record<string, string> = {
  * Endpoint: تحديث الهوية البصرية (Branding)
  * Method: PUT
  */
-app.put('/api/settings/branding', upload.single('image'), async (req: express.Request, res: express.Response) => {
+app.put('/api/settings/branding', upload.single('image') as any, async (req: express.Request, res: express.Response) => {
   try {
     const file = req.file;
     const { type } = req.body; // e.g., 'logoUrl', 'faviconUrl', 'coverUrl'

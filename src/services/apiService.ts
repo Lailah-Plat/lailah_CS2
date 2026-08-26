@@ -434,8 +434,9 @@ export const apiService = {
 
   // --- رفع الملفات وبوابات الدفع ---
   /** رفع ملف إلى السيرفر */
-  async uploadFile(formData: FormData) {
-    const res = await fetch('/api/upload', {
+  async uploadFile(formData: FormData, type?: string) {
+    const url = type ? `/api/upload?type=${encodeURIComponent(type)}` : '/api/upload';
+    const res = await fetch(url, {
       method: 'POST',
       body: formData
     });

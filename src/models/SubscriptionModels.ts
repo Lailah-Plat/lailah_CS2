@@ -104,7 +104,8 @@ export async function syncSubscriptionModels() {
           includesAdvancedStats: false,
           includesFullManagement: false,
           includesAdvancedProviderDashboard: false,
-          includesLogisticsPortal: false
+          includesLogisticsPortal: false,
+          includesWhatsAppCampaignAlerts: false
         }),
         isHidden: false
       },
@@ -131,7 +132,8 @@ export async function syncSubscriptionModels() {
           includesAdvancedStats: true,
           includesFullManagement: true,
           includesAdvancedProviderDashboard: true,
-          includesLogisticsPortal: false
+          includesLogisticsPortal: false,
+          includesWhatsAppCampaignAlerts: true
         }),
         isHidden: false
       },
@@ -158,7 +160,8 @@ export async function syncSubscriptionModels() {
           includesAdvancedStats: true,
           includesFullManagement: true,
           includesAdvancedProviderDashboard: true,
-          includesLogisticsPortal: true
+          includesLogisticsPortal: true,
+          includesWhatsAppCampaignAlerts: true
         }),
         isHidden: false
       },
@@ -185,7 +188,8 @@ export async function syncSubscriptionModels() {
           includesAdvancedStats: true,
           includesFullManagement: true,
           includesAdvancedProviderDashboard: true,
-          includesLogisticsPortal: true
+          includesLogisticsPortal: true,
+          includesWhatsAppCampaignAlerts: true
         }),
         isHidden: false
       },

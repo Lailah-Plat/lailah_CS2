@@ -697,19 +697,24 @@ export function useAppState() {
   // Load and Migrate/Sync reviews from backend database (SQLite/PostgreSQL compatible)
   useEffect(() => {
     if (!isAuthenticated) return;
+    let isMounted = true;
     const initAndSyncReviews = async () => {
       try {
         const data = await apiService.getReviews();
-        if (data.success) {
+        if (data && data.success && Array.isArray(data.reviews)) {
+          if (!isMounted) return;
           if (data.reviews.length === 0) {
             const stored = localStorage.getItem('allReviews');
-            const localReviews = stored ? JSON.parse(stored) : null;
-            if (localReviews && localReviews.length > 0) {
+            let localReviews = null;
+            try {
+              localReviews = stored ? JSON.parse(stored) : null;
+            } catch (e) {}
+            if (localReviews && Array.isArray(localReviews) && localReviews.length > 0) {
               const syncData = await apiService.syncReviews(localReviews);
-              if (syncData.success) {
+              if (syncData && syncData.success) {
                 const reloadData = await apiService.getReviews();
-                if (reloadData.success) {
-                   setAllReviews(reloadData.reviews);
+                if (reloadData && reloadData.success && Array.isArray(reloadData.reviews) && isMounted) {
+                  setAllReviews(reloadData.reviews);
                 }
               }
             }
@@ -717,11 +722,14 @@ export function useAppState() {
             setAllReviews(data.reviews);
           }
         }
-      } catch (err) {
-        console.error("Failed to sync/fetch reviews from SQL database:", err);
+      } catch (err: any) {
+        console.warn("Graceful fallback: Reviews sync from database will use local storage cache:", err?.message || err);
       }
     };
     initAndSyncReviews();
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated]);
 
   // Load and Sync Cloud Database Migration for Halls, Services, Bookings, Support, and Regions
@@ -1823,7 +1831,8 @@ export function useAppState() {
       { id: 'financial_forecast', name: 'ميزة ميزانية التوقعات المالية الذكية', description: 'تتيح الحصول على تقديرات ومحاكاة ذكية للتدفقات والأرباح التشغيلية للأشهر القادمة مع إمكانية تصدير التقرير المالي كـ PDF للفترة المقبلة.', priceMonthly: 250, priceYearly: 2400, discount: 15 },
       { id: 'partial_payment', name: 'ميزة نظام الدفع الجزئي (العربون)', description: 'تفعيل وتنشيط نظام الدفع الجزئي: السماح للعملاء بدفع عربون مقدم والمتبقي لاحقاً آلياً والتحصيل الإلكتروني اللاحق.', priceMonthly: 180, priceYearly: 1800, discount: 15 },
       { id: 'mini_products_store', name: 'متجر المنتجات والمستلزمات المصغر', description: 'تمكين بيع مستلزمات الحفلات، إعاشة العشاء VIP، المشروبات، الأثاث الإضافي، والمرشات للعملاء أثناء حجز القاعة وربطها بالمخزون.', priceMonthly: 89, priceYearly: 890, discount: 15, unit: 'متجر' },
-      { id: 'hall_bundles', name: 'ميزة زيادة باقات القاعات المسموحة (النمط أ)', description: 'ميزة تفاعلية إضافية لرفع حد باقات الصالة المغلقة والجاهزة المفردة لإضافة المزيد من العروض والخيارات لكل صالة ومتابعة تدفقاتها بصورة مرنة.', priceMonthly: 40, priceYearly: 400, discount: 15, unit: 'باقة' }
+      { id: 'hall_bundles', name: 'ميزة زيادة باقات القاعات المسموحة (النمط أ)', description: 'ميزة تفاعلية إضافية لرفع حد باقات الصالة المغلقة والجاهزة المفردة لإضافة المزيد من العروض والخيارات لكل صالة ومتابعة تدفقاتها بصورة مرنة.', priceMonthly: 40, priceYearly: 400, discount: 15, unit: 'باقة' },
+      { id: 'whatsapp_campaign_alerts', name: 'تفعيل إشعارات رسائل واتس أب في الحملات التسويقية', description: 'أتمتة إرسال إشعارات وتنبيهات فورية وتفاعلية عبر WhatsApp Business API للشريك لاعتماد ميزانيات وعروض الحملات التسويقية وبدء البث المباشر.', priceMonthly: 120, priceYearly: 1200, discount: 15, unit: 'باقة' }
     ];
     try {
       const stored = localStorage.getItem('additional_features_pricing');
@@ -2620,6 +2629,15 @@ export function useAppState() {
         return {
           pushBalanceAlertEnabled: true,
           pushBalanceThreshold: 5000,
+          whatsAppCampaignApprovalEnabled: true,
+          whatsAppWabaId: 'WABA-9928172651',
+          whatsAppApiKey: 'EAAXx9182374619827364123...',
+          whatsAppSenderPhoneId: 'PHONE-8821920-KSA',
+          whatsAppSenderPhoneNumber: '+966 50 882 1920',
+          whatsAppCampaignApprovalTemplate: 'lailah_mkt_campaign_approval_v1',
+          whatsAppCampaignLaunchAlert: true,
+          whatsAppCampaignBudgetAlert: true,
+          whatsAppRestrictToEligiblePlans: false,
           ...parsed
         };
       }
@@ -2640,9 +2658,18 @@ export function useAppState() {
       emailNewBooking: true,
       emailCancelBooking: true,
       emailPaymentConfirm: true,
-      whatsAppLinked: false,
+      whatsAppLinked: true,
       pushBalanceAlertEnabled: true,
-      pushBalanceThreshold: 5000
+      pushBalanceThreshold: 5000,
+      whatsAppCampaignApprovalEnabled: true,
+      whatsAppWabaId: 'WABA-9928172651',
+      whatsAppApiKey: 'EAAXx9182374619827364123...',
+      whatsAppSenderPhoneId: 'PHONE-8821920-KSA',
+      whatsAppSenderPhoneNumber: '+966 50 882 1920',
+      whatsAppCampaignApprovalTemplate: 'lailah_mkt_campaign_approval_v1',
+      whatsAppCampaignLaunchAlert: true,
+      whatsAppCampaignBudgetAlert: true,
+      whatsAppRestrictToEligiblePlans: false
     };
   });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, X, Check, ShoppingBag } from 'lucide-react';
+import { Package, X, Check, ShoppingBag, MessageSquare } from 'lucide-react';
 
 interface SubscriptionModalsProps {
   isSubscriptionModalOpen: boolean;
@@ -193,6 +193,14 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                     </span>
                   </label>
 
+                  <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-dashed border-emerald-100 mt-1 bg-emerald-50/40 p-2 rounded-xl border">
+                    <input type="checkbox" checked={subscriptionForm.includesWhatsAppCampaignAlerts || false} onChange={e => setSubscriptionForm({...subscriptionForm, includesWhatsAppCampaignAlerts: e.target.checked})} className="w-5 h-5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500" />
+                    <span className="text-sm font-black text-emerald-900 flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
+                      تفعيل إشعارات رسائل واتس أب في الحملات التسويقية
+                    </span>
+                  </label>
+
                   <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-dashed border-red-200 mt-2 bg-red-50/50 p-2.5 rounded-lg border border-red-100">
                     <input type="checkbox" checked={subscriptionForm.isHidden || false} onChange={e => setSubscriptionForm({...subscriptionForm, isHidden: e.target.checked})} className="w-5 h-5 text-rose-600 rounded border-rose-300 focus:ring-rose-500" />
                     <span className="text-sm font-extrabold text-rose-700 flex items-center gap-1.5">🔒 باقة مخفية ترويجية مخصصة (تُستخدم فقط لعروض الترقية الخاصة وتغيب عن عيون الشركاء العاديين)</span>
@@ -234,6 +242,9 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                   }
                   if (subscriptionForm.includesMiniProductsStore && !featuresStr.includes('ميزة متجر المنتجات والمستلزمات المصغر')) {
                     featuresStr = featuresStr ? featuresStr + '\nميزة متجر المنتجات والمستلزمات المصغر' : 'ميزة متجر المنتجات والمستلزمات المصغر';
+                  }
+                  if (subscriptionForm.includesWhatsAppCampaignAlerts && !featuresStr.includes('تفعيل إشعارات رسائل واتس أب في الحملات التسويقية')) {
+                    featuresStr = featuresStr ? featuresStr + '\nتفعيل إشعارات رسائل واتس أب في الحملات التسويقية' : 'تفعيل إشعارات رسائل واتس أب في الحملات التسويقية';
                   }
                   const newSubscription = {
                     ...subscriptionForm,

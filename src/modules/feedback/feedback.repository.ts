@@ -22,55 +22,128 @@ export interface IFeedbackRepository {
 export class SequelizeFeedbackRepository implements IFeedbackRepository {
   // Reviews
   async findAllReviews(): Promise<Review[]> {
-    return Review.findAll({ order: [['id', 'DESC']] });
+    try {
+      return await Review.findAll({ order: [['id', 'DESC']] });
+    } catch (err: any) {
+      try {
+        await Review.sync();
+        return await Review.findAll({ order: [['id', 'DESC']] });
+      } catch (innerErr) {
+        console.warn('Review table query fallback:', innerErr);
+        return [];
+      }
+    }
   }
 
   async createReview(data: any): Promise<Review> {
-    return Review.create({
-      targetType: data.targetType,
-      targetId: String(data.targetId),
-      targetName: data.targetName,
-      customerName: data.customerName,
-      rating: Number(data.rating),
-      comment: data.comment,
-      date: data.date || new Date().toISOString().split('T')[0],
-      status: data.status || 'published',
-      providerName: data.providerName || null,
-      agentName: data.agentName || null,
-      resolution: data.resolution !== undefined ? data.resolution : null,
-      employeeRating: data.employeeRating !== undefined ? Number(data.employeeRating) : null
-    });
+    try {
+      return await Review.create({
+        targetType: data.targetType,
+        targetId: String(data.targetId),
+        targetName: data.targetName,
+        customerName: data.customerName,
+        rating: Number(data.rating),
+        comment: data.comment,
+        date: data.date || new Date().toISOString().split('T')[0],
+        status: data.status || 'published',
+        providerName: data.providerName || null,
+        agentName: data.agentName || null,
+        resolution: data.resolution !== undefined ? data.resolution : null,
+        employeeRating: data.employeeRating !== undefined ? Number(data.employeeRating) : null
+      });
+    } catch (err: any) {
+      await Review.sync();
+      return await Review.create({
+        targetType: data.targetType,
+        targetId: String(data.targetId),
+        targetName: data.targetName,
+        customerName: data.customerName,
+        rating: Number(data.rating),
+        comment: data.comment,
+        date: data.date || new Date().toISOString().split('T')[0],
+        status: data.status || 'published',
+        providerName: data.providerName || null,
+        agentName: data.agentName || null,
+        resolution: data.resolution !== undefined ? data.resolution : null,
+        employeeRating: data.employeeRating !== undefined ? Number(data.employeeRating) : null
+      });
+    }
   }
 
   async findReviewByCriteria(criteria: any): Promise<Review | null> {
-    return Review.findOne({ where: criteria });
+    try {
+      return await Review.findOne({ where: criteria });
+    } catch (err) {
+      try {
+        await Review.sync();
+        return await Review.findOne({ where: criteria });
+      } catch {
+        return null;
+      }
+    }
   }
 
   async deleteReview(id: string | number): Promise<boolean> {
-    const deletedCount = await Review.destroy({ where: { id } });
-    return deletedCount > 0;
+    try {
+      const deletedCount = await Review.destroy({ where: { id } });
+      return deletedCount > 0;
+    } catch (err) {
+      return false;
+    }
   }
 
   // Chats
   async findAllChats(): Promise<ServiceChat[]> {
-    return ServiceChat.findAll({ order: [['id', 'DESC']] });
+    try {
+      return await ServiceChat.findAll({ order: [['id', 'DESC']] });
+    } catch (err) {
+      try {
+        await ServiceChat.sync();
+        return await ServiceChat.findAll({ order: [['id', 'DESC']] });
+      } catch {
+        return [];
+      }
+    }
   }
 
   async findChatById(id: number): Promise<ServiceChat | null> {
-    return ServiceChat.findByPk(id);
+    try {
+      return await ServiceChat.findByPk(id);
+    } catch (err) {
+      try {
+        await ServiceChat.sync();
+        return await ServiceChat.findByPk(id);
+      } catch {
+        return null;
+      }
+    }
   }
 
   async createChat(data: any): Promise<ServiceChat> {
-    return ServiceChat.create({
-      id: data.id,
-      customerId: data.customerId,
-      customerName: data.customerName,
-      agentId: data.agentId || null,
-      agentName: data.agentName || null,
-      status: data.status || 'waiting',
-      topic: data.topic || null,
-      department: data.department || null
-    });
+    try {
+      return await ServiceChat.create({
+        id: data.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        agentId: data.agentId || null,
+        agentName: data.agentName || null,
+        status: data.status || 'waiting',
+        topic: data.topic || null,
+        department: data.department || null
+      });
+    } catch (err) {
+      await ServiceChat.sync();
+      return await ServiceChat.create({
+        id: data.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        agentId: data.agentId || null,
+        agentName: data.agentName || null,
+        status: data.status || 'waiting',
+        topic: data.topic || null,
+        department: data.department || null
+      });
+    }
   }
 
   async updateChat(chat: ServiceChat, data: any): Promise<ServiceChat> {
@@ -85,23 +158,55 @@ export class SequelizeFeedbackRepository implements IFeedbackRepository {
 
   // Chat Messages
   async findMessagesByChatId(chatId: string | number): Promise<ServiceChatMessage[]> {
-    return ServiceChatMessage.findAll({
-      where: { chatId: Number(chatId) },
-      order: [['id', 'ASC']]
-    });
+    try {
+      return await ServiceChatMessage.findAll({
+        where: { chatId: Number(chatId) },
+        order: [['id', 'ASC']]
+      });
+    } catch (err) {
+      try {
+        await ServiceChatMessage.sync();
+        return await ServiceChatMessage.findAll({
+          where: { chatId: Number(chatId) },
+          order: [['id', 'ASC']]
+        });
+      } catch {
+        return [];
+      }
+    }
   }
 
   async createChatMessage(data: any): Promise<ServiceChatMessage> {
-    return ServiceChatMessage.create({
-      chatId: Number(data.chatId),
-      text: data.text,
-      senderType: data.senderType,
-      senderName: data.senderName,
-      time: data.time || new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
-    });
+    try {
+      return await ServiceChatMessage.create({
+        chatId: Number(data.chatId),
+        text: data.text,
+        senderType: data.senderType,
+        senderName: data.senderName,
+        time: data.time || new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+      });
+    } catch (err) {
+      await ServiceChatMessage.sync();
+      return await ServiceChatMessage.create({
+        chatId: Number(data.chatId),
+        text: data.text,
+        senderType: data.senderType,
+        senderName: data.senderName,
+        time: data.time || new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+      });
+    }
   }
 
   async findChatMessageByCriteria(criteria: any): Promise<ServiceChatMessage | null> {
-    return ServiceChatMessage.findOne({ where: criteria });
+    try {
+      return await ServiceChatMessage.findOne({ where: criteria });
+    } catch (err) {
+      try {
+        await ServiceChatMessage.sync();
+        return await ServiceChatMessage.findOne({ where: criteria });
+      } catch {
+        return null;
+      }
+    }
   }
 }

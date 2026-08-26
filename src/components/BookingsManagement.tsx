@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import { AdminCalendar } from './AdminCalendar';
 import { BookingOperationsManager } from './BookingOperationsManager';
+import { CurrentBlockedDatesTab } from './bookings/CurrentBlockedDatesTab';
+import { CalendarSyncTab } from './bookings/CalendarSyncTab';
+import { MasterAvailabilityMatrixTab } from './bookings/MasterAvailabilityMatrixTab';
+import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { formatSmartDate, getFullDateInfo } from '../utils/dateUtils';
 import { convertDigits } from '../utils/digitConverter';
 import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
@@ -20,7 +24,9 @@ interface BookingsManagementProps {
   bookings: any[];
   setBookings: (bookings: any[]) => void;
   halls: any[];
+  setHalls?: React.Dispatch<React.SetStateAction<any[]>>;
   services: any[];
+  setServices?: React.Dispatch<React.SetStateAction<any[]>>;
   providers: any[];
   supportServiceRequests: any[];
   enableForceMajeureProtocol: boolean;
@@ -107,7 +113,9 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
   bookings,
   setBookings,
   halls,
+  setHalls,
   services,
+  setServices,
   providers,
   supportServiceRequests,
   enableForceMajeureProtocol,
@@ -131,7 +139,7 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
   setIsForceMajeureModalOpen
 }) => {
   // Localized UI state variables
-  const [bookingActiveTab, setBookingActiveTab] = useState<'bookings' | 'supportRequests'>('bookings');
+  const [bookingActiveTab, setBookingActiveTab] = useState<'bookings' | 'supportRequests' | 'blockedDates' | 'calendarSync' | 'masterMatrix'>('bookings');
   const [bookingsViewMode, setBookingsViewMode] = useState<'table' | 'grid'>(() => {
     return (localStorage.getItem('pref_bookings_view_mode') as 'table' | 'grid') || 'table';
   });
@@ -145,6 +153,7 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
   const [supportServiceFilterStatus, setSupportServiceFilterStatus] = useState('');
   const [showAdminCalendar, setShowAdminCalendar] = useState(false);
   const [selectedBookingForOperations, setSelectedBookingForOperations] = useState<any>(null);
+  const [isExternalBlockModalOpen, setIsExternalBlockModalOpen] = useState(false);
 
   const isProviderTab = userRole === 'provider';
   const canExport = isAdminUser || providerSubscription?.canExportFinancials || providerSubscription?.addons?.includes('invoice_export');
@@ -848,59 +857,106 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
             حوكمة الحجوزات والطلبات ودورات حجز القاعات، التحقق من التوافر، وتدقيق العقود المليونية
           </p>
         </div>
-        {bookingActiveTab === 'bookings' ? (
-          userRole === 'admin' && (
-            <button 
-              onClick={() => { setEditingItem(null); setBookingForm({
-                customer: '', phone: '', itemName: '', type: 'حجز قاعة',
-                startDate: '', endDate: '', period: 'مسائية', guests: 0,
-                status: 'جديد', paymentStatus: 'غير مدفوع', basePrice: 0, extraPrice: 0, amount: 0,
-                extraServices: '', notes: '', hallId: 0, selectedServices: [] as any[]
-              } as any); setIsBookingModalOpen(true); }}
-              className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all hover:scale-105"
-            >
-              <Plus className="w-5 h-5" /> حجز جديد
-            </button>
-          )
-        ) : (
-          userRole === 'admin' && (
-            <button 
-              onClick={() => { 
-                setEditingItem(null); 
-                setSupportRequestForm({
-                  bookingId: '',
-                  userId: '',
-                  customerName: '',
-                  providerName: '',
-                  serviceName: '',
-                  date: new Date().toISOString().split('T')[0],
-                  status: 'قيد الانتظار',
-                  price: 0
-                }); 
-                setIsSupportRequestModalOpen(true); 
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-indigo-500/30 transition-all hover:scale-105"
-            >
-              <Plus className="w-5 h-5" /> طلب خدمة جديد
-            </button>
-          )
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsExternalBlockModalOpen(true)}
+            className="bg-rose-600 hover:bg-rose-700 text-white font-black px-4 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-rose-600/20 transition-all hover:scale-105 cursor-pointer text-xs"
+            title="فتح نافذة إدارة إغلاق المواعيد والتزامن الخارجي وربط التقويم"
+          >
+            <Lock className="w-4 h-4" />
+            <span>إغلاق موعد وتزامن iCal 🔒</span>
+          </button>
+
+          {bookingActiveTab === 'bookings' ? (
+            userRole === 'admin' && (
+              <button 
+                onClick={() => { setEditingItem(null); setBookingForm({
+                  customer: '', phone: '', itemName: '', type: 'حجز قاعة',
+                  startDate: '', endDate: '', period: 'مسائية', guests: 0,
+                  status: 'جديد', paymentStatus: 'غير مدفوع', basePrice: 0, extraPrice: 0, amount: 0,
+                  extraServices: '', notes: '', hallId: 0, selectedServices: [] as any[]
+                } as any); setIsBookingModalOpen(true); }}
+                className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all hover:scale-105 text-xs"
+              >
+                <Plus className="w-4 h-4" /> حجز جديد
+              </button>
+            )
+          ) : (
+            userRole === 'admin' && (
+              <button 
+                onClick={() => { 
+                  setEditingItem(null); 
+                  setSupportRequestForm({
+                    bookingId: '',
+                    userId: '',
+                    customerName: '',
+                    providerName: '',
+                    serviceName: '',
+                    date: new Date().toISOString().split('T')[0],
+                    status: 'قيد الانتظار',
+                    price: 0
+                  }); 
+                  setIsSupportRequestModalOpen(true); 
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-indigo-500/30 transition-all hover:scale-105 text-xs"
+              >
+                <Plus className="w-4 h-4" /> طلب خدمة جديد
+              </button>
+            )
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-4 border-b border-slate-200 font-bold">
+      <div className="flex flex-wrap gap-2 sm:gap-4 border-b border-slate-200 font-bold overflow-x-auto pb-px">
         <button 
           onClick={() => setBookingActiveTab('bookings')}
-          className={`pb-4 px-2 font-bold text-sm transition-all relative ${bookingActiveTab === 'bookings' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`pb-4 px-2 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-1.5 ${bookingActiveTab === 'bookings' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          قائمة الحجوزات
+          <Layers className="w-4 h-4" />
+          <span>قائمة الحجوزات</span>
           {bookingActiveTab === 'bookings' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 rounded-t-full"></div>}
         </button>
         <button 
           onClick={() => setBookingActiveTab('supportRequests')}
-          className={`pb-4 px-2 font-bold text-sm transition-all relative ${bookingActiveTab === 'supportRequests' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`pb-4 px-2 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-1.5 ${bookingActiveTab === 'supportRequests' ? 'text-amber-600' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          طلبات الخدمات المساندة
+          <Activity className="w-4 h-4" />
+          <span>طلبات الخدمات المساندة</span>
           {bookingActiveTab === 'supportRequests' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500 rounded-t-full"></div>}
+        </button>
+        <button 
+          onClick={() => setBookingActiveTab('blockedDates')}
+          className={`pb-4 px-2 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-1.5 ${bookingActiveTab === 'blockedDates' ? 'text-rose-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <Lock className="w-4 h-4 text-rose-500" />
+          <span>إدارة التواريخ المغلقة حالياً</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
+            فترات وأيام
+          </span>
+          {bookingActiveTab === 'blockedDates' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500 rounded-t-full"></div>}
+        </button>
+        <button 
+          onClick={() => setBookingActiveTab('calendarSync')}
+          className={`pb-4 px-2 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-1.5 ${bookingActiveTab === 'calendarSync' ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <RefreshCw className="w-4 h-4 text-indigo-500" />
+          <span>مزامنة التقويم (iCal & Google)</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black">
+            ربط مزدوج
+          </span>
+          {bookingActiveTab === 'calendarSync' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500 rounded-t-full"></div>}
+        </button>
+        <button 
+          onClick={() => setBookingActiveTab('masterMatrix')}
+          className={`pb-4 px-2 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-1.5 ${bookingActiveTab === 'masterMatrix' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <Table className="w-4 h-4 text-amber-500" />
+          <span>جدول الحجوزات والإغلاقات الشامل</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">
+            360°
+          </span>
+          {bookingActiveTab === 'masterMatrix' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-900 rounded-t-full"></div>}
         </button>
       </div>
 
@@ -1344,8 +1400,47 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
             )}
           </div>
         </>
-      ) : (
+      ) : bookingActiveTab === 'supportRequests' ? (
         renderSupportRequestsContent()
+      ) : bookingActiveTab === 'blockedDates' ? (
+        <CurrentBlockedDatesTab
+          userRole={userRole}
+          currentProviderName={currentProviderName}
+          halls={halls}
+          setHalls={setHalls}
+          services={services}
+          setServices={setServices}
+          bookings={bookings}
+          showNotification={showNotification}
+          onNavigateToSync={() => setBookingActiveTab('calendarSync')}
+        />
+      ) : bookingActiveTab === 'calendarSync' ? (
+        <CalendarSyncTab
+          userRole={userRole}
+          currentProviderName={currentProviderName}
+          halls={halls}
+          setHalls={setHalls}
+          services={services}
+          setServices={setServices}
+          bookings={bookings}
+          showNotification={showNotification}
+        />
+      ) : (
+        <MasterAvailabilityMatrixTab
+          userRole={userRole}
+          isAdminUser={isAdminUser}
+          currentProviderName={currentProviderName}
+          halls={halls}
+          setHalls={setHalls}
+          services={services}
+          setServices={setServices}
+          bookings={bookings}
+          setBookings={setBookings}
+          showNotification={showNotification}
+          setViewingBooking={setViewingBooking}
+          setIsBookingViewModalOpen={setIsBookingViewModalOpen}
+          setInvoiceBookingToPrint={setInvoiceBookingToPrint}
+        />
       )}
 
       {/* Booking Operations Manager Modal */}
@@ -1360,6 +1455,20 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
             setSelectedBookingForOperations(updatedBk);
           }}
           onClose={() => setSelectedBookingForOperations(null)}
+        />
+      )}
+
+      {/* External Block & iCal Sync Manager Modal */}
+      {isExternalBlockModalOpen && (
+        <ExternalBlockManagerModal
+          userRole={userRole}
+          currentProviderName={currentProviderName}
+          halls={halls}
+          setHalls={setHalls || (() => {})}
+          services={services}
+          setServices={setServices || (() => {})}
+          showNotification={showNotification}
+          onClose={() => setIsExternalBlockModalOpen(false)}
         />
       )}
     </div>

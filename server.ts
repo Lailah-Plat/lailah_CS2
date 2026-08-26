@@ -175,27 +175,53 @@ async function startServer() {
   app.post("/api/system/configs", async (req, res) => {
     try {
       const { PlatformConfig } = await import("./src/models/UserModels.js");
-      const { key, value } = req.body;
-      if (!key) {
-        return res.status(400).json({ success: false, error: "Key is required" });
-      }
-      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      
-      const [config, created] = await PlatformConfig.findOrCreate({
-        where: { key },
-        defaults: { key, value: stringValue }
-      });
-      if (!created) {
-        await config.update({ value: stringValue });
-      }
-
-      // Live socket.io update broadcasting to all clients immediately
       const io = req.app.get("io");
-      if (io) {
-        io.emit("system_config_updated", { key, value, timestamp: Date.now() });
+
+      const updates: { key: string; value: any }[] = [];
+
+      if (Array.isArray(req.body)) {
+        req.body.forEach((item: any) => {
+          if (item && item.key) {
+            updates.push({ key: item.key, value: item.value });
+          }
+        });
+      } else if (req.body && typeof req.body === 'object') {
+        if (req.body.key !== undefined) {
+          updates.push({ key: req.body.key, value: req.body.value });
+        } else if (req.body.configs && typeof req.body.configs === 'object') {
+          Object.entries(req.body.configs).forEach(([k, v]) => {
+            updates.push({ key: k, value: v });
+          });
+        } else {
+          // Key-value object mapping (e.g. { SYSTEM_REGIONS: [...], SYSTEM_DATastore_regions: [...] })
+          Object.entries(req.body).forEach(([k, v]) => {
+            if (k) updates.push({ key: k, value: v });
+          });
+        }
       }
 
-      res.json({ success: true, key, value, liveBroadcast: true });
+      if (updates.length === 0) {
+        return res.status(400).json({ success: false, error: "Key is required or invalid config payload" });
+      }
+
+      for (const { key, value } of updates) {
+        const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value ?? '');
+        
+        const [config, created] = await PlatformConfig.findOrCreate({
+          where: { key },
+          defaults: { key, value: stringValue }
+        });
+        if (!created) {
+          await config.update({ value: stringValue });
+        }
+
+        // Live socket.io update broadcasting to all clients immediately
+        if (io) {
+          io.emit("system_config_updated", { key, value, timestamp: Date.now() });
+        }
+      }
+
+      res.json({ success: true, count: updates.length, liveBroadcast: true });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -204,12 +230,16 @@ async function startServer() {
   // Ensure public/uploads directories exist
   const hallsUploadDir = path.join(process.cwd(), "public", "uploads", "halls");
   const servicesUploadDir = path.join(process.cwd(), "public", "uploads", "services");
+  const regionsUploadDir = path.join(process.cwd(), "public", "uploads", "regions");
   
   if (!fs.existsSync(hallsUploadDir)) {
     fs.mkdirSync(hallsUploadDir, { recursive: true });
   }
   if (!fs.existsSync(servicesUploadDir)) {
     fs.mkdirSync(servicesUploadDir, { recursive: true });
+  }
+  if (!fs.existsSync(regionsUploadDir)) {
+    fs.mkdirSync(regionsUploadDir, { recursive: true });
   }
 
   // Serve static uploads
@@ -246,7 +276,7 @@ async function startServer() {
   };
 
   // Upload endpoint (Single file)
-  app.post("/api/upload", upload.any(), (req, res) => {
+  app.post("/api/upload", upload.any() as any, (req, res) => {
     try {
       const file = getFileFromRequest(req);
       if (!file) {
@@ -260,6 +290,9 @@ async function startServer() {
       if (type === "service" || type === "services") {
         folder = "services";
         prefix = "service-";
+      } else if (type === "region" || type === "regions" || type === "city") {
+        folder = "regions";
+        prefix = "region-";
       } else if (type === "avatar") {
         folder = "avatars";
         prefix = "avatar-";
@@ -384,7 +417,7 @@ async function startServer() {
   });
 
   // Avatar dedicated upload endpoint (saves file into public/uploads/avatars)
-  app.post("/api/upload-avatar", upload.any(), (req, res) => {
+  app.post("/api/upload-avatar", upload.any() as any, (req, res) => {
     try {
       const file = getFileFromRequest(req);
       if (!file) {

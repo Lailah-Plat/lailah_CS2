@@ -293,6 +293,7 @@ export function SubscriptionFlow({
           includesFullManagement: selectedPackage.includesFullManagement,
           includesAdvancedProviderDashboard: selectedPackage.includesAdvancedProviderDashboard,
           includesMiniProductsStore: selectedPackage.includesMiniProductsStore ?? (selectedPackage.id === 'pro' || selectedPackage.name?.includes('الاحترافية') || false),
+          includesWhatsAppCampaignAlerts: selectedPackage.includesWhatsAppCampaignAlerts ?? (selectedPackage.id === 'pro' || selectedPackage.id === 'business' || selectedPackage.name?.includes('الاحترافية') || selectedPackage.name?.includes('الأعمال') || false),
           hallsLimit: selectedPackage.hallsLimit,
           servicesLimit: selectedPackage.servicesLimit,
           staffSeatsLimit: selectedPackage.staffSeatsLimit,
@@ -565,6 +566,12 @@ export function SubscriptionFlow({
                                     <li className="flex items-start gap-3 text-right">
                                         <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                                         <span className="text-gray-900 font-medium text-sm font-bold text-emerald-700">يشمل ميزة متجر المنتجات والمستلزمات المصغر</span>
+                                    </li>
+                                )}
+                                {pkg.includesWhatsAppCampaignAlerts && (
+                                    <li className="flex items-start gap-3 text-right">
+                                        <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                                        <span className="text-gray-900 font-medium text-sm font-bold text-emerald-700">تفعيل إشعارات رسائل واتس أب في الحملات التسويقية</span>
                                     </li>
                                 )}
                             </ul>

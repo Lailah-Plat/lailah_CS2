@@ -15,7 +15,9 @@ export const BookingsSection: React.FC<any> = (props) => {
     bookings,
     setBookings,
     halls,
+    setHalls,
     services,
+    setServices,
     providers,
     supportServiceRequests,
     enableForceMajeureProtocol,
@@ -61,7 +63,9 @@ export const BookingsSection: React.FC<any> = (props) => {
         bookings={bookings}
         setBookings={setBookings}
         halls={halls}
+        setHalls={setHalls}
         services={services}
+        setServices={setServices}
         providers={providers}
         supportServiceRequests={supportServiceRequests}
         enableForceMajeureProtocol={enableForceMajeureProtocol}

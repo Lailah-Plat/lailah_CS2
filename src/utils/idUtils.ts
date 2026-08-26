@@ -125,3 +125,13 @@ export const formatGrantId = (id: number | string) => {
   return convertDigits(`GRT-${yy}-${paddedId}`);
 };
 
+/**
+ * صياغة رقم حظر وإغلاق التاريخ وفق المعيار القياسي (BLK-YY-XXXXXXXXXX).
+ */
+export const formatBlockedDateId = (id: number | string) => {
+  const yy = new Date().getFullYear().toString().slice(-2);
+  const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
+  const paddedId = String(cleanId || 1).padStart(10, '0');
+  return convertDigits(`BLK-${yy}-${paddedId}`);
+};
+

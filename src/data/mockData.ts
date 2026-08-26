@@ -542,6 +542,7 @@ export interface EventService {
   addons?: Array<{ id: string; name: string; description: string; price: number }>;
   classification?: string;
   status?: string;
+  activationStatus?: string;
   approved?: boolean;
   hasPendingEdits?: boolean;
   pendingChanges?: any;
@@ -1355,13 +1356,197 @@ export const initialCustomers = [
 ];
 
 export const initialCampaigns = [
-  { id: 1, title: 'خصومات الصيف الكبرى مع أطياف', type: 'SMS', targetAudience: 'العملاء النشطين', budget: 5000, spent: 4200, reach: 15400, clicks: 3200, conversions: 120, status: 'نشطة', startDate: '2026-05-01', endDate: '2026-08-01', content: 'خصم 20٪ على جميع قاعات شركة أطياف لتنظيم المعارض لفترة محدودة!' },
-  { id: 2, title: 'بوفيهات ليلة المتميزة مع روز', type: 'Email', targetAudience: 'المزودين المحتملين', budget: 2000, spent: 2000, reach: 5000, clicks: 800, conversions: 45, status: 'مكتملة', startDate: '2026-03-01', endDate: '2026-04-01', content: 'احجز بوفيه ليلة المتميزة من روز واحصل على ضيافة مجانية بالكامل.' },
-  { id: 3, title: 'عروض الزهور من ديراب الأناقة', type: 'Social Media', targetAudience: 'الكل', budget: 8000, spent: 1500, reach: 45000, clicks: 5600, conversions: 210, status: 'نشطة', startDate: '2026-05-15', endDate: '2026-09-01', content: 'نسق كوشة مناسبتك الآن بخصم 15% من صالون الأناقة للضيافة.' },
-  { id: 4, title: 'شاليهات الهدا مع لافندر', type: 'Push Notification', targetAudience: 'العملاء الحاليين', budget: 5000, spent: 3000, reach: 8520, clicks: 1230, conversions: 80, status: 'نشطة', startDate: '2026-06-01', endDate: '2026-06-30', content: 'عرض الويكند في شاليه اللافندر الفاخر - الليلة الثالثة مجاناً!' },
-  { id: 5, title: 'تصوير روتانا الفاخر بالأعياد', type: 'Social Media', targetAudience: 'الكل', budget: 6000, spent: 4000, reach: 35000, clicks: 4200, conversions: 150, status: 'نشطة', startDate: '2026-05-10', endDate: '2026-07-20', content: 'احصل على تغطية درون مجانية عند حجز باقة تصوير روتانا الفوتوغرافي.' },
-  { id: 6, title: 'شركة الضيافة الذهبية بالحرم', type: 'SMS', targetAudience: 'الكل', budget: 10000, spent: 8000, reach: 60000, clicks: 9000, conversions: 450, status: 'نشطة', startDate: '2026-05-12', endDate: '2026-08-15', content: 'ضيافة وفود الرحمن بمستوى خمس نجوم مع شركة الضيافة الذهبية المحدودة.' },
-  { id: 7, title: 'مهرجان التمور والضيافة بالقصيم', type: 'Push Notification', targetAudience: 'العملاء النشطين', budget: 4000, spent: 2500, reach: 18000, clicks: 2300, conversions: 95, status: 'نشطة', startDate: '2026-05-18', endDate: '2026-06-18', content: 'خصومات المذاق العربي للحلويات والضيافة في مهرجانات بريدة والرياض.' }
+  { 
+    id: 1, 
+    title: 'خصومات الصيف الكبرى مع أطياف', 
+    providerName: 'شركة أطياف لتنظيم المعارض',
+    type: 'Social Media', 
+    channel: 'سناب شات وإنستغرام',
+    targetAudience: 'العملاء النشطين والعائلات بالرياض', 
+    budget: 5000, 
+    adBudget: 5000,
+    agencyFee: 1500,
+    agencyNetProfit: 1200, // after 20% platform commission (300 SAR)
+    spent: 4200, 
+    reach: 15400, 
+    clicks: 3200, 
+    conversions: 120, 
+    cpa: 35,
+    roas: 4.8,
+    status: 'نشطة', 
+    workflowStatus: 'بث مباشر وتتبع النتائج',
+    startDate: '2026-05-01', 
+    endDate: '2026-08-01', 
+    content: 'خصم 20٪ على جميع قاعات شركة أطياف لتنظيم المعارض لفترة محدودة!',
+    lpasPageSlug: 'riyadh-luxury-venues',
+    expensesHistory: [
+      { id: 101, date: '2026-05-02', amount: 2000, platform: 'سناب شات', description: 'إعلانات فيديو تفاعلي (Top Snap)' },
+      { id: 102, date: '2026-05-15', amount: 2200, platform: 'إنستغرام وفيس بوك', description: 'حملة استهداف مباشر وإعادة استهداف' }
+    ]
+  },
+  { 
+    id: 2, 
+    title: 'بوفيهات ليلة المتميزة مع روز', 
+    providerName: 'شركة روز للمناسبات والضيافة',
+    type: 'Email', 
+    channel: 'Google Search & Maps',
+    targetAudience: 'المقبلين على الزواج والمناسبات الكبرى', 
+    budget: 2000, 
+    adBudget: 2000,
+    agencyFee: 800,
+    agencyNetProfit: 640,
+    spent: 2000, 
+    reach: 5000, 
+    clicks: 800, 
+    conversions: 45, 
+    cpa: 44,
+    roas: 5.2,
+    status: 'مكتملة', 
+    workflowStatus: 'مكتملة ومؤرشفة',
+    startDate: '2026-03-01', 
+    endDate: '2026-04-01', 
+    content: 'احجز بوفيه ليلة المتميزة من روز واحصل على ضيافة مجانية بالكامل.',
+    lpasPageSlug: 'catering-hospitality',
+    expensesHistory: [
+      { id: 201, date: '2026-03-05', amount: 2000, platform: 'جوجل أدز', description: 'إعلانات البحث بالكلمات المفتاحية' }
+    ]
+  },
+  { 
+    id: 3, 
+    title: 'عروض الزهور والكوش من ديراب الأناقة', 
+    providerName: 'صالون ديراب للضيافة والتنسيق',
+    type: 'Social Media', 
+    channel: 'تيك توك وإنستغرام',
+    targetAudience: 'منظمي الحفلات والعرائس بالمنطقة الوسطى', 
+    budget: 8000, 
+    adBudget: 8000,
+    agencyFee: 2400,
+    agencyNetProfit: 1920,
+    spent: 1500, 
+    reach: 45000, 
+    clicks: 5600, 
+    conversions: 210, 
+    cpa: 28,
+    roas: 6.5,
+    status: 'نشطة', 
+    workflowStatus: 'بث مباشر وتتبع النتائج',
+    startDate: '2026-05-15', 
+    endDate: '2026-09-01', 
+    content: 'نسق كوشة مناسبتك الآن بخصم 15% من صالون الأناقة للضيافة.',
+    lpasPageSlug: 'wedding-coordination',
+    expensesHistory: [
+      { id: 301, date: '2026-05-18', amount: 1500, platform: 'تيك توك', description: 'إعلانات Spark Ads للفيديوهات القصيرة' }
+    ]
+  },
+  { 
+    id: 4, 
+    title: 'شاليهات الهدا مع لافندر', 
+    providerName: 'شاليهات اللافندر الفاخرة',
+    type: 'Push Notification', 
+    channel: 'سناب شات وريلز',
+    targetAudience: 'العائلات والرحلات السياحية بالطائف والغربية', 
+    budget: 5000, 
+    adBudget: 5000,
+    agencyFee: 1500,
+    agencyNetProfit: 1200,
+    spent: 3000, 
+    reach: 8520, 
+    clicks: 1230, 
+    conversions: 80, 
+    cpa: 38,
+    roas: 4.1,
+    status: 'نشطة', 
+    workflowStatus: 'تمت الجدولة والإطلاق',
+    startDate: '2026-06-01', 
+    endDate: '2026-06-30', 
+    content: 'عرض الويكند في شاليه اللافندر الفاخر - الليلة الثالثة مجاناً!',
+    lpasPageSlug: 'taif-chalets',
+    expensesHistory: [
+      { id: 401, date: '2026-06-02', amount: 3000, platform: 'سناب شات', description: 'حملة فلاتر موقعية وإعلانات ستوري' }
+    ]
+  },
+  { 
+    id: 5, 
+    title: 'تصوير روتانا الفاخر وتغطيات الدرون', 
+    providerName: 'استوديو روتانا الفوتوغرافي',
+    type: 'Social Media', 
+    channel: 'إنستغرام وتيك توك',
+    targetAudience: 'المقبلين على الزواج والفعاليات والمؤتمرات', 
+    budget: 6000, 
+    adBudget: 6000,
+    agencyFee: 1800,
+    agencyNetProfit: 1440,
+    spent: 4000, 
+    reach: 35000, 
+    clicks: 4200, 
+    conversions: 150, 
+    cpa: 32,
+    roas: 5.9,
+    status: 'نشطة', 
+    workflowStatus: 'بانتظار موافقة المزود',
+    startDate: '2026-05-10', 
+    endDate: '2026-07-20', 
+    content: 'احصل على تغطية درون مجانية عند حجز باقة تصوير روتانا الفوتوغرافي.',
+    lpasPageSlug: 'photography-video',
+    expensesHistory: [
+      { id: 501, date: '2026-05-12', amount: 4000, platform: 'إنستغرام', description: 'إعلانات ريلز وبوستات ترويجية للمعارض' }
+    ]
+  },
+  { 
+    id: 6, 
+    title: 'شركة الضيافة الذهبية بالحرم والمشاعر', 
+    providerName: 'شركة الضيافة الذهبية المحدودة',
+    type: 'SMS', 
+    channel: 'رسائل SMS وشبكة المؤثرين',
+    targetAudience: 'حملات ووفود العمرة والمؤتمرات بمكة وجدة', 
+    budget: 10000, 
+    adBudget: 10000,
+    agencyFee: 3000,
+    agencyNetProfit: 2400,
+    spent: 8000, 
+    reach: 60000, 
+    clicks: 9000, 
+    conversions: 450, 
+    cpa: 22,
+    roas: 7.4,
+    status: 'نشطة', 
+    workflowStatus: 'بث مباشر وتتبع النتائج',
+    startDate: '2026-05-12', 
+    endDate: '2026-08-15', 
+    content: 'ضيافة وفود الرحمن بمستوى خمس نجوم مع شركة الضيافة الذهبية المحدودة.',
+    lpasPageSlug: 'makkah-hospitality',
+    expensesHistory: [
+      { id: 601, date: '2026-05-14', amount: 5000, platform: 'بوابة رسائل SMS المعتمدة', description: 'بث رسائل نصية مستهدفة جغرافياً' },
+      { id: 602, date: '2026-06-01', amount: 3000, platform: 'شبكة المؤثرين', description: 'تغطيات ميدانية' }
+    ]
+  },
+  { 
+    id: 7, 
+    title: 'مهرجان التمور والضيافة بالقصيم', 
+    providerName: 'مؤسسة المذاق العربي للحلويات والضيافة',
+    type: 'Push Notification', 
+    channel: 'إعلانات جوجل وتطبيقات التوصيل',
+    targetAudience: 'العملاء النشطين والمهتمين بالحلويات التراثية بالقصيم والرياض', 
+    budget: 4000, 
+    adBudget: 4000,
+    agencyFee: 1200,
+    agencyNetProfit: 960,
+    spent: 2500, 
+    reach: 18000, 
+    clicks: 2300, 
+    conversions: 95, 
+    cpa: 36,
+    roas: 4.6,
+    status: 'نشطة', 
+    workflowStatus: 'تحت التجهيز والتصميم',
+    startDate: '2026-05-18', 
+    endDate: '2026-06-18', 
+    content: 'خصومات المذاق العربي للحلويات والضيافة في مهرجانات بريدة والرياض.',
+    lpasPageSlug: 'arabic-sweets-qassim',
+    expensesHistory: [
+      { id: 701, date: '2026-05-20', amount: 2500, platform: 'جوجل ديسبلاي', description: 'حملة بانرات تفاعلية' }
+    ]
+  }
 ];
 
 export const initialRegions = [

@@ -301,6 +301,7 @@ export function MarketingManagement(props: MarketingManagementProps & { marketin
             campaigns={campaigns} 
             setCampaigns={setCampaigns} 
             setActiveTab={setAdminUsersSection}
+            marketingCommissionPercentage={commissionPct}
           />
         )}
 

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { SequelizeFeedbackRepository } from './feedback.repository.js';
 import { GetReviewsUseCase } from './usecases/GetReviews.usecase.js';
-import { CreateReviewUseCase } from './usecases/CreateReview.usecase.ts';
+import { CreateReviewUseCase } from './usecases/CreateReview.usecase.js';
 import { DeleteReviewUseCase } from './usecases/DeleteReview.usecase.js';
 import { GetChatsUseCase } from './usecases/GetChats.usecase.js';
 import { UpsertChatUseCase } from './usecases/UpsertChat.usecase.js';

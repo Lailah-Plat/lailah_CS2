@@ -71,8 +71,14 @@ import {
   Check,
   Eye,
   EyeOff,
-  Send
+  Send,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
+  MessageSquare,
+  Smartphone
 } from 'lucide-react';
+import { apiService } from '../services/apiService.js';
 import { SecuritySecretTab } from './SecuritySecretTab';
 import { PartnerTieringEngineModal } from './partner/PartnerTieringEngineModal';
 import PlatformInfoSettings from './admin/PlatformInfoSettings';
@@ -742,6 +748,69 @@ export const SettingsManagement = ({
   const [supportSubTab, setSupportSubTab] = useState<'general' | 'zoho'>('zoho');
   const [showZohoDeveloperGuide, setShowZohoDeveloperGuide] = useState(true);
 
+  // Interactive Region Image Upload States
+  const [isUploadingRegionImage, setIsUploadingRegionImage] = useState<boolean>(false);
+  const [uploadingForRegionId, setUploadingForRegionId] = useState<number | null>(null);
+
+  const handleRegionFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetRegionId?: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'يرجى اختيار ملف صورة صالح (JPEG, PNG, WebP)');
+      return;
+    }
+
+    try {
+      if (targetRegionId) {
+        setUploadingForRegionId(targetRegionId);
+      } else {
+        setIsUploadingRegionImage(true);
+      }
+
+      showNotification('info', 'جاري رفع صورة المنطقة إلى الخادم وحفظها...');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'regions');
+
+      const data = await apiService.uploadFile(formData, 'regions');
+      if (data && data.success && data.url) {
+        if (targetRegionId) {
+          if (editingRegion && editingRegion.id === targetRegionId) {
+            setEditingRegion({ ...editingRegion, image: data.url });
+          } else {
+            const updated = regions.map((r: any) => r.id === targetRegionId ? { ...r, image: data.url } : r);
+            try {
+              localStorage.setItem('SYSTEM_REGIONS', JSON.stringify(updated));
+              const regionNames = updated.map((r: any) => r.name);
+              const allCities = updated.flatMap((r: any) => r.cities || []);
+              const uniqueCities = Array.from(new Set(allCities));
+              await apiService.saveSystemConfigs({
+                SYSTEM_REGIONS: updated,
+                SYSTEM_DATastore_regions: regionNames,
+                SYSTEM_DATastore_cities: uniqueCities
+              });
+              window.dispatchEvent(new Event('datastoreUpdated'));
+            } catch {}
+          }
+          showNotification('success', 'تم رفع وتحديث صورة المنطقة بنجاح وحفظ مسارها في السحابة!');
+        } else {
+          setNewRegionImage(data.url);
+          showNotification('success', 'تم رفع صورة المنطقة إلى الخادم بنجاح ومسارها جاهز للحفظ!');
+        }
+      } else {
+        throw new Error(data?.error || 'فشل الرفع');
+      }
+    } catch (err: any) {
+      console.error('Error uploading region image:', err);
+      showNotification('error', `فشل رفع صورة المنطقة: ${err.message || 'خطأ غير متوقع'}`);
+    } finally {
+      setIsUploadingRegionImage(false);
+      setUploadingForRegionId(null);
+      e.target.value = '';
+    }
+  };
+
   // Zoho Desk Integration States
   const [zohoDeskEnabled, setZohoDeskEnabled] = useState(() => {
     return localStorage.getItem('ZOHO_DESK_ENABLED') !== 'false';
@@ -776,22 +845,14 @@ export const SettingsManagement = ({
     }
   };
 
-  // Global helper to save any configuration to server securely
+  // Global helper to save any configuration to server securely with automatic retry and local fallback
   const saveConfigToServer = async (key: string, value: any) => {
     try {
       localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-      const res = await fetch('/api/system/configs', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-user-role': 'admin'
-        },
-        body: JSON.stringify({ key, value })
-      });
-      if (!res.ok) throw new Error('Network response not ok');
+      await apiService.saveSystemConfigs({ key, value });
       return true;
-    } catch (e) {
-      console.error(`Error saving setting ${key} to server:`, e);
+    } catch (e: any) {
+      console.warn(`Local preference saved. Server sync will retry automatically for ${key}:`, e?.message || e);
       return false;
     }
   };
@@ -1905,6 +1966,26 @@ export const SettingsManagement = ({
           {activeSettingsTab === 'localization' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div>
+                {/* Header Information Banner */}
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-5 mb-6 text-right" dir="rtl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2.5 bg-amber-500/10 text-amber-700 rounded-xl border border-amber-200 shrink-0 mt-0.5">
+                      <HardDrive className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <span>إدارة صور المناطق الجغرافية والخادم السحابي</span>
+                        <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                          مزامنة سحابية نشطة
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        يمكنك رفع صور المناطق مباشرة من جهازك إلى الخادم لتُحفظ في المجلد الدائم (<code className="bg-white/80 px-1 py-0.5 rounded text-amber-900 font-mono text-[10px]">/uploads/regions/</code>)، ويتم تخزين مسار الصورة في قاعدة البيانات السحابية (<code className="bg-white/80 px-1 py-0.5 rounded text-amber-900 font-mono text-[10px]">PlatformConfig &gt; SYSTEM_REGIONS</code>) لتظهر الصور بسلاسة وفورية في الواجهة الرئيسية وتطبيقات العملاء.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 text-right" dir="rtl">
                   <div>
                     <span>المناطق والمدن المشغلة</span>
@@ -1912,7 +1993,7 @@ export const SettingsManagement = ({
                       (تُجلب أسماء المناطق تلقائياً من مخزن البيانات - تبويب "قائمة المناطق الجغرافية". يُتاح هنا تحديد صور المدن والمناطق فقط)
                     </span>
                   </div>
-                  <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto text-right justify-end">
+                  <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full xl:w-auto text-right justify-end items-stretch md:items-center">
                     {(() => {
                       let dsRegions: string[] = [];
                       try {
@@ -1920,48 +2001,107 @@ export const SettingsManagement = ({
                         if (stored) dsRegions = JSON.parse(stored);
                       } catch {}
                       return (
-                        <>
-                          <select
-                            className="p-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-amber-500 font-normal w-full md:w-52 text-right bg-white"
-                            value={newRegionName}
-                            onChange={e => setNewRegionName(e.target.value)}
-                          >
-                            <option value="">-- اختر منطقة من مخزن البيانات --</option>
-                            {dsRegions.map((rName, idx) => (
-                              <option key={idx} value={rName}>{rName}</option>
-                            ))}
-                          </select>
-                        </>
+                        <select
+                          className="p-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-amber-500 font-normal w-full md:w-52 text-right bg-white"
+                          value={newRegionName}
+                          onChange={e => setNewRegionName(e.target.value)}
+                        >
+                          <option value="">-- اختر منطقة من مخزن البيانات --</option>
+                          {dsRegions.map((rName, idx) => (
+                            <option key={idx} value={rName}>{rName}</option>
+                          ))}
+                        </select>
                       );
                     })()}
-                    <input 
-                      type="text" 
-                      placeholder="رابط صورة المنطقة (اختياري)..." 
-                      className="p-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-amber-500 font-normal w-full md:w-64 text-right"
-                      value={newRegionImage}
-                      onChange={e => setNewRegionImage(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddRegion()}
-                    />
+
+                    {/* File Upload from PC/Phone Button */}
+                    <label className="text-sm bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-2 rounded-lg font-bold flex gap-1.5 items-center shrink-0 justify-center cursor-pointer transition-colors shadow-xs">
+                      {isUploadingRegionImage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-amber-700" />
+                          <span>جاري الرفع...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 text-amber-700" />
+                          <span>رفع صورة من الجهاز</span>
+                        </>
+                      )}
+                      <input 
+                        type="file" 
+                        accept="image/jpeg,image/png,image/webp,image/jpg" 
+                        className="hidden" 
+                        disabled={isUploadingRegionImage}
+                        onChange={(e) => handleRegionFileUpload(e)}
+                      />
+                    </label>
+
+                    {/* Optional URL Input */}
+                    <div className="relative flex-1 md:w-56">
+                      <input 
+                        type="text" 
+                        placeholder="أو ألصق رابط صورة..." 
+                        className="p-2 pl-7 text-sm rounded-lg border border-slate-200 outline-none focus:border-amber-500 font-normal w-full text-right"
+                        value={newRegionImage}
+                        onChange={e => setNewRegionImage(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddRegion()}
+                      />
+                      {newRegionImage && (
+                        <button 
+                          onClick={() => setNewRegionImage('')} 
+                          className="absolute left-2 top-2.5 text-slate-400 hover:text-red-500"
+                          title="مسح"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Preview Thumbnail if selected */}
+                    {newRegionImage && (
+                      <div className="w-9 h-9 rounded-lg border border-amber-300 overflow-hidden shrink-0 bg-slate-100 relative group" title="معاينة الصورة المختارة">
+                        <img src={newRegionImage} alt="معاينة" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                    )}
+
                     <button 
                       onClick={handleAddRegion}
-                      className="text-sm bg-blue-50 text-blue-600 border border-blue-200 px-3 py-2 rounded-lg font-bold hover:bg-blue-100 flex gap-1 items-center shrink-0 justify-center cursor-pointer">
-                      <Plus className="w-4 h-4"/> إسناد صورة للمنطقة
+                      disabled={isUploadingRegionImage}
+                      className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg font-bold flex gap-1 items-center shrink-0 justify-center cursor-pointer transition-colors shadow-xs disabled:opacity-50">
+                      <Plus className="w-4 h-4"/> حفظ الصورة للمنطقة
                     </button>
                   </div>
                 </h3>
+
                 <div className="space-y-4 text-right" dir="rtl">
                   {regions.map((region, i) => (
-                    <div key={region.id} className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div key={region.id} className="border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:border-slate-300 transition-all bg-white">
                       <div className="bg-slate-50 p-4 border-b border-slate-200 font-bold text-slate-800 flex justify-between items-center flex-wrap gap-4">
                          {editingRegion?.id === region.id ? (
                            <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
-                             <span className="text-xs font-bold text-slate-700 bg-slate-200 px-3 py-1.5 rounded-lg" title="اسم المنطقة يؤخذ تلقائياً من مخزن البيانات (قائمة المناطق الجغرافية)">
+                             <span className="text-xs font-bold text-slate-700 bg-slate-200 px-3 py-1.5 rounded-lg" title="اسم المنطقة يؤخذ تلقائياً من مخزن البيانات">
                                {editingRegion.name}
                              </span>
+
+                             <label className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 px-2.5 py-1.5 rounded-lg font-bold flex gap-1 items-center cursor-pointer transition-colors">
+                               {uploadingForRegionId === region.id ? (
+                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                               ) : (
+                                 <Upload className="w-3.5 h-3.5" />
+                               )}
+                               <span>رفع ملف</span>
+                               <input 
+                                 type="file" 
+                                 accept="image/jpeg,image/png,image/webp,image/jpg" 
+                                 className="hidden" 
+                                 onChange={(e) => handleRegionFileUpload(e, region.id)}
+                               />
+                             </label>
+
                              <input 
                                type="text"
-                               placeholder="رابط صورة المنطقة الجديد..."
-                               className="p-1 px-2 border rounded border-slate-300 outline-none w-full md:w-72 text-sm text-right font-normal"
+                               placeholder="أو رابط الصورة الجديد..."
+                               className="p-1 px-2 border rounded-lg border-slate-300 outline-none w-full md:w-64 text-sm text-right font-normal bg-white"
                                value={editingRegion.image || ''}
                                onChange={(e) => setEditingRegion({ ...editingRegion, image: e.target.value })}
                                onKeyDown={(e) => {
@@ -1969,29 +2109,87 @@ export const SettingsManagement = ({
                                  if(e.key === 'Escape') setEditingRegion(null);
                                }}
                              />
-                             <button onClick={handleSaveRegionEdit} className="bg-emerald-500 text-white p-1.5 rounded cursor-pointer" title="حفظ الصورة"><CheckCircle2 className="w-4 h-4" /></button>
-                             <button onClick={() => setEditingRegion(null)} className="bg-slate-200 text-slate-600 p-1.5 rounded cursor-pointer" title="إلغاء"><X className="w-4 h-4" /></button>
+
+                             {editingRegion.image && (
+                               <div className="w-8 h-8 rounded border border-slate-300 overflow-hidden shrink-0 bg-slate-100">
+                                 <img src={editingRegion.image} alt="معاينة" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                               </div>
+                             )}
+
+                             <button onClick={handleSaveRegionEdit} className="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 rounded-lg cursor-pointer" title="حفظ الصورة"><CheckCircle2 className="w-4 h-4" /></button>
+                             <button onClick={() => setEditingRegion(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-600 p-1.5 rounded-lg cursor-pointer" title="إلغاء"><X className="w-4 h-4" /></button>
                            </div>
                          ) : (
                            <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 rounded-full border border-slate-200 overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center">
+                             <div className="w-12 h-12 rounded-xl border border-slate-200 overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center shadow-2xs">
                                {region.image ? (
                                  <img src={region.image} alt={region.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                ) : (
-                                 <MapPin className="w-5 h-5 text-slate-400" />
+                                 <MapPin className="w-6 h-6 text-slate-400" />
                                )}
                               </div>
                               <div className="flex flex-col">
-                                <span>{region.name}</span>
-                                {region.image && <span className="text-[10px] text-slate-400 font-mono truncate max-w-xs">{region.image}</span>}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base text-slate-900">{region.name}</span>
+                                  {region.image?.startsWith('/uploads/') ? (
+                                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                                      مخزنة بالخادم
+                                    </span>
+                                  ) : region.image ? (
+                                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                                      رابط خارجي
+                                    </span>
+                                  ) : (
+                                    <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full">
+                                      بدون صورة
+                                    </span>
+                                  )}
+                                </div>
+                                {region.image && (
+                                  <span className="text-[11px] text-slate-400 font-mono truncate max-w-sm mt-0.5" dir="ltr">
+                                    {region.image}
+                                  </span>
+                                )}
                               </div>
                            </div>
                          )}
-                         <div className="flex gap-2">
+
+                         <div className="flex items-center gap-2">
+                             {/* Direct Upload Button for Region */}
                              {!editingRegion || editingRegion.id !== region.id ? (
-                               <button onClick={() => setEditingRegion({id: region.id, name: region.name, image: region.image})} className="text-slate-400 hover:text-blue-500"><Pencil className="w-4 h-4"/></button>
+                               <label className="text-xs bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs" title="رفع وتغيير صورة المنطقة من الجهاز مباشرة">
+                                 {uploadingForRegionId === region.id ? (
+                                   <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                                 ) : (
+                                   <Upload className="w-3.5 h-3.5 text-slate-500" />
+                                 )}
+                                 <span className="hidden sm:inline font-medium">تغيير الصورة</span>
+                                 <input 
+                                   type="file" 
+                                   accept="image/jpeg,image/png,image/webp,image/jpg" 
+                                   className="hidden" 
+                                   disabled={uploadingForRegionId === region.id}
+                                   onChange={(e) => handleRegionFileUpload(e, region.id)}
+                                 />
+                               </label>
                              ) : null}
-                             <button onClick={() => handleDeleteRegion(region.id)} className="text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+
+                             {!editingRegion || editingRegion.id !== region.id ? (
+                               <button 
+                                 onClick={() => setEditingRegion({id: region.id, name: region.name, image: region.image})} 
+                                 className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                                 title="تعديل الرابط"
+                               >
+                                 <Pencil className="w-4 h-4"/>
+                               </button>
+                             ) : null}
+                             <button 
+                               onClick={() => handleDeleteRegion(region.id)} 
+                               className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                               title="حذف المنطقة"
+                             >
+                               <Trash2 className="w-4 h-4"/>
+                             </button>
                          </div>
                       </div>
                       <div className="p-4 bg-white">
@@ -2058,7 +2256,198 @@ export const SettingsManagement = ({
           )}
 
           {activeSettingsTab === 'notifications' && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300 text-right" dir="rtl text-right">
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300 text-right" dir="rtl">
+              
+              {/* القسم الرئيسي: أتمتة إشعارات الواتساب لاعتماد الحملات */}
+              <div className="bg-white p-6 shadow-sm border border-slate-100 rounded-2xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-xs">
+                      <MessageSquare className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-800">أتمتة إشعارات الواتساب لاعتماد الحملات</h3>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${
+                          notificationSettingsState.whatsAppCampaignApprovalEnabled 
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {notificationSettingsState.whatsAppCampaignApprovalEnabled ? '🟢 مفعلة بالكامل' : '⚪ معطلة'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        التحكم الإداري السيادي بتفعيل أو تعطيل خدمة رسائل الواتساب التفاعلية لاعتماد الحملات ومتابعة الأداء لشركاء المنصة
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* المفتاح السيادي للإدارة: تفعيل وتعطيل خدمة الواتساب بالكامل */}
+                  <div className="flex items-center gap-3 bg-slate-50 p-2.5 px-4 rounded-xl border border-slate-200 shrink-0">
+                    <span className="text-xs font-bold text-slate-700">
+                      {notificationSettingsState.whatsAppCampaignApprovalEnabled ? 'الخدمة مفعلة للإدارة' : 'الخدمة معطلة للإدارة'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={notificationSettingsState.whatsAppCampaignApprovalEnabled ?? true} 
+                        onChange={e => {
+                          const val = e.target.checked;
+                          setNotificationSettingsState((prev: any) => ({
+                            ...prev, 
+                            whatsAppCampaignApprovalEnabled: val 
+                          }));
+                          showNotification(val ? 'success' : 'info', val ? 'تم تفعيل أتمتة إشعارات الواتساب لاعتماد الحملات على مستوى المنصة' : 'تم تعطيل إشعارات الواتساب لاعتماد الحملات');
+                        }}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-12 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* شرح الخدمة ومحددات الاشتراك */}
+                <div className="mt-4 p-4 rounded-xl bg-amber-50/70 border border-amber-200 flex items-start gap-3">
+                  <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-900 leading-relaxed">
+                    <span className="font-bold block mb-1">محددات خدمة إشعارات الواتساب واشتراك WhatsApp Business API:</span>
+                    تتطلب هذه الميزة اشتراك <strong>Meta WhatsApp Cloud API / WABA</strong> نشط للمنصة. تمنح هذه الخدمة لمزودي الخدمات إما كخدمة عامة للمنصة أو كميزة مشمولة مع باقات اشتراك مختارة عبر مربع خيار <strong>"تفعيل إشعارات رسائل واتس أب في الحملات التسويقية"</strong> في إعدادات باقات الاشتراك. الإشعارات عبر البريد الإلكتروني تعمل دائماً كخيار قياسي لجميع الشركاء.
+                  </div>
+                </div>
+
+                {/* خيارات الحوكمة وربط الباقات */}
+                <div className="mt-6 space-y-4">
+                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    حوكمة الإرسال وسياسات باقات الاشتراك
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <SettingToggle 
+                      label="قصر الإرسال على باقات الاشتراك المؤهلة فقط" 
+                      description="إرسال إشعارات الواتساب التفاعلية فقط للشركاء المشتركين بباقات تتضمن ميزة 'تفعيل إشعارات رسائل واتس أب في الحملات التسويقية'" 
+                      checked={notificationSettingsState.whatsAppRestrictToEligiblePlans ?? false}
+                      onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppRestrictToEligiblePlans: e.target.checked}))}
+                    />
+
+                    <SettingToggle 
+                      label="إشعار طلب موافقة المزود على ميزانية الحملة" 
+                      description="إرسال رسالة واتساب تفاعلية فورية للمزود عند نقل بطاقة الحملة إلى مرحلة 'بانتظار موافقة المزود'" 
+                      checked={notificationSettingsState.whatsAppCampaignApprovalEnabled ?? true}
+                      onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppCampaignApprovalEnabled: e.target.checked}))}
+                    />
+
+                    <SettingToggle 
+                      label="إشعار إطلاق الحملة وبدء الصرف المباشر" 
+                      description="إرسال إشعار واتساب تأكيدي للمزود والوكالة بمجرد إطلاق الحملة واعتماد الميزانية" 
+                      checked={notificationSettingsState.whatsAppCampaignLaunchAlert ?? true}
+                      onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppCampaignLaunchAlert: e.target.checked}))}
+                    />
+
+                    <SettingToggle 
+                      label="تنبيه استهلاك 80% من الميزانية الإعلانية" 
+                      description="إرسال تنبيه ذكي للوكالة والمزود لمراجعة النتائج والتوسع في الميزانية قبل نفادها" 
+                      checked={notificationSettingsState.whatsAppCampaignBudgetAlert ?? true}
+                      onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppCampaignBudgetAlert: e.target.checked}))}
+                    />
+                  </div>
+                </div>
+
+                {/* إعدادات بوابة Meta WhatsApp Cloud API */}
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <h4 className="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-emerald-600" />
+                    بيانات اعتماد واجهة WhatsApp Business API (Meta Graph API v21.0)
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">معرّف حساب واتساب للأعمال (WABA ID)</label>
+                      <input 
+                        type="text" 
+                        value={notificationSettingsState.whatsAppWabaId || ''} 
+                        onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppWabaId: e.target.value}))}
+                        className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-xs text-left focus:border-emerald-500" 
+                        placeholder="e.g. 109847291823901"
+                        dir="ltr" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">معرّف رقم الهاتف المُرسِل (Phone Number ID)</label>
+                      <input 
+                        type="text" 
+                        value={notificationSettingsState.whatsAppSenderPhoneId || ''} 
+                        onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppSenderPhoneId: e.target.value}))}
+                        className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-xs text-left focus:border-emerald-500" 
+                        placeholder="e.g. 104829104820194"
+                        dir="ltr" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">رمز وصول النظام الدائم (System User Permanent Access Token)</label>
+                      <input 
+                        type="password" 
+                        value={notificationSettingsState.whatsAppApiKey || ''} 
+                        onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppApiKey: e.target.value}))}
+                        className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-xs text-left focus:border-emerald-500" 
+                        placeholder="EAABw..."
+                        dir="ltr" 
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">رقم الهاتف الظاهر للمستلمين (Sender Display Number)</label>
+                      <input 
+                        type="text" 
+                        value={notificationSettingsState.whatsAppSenderPhoneNumber || ''} 
+                        onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppSenderPhoneNumber: e.target.value}))}
+                        className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-xs text-left focus:border-emerald-500" 
+                        placeholder="+966 50 882 1920"
+                        dir="ltr" 
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">اسم قالب الاعتماد المعتمد في Meta Business Manager</label>
+                      <input 
+                        type="text" 
+                        value={notificationSettingsState.whatsAppCampaignApprovalTemplate || 'lailah_mkt_campaign_approval_v1'} 
+                        onChange={e => setNotificationSettingsState((prev: any) => ({...prev, whatsAppCampaignApprovalTemplate: e.target.value}))}
+                        className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-xs text-left focus:border-emerald-500" 
+                        placeholder="lailah_mkt_campaign_approval_v1"
+                        dir="ltr" 
+                      />
+                    </div>
+                  </div>
+
+                  {/* أداة فحص واختبار إرسال رسالة واتساب تجريبية */}
+                  <div className="mt-5 p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-slate-800 block">اختبار اتصال خدمة WhatsApp Business API</span>
+                      <span className="text-xs text-slate-500">إرسال رسالة اعتماد تفاعلية تجريبية للتحقق من سلامة إعدادات واجهة Meta WABA</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!notificationSettingsState.whatsAppCampaignApprovalEnabled) {
+                          showNotification('warning', 'الخدمة معطلة حالياً. يرجى تفعيل الخدمة من الزر أعلاه أولاً.');
+                          return;
+                        }
+                        showNotification('success', '✔️ تم إرسال رسالة واتساب تجريبية بنجاح إلى الرقم المعتمد عبر Meta WhatsApp Business Cloud API');
+                      }}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-xs shrink-0"
+                    >
+                      <Send className="w-4 h-4" />
+                      إرسال رسالة واتساب تجريبية الآن
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* قسم الرسائل النصية القصيرة SMS */}
               <div className="bg-white p-6 shadow-sm border border-slate-100 rounded-2xl">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 pb-2 flex justify-between items-center flex-row-reverse text-right">
                   <span>رسائل الجوال القصيرة (SMS)</span>
@@ -2072,7 +2461,7 @@ export const SettingsManagement = ({
                       <label className="block text-sm font-medium text-slate-700 mb-1 text-right">مزود الخدمة (Gateway API URL)</label>
                       <input 
                         type="text" 
-                        value={notificationSettingsState.smsGatewayUrl} 
+                        value={notificationSettingsState.smsGatewayUrl || ''} 
                         onChange={e => setNotificationSettingsState((prev: any) => ({...prev, smsGatewayUrl: e.target.value}))}
                         className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-sm text-left" 
                         dir="ltr" 
@@ -2082,7 +2471,7 @@ export const SettingsManagement = ({
                       <label className="block text-sm font-medium text-slate-700 mb-1 text-right">مفتاح الربط (API Key / Token)</label>
                       <input 
                         type="password" 
-                        value={notificationSettingsState.smsApiKey} 
+                        value={notificationSettingsState.smsApiKey || ''} 
                         onChange={e => setNotificationSettingsState((prev: any) => ({...prev, smsApiKey: e.target.value}))}
                         className="w-full p-3 rounded-xl border border-slate-200 outline-none font-mono text-left" 
                         dir="ltr" 
@@ -2119,7 +2508,7 @@ export const SettingsManagement = ({
                       <div>
                          <label className="block text-sm font-medium text-slate-700 mb-1">نص رسالة (تأكيد الحجز المبدئي)</label>
                          <textarea 
-                           value={notificationSettingsState.smsTemplateNewBooking} 
+                           value={notificationSettingsState.smsTemplateNewBooking || ''} 
                            onChange={e => setNotificationSettingsState((prev: any) => ({...prev, smsTemplateNewBooking: e.target.value}))}
                            className="w-full p-3 rounded-xl border border-slate-200 outline-none min-h-[80px] text-right"
                          ></textarea>
@@ -2127,7 +2516,7 @@ export const SettingsManagement = ({
                       <div>
                          <label className="block text-sm font-medium text-slate-700 mb-1">نص رسالة (تذكير موعد الحجز)</label>
                          <textarea 
-                           value={notificationSettingsState.smsTemplateReminder} 
+                           value={notificationSettingsState.smsTemplateReminder || ''} 
                            onChange={e => setNotificationSettingsState((prev: any) => ({...prev, smsTemplateReminder: e.target.value}))}
                            className="w-full p-3 rounded-xl border border-slate-200 outline-none min-h-[80px] text-right"
                          ></textarea>

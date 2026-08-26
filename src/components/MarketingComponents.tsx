@@ -1,182 +1,1533 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Plus, Search, MessageSquare, Mail, Share2, Bell, Eye, Pencil, CheckCircle2, FileText, Target, CalendarDays, Wallet, Banknote, Activity, X, ShieldCheck, Percent, Power, Trash2, Users, Send, AlertCircle, XCircle } from 'lucide-react';
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(amount);
-};
-
+import { 
+  Megaphone, Plus, Search, MessageSquare, Mail, Share2, Bell, Eye, Pencil, 
+  CheckCircle2, FileText, Target, CalendarDays, Wallet, Banknote, Activity, 
+  X, ShieldCheck, Percent, Power, Trash2, Users, Send, AlertCircle, XCircle,
+  ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, MoveRight, MoveLeft,
+  Sparkles, ExternalLink, Copy, Check, BarChart2, TrendingUp, Layers, 
+  Filter, Clock, Globe, Sliders, Download, RefreshCw, Smartphone, Monitor,
+  SlidersHorizontal, CheckSquare, Printer, Wand2, Wifi, Zap
+} from 'lucide-react';
+import { getLPASPages } from '../data/lpasData';
 import { AdRequestProviderWizard, AdRequestsTable } from './AdRequestProviderWizard';
+import { AdPlatformsApiSyncView } from './growth/AdPlatformsApiSyncView';
+import { CampaignNotificationManager } from './growth/CampaignNotificationManager';
+import { AiCopywritingStudioModal } from './growth/AiCopywritingStudioModal';
+import { ExecutiveReportModal } from './growth/ExecutiveReportModal';
 export { AdRequestProviderWizard, AdRequestsTable };
 
-export const AgencyMarketingView = ({ campaigns, setCampaigns, setActiveTab, marketingCommissionPercentage = 20 }: any) => {
-  const [activeSubTab, setActiveSubTab] = useState<'master' | 'kanban' | 'expenses' | 'overview' | 'agreements'>('overview');
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR' }).format(amount || 0);
+};
+
+export const AgencyMarketingView = ({ campaigns = [], setCampaigns, setActiveTab, marketingCommissionPercentage = 20 }: any) => {
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'kanban' | 'master' | 'expenses' | 'lpas_link' | 'agreements' | 'api_integrations' | 'notifications' | 'ai_copywriter'>('kanban');
   const mComm = marketingCommissionPercentage || 20;
 
-  const totalBudget = campaigns.reduce((sum: any, c: any) => sum + (c.adBudget || 0), 0);
-  const totalSpent = campaigns.reduce((sum: any, c: any) => sum + (c.spent || 0), 0);
-  const activeCampaigns = campaigns.filter((c: any) => c.status === 'نشطة').length;
+  // Search and Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterChannel, setFilterChannel] = useState('all');
+  const [filterProvider, setFilterProvider] = useState('all');
+  const [filterStage, setFilterStage] = useState('all');
+
+  // Drag and Drop state
+  const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+
+  // Modals state
+  const [selectedCampaignForDetails, setSelectedCampaignForDetails] = useState<any | null>(null);
+  const [selectedCampaignForEdit, setSelectedCampaignForEdit] = useState<any | null>(null);
+  const [selectedCampaignForExecutiveReport, setSelectedCampaignForExecutiveReport] = useState<any | null>(null);
+  const [isAiCopywriterOpen, setIsAiCopywriterOpen] = useState(false);
+  const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  // Expense form state
+  const [expenseCampaignId, setExpenseCampaignId] = useState<number | string>('');
+  const [expenseAmount, setExpenseAmount] = useState<number | string>('');
+  const [expensePlatform, setExpensePlatform] = useState('سناب شات');
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseRef, setExpenseRef] = useState('');
+  const [notificationMsg, setNotificationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const lpasPages = getLPASPages ? getLPASPages() : [];
+
+  // 5 Canonical Kanban Stages
+  const KANBAN_STAGES = [
+    { 
+      id: 'تحت التجهيز والتصميم', 
+      label: '1. تحت التجهيز والتصميم', 
+      shortLabel: 'تجهيز وتصميم', 
+      desc: 'إعداد المحتوى الإعلاني، تحديد الجمهور، وربط صفحات الهبوط',
+      color: 'border-indigo-400 text-indigo-700 bg-indigo-50/50', 
+      badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200' 
+    },
+    { 
+      id: 'بانتظار موافقة المزود', 
+      label: '2. بانتظار موافقة المزود', 
+      shortLabel: 'موافقة المزود', 
+      desc: 'مراجعة الميزانية والعرض الإعلاني مع الشريك/المزود',
+      color: 'border-amber-400 text-amber-700 bg-amber-50/50', 
+      badgeColor: 'bg-amber-100 text-amber-800 border-amber-200' 
+    },
+    { 
+      id: 'تمت الجدولة والإطلاق', 
+      label: '3. تمت الجدولة والإطلاق', 
+      shortLabel: 'جدولة وإطلاق', 
+      desc: 'تهيئة مدراء الإعلانات، بكسل التتبع، وجدولة البث',
+      color: 'border-blue-400 text-blue-700 bg-blue-50/50', 
+      badgeColor: 'bg-blue-100 text-blue-800 border-blue-200' 
+    },
+    { 
+      id: 'بث مباشر وتتبع النتائج', 
+      label: '4. بث مباشر وتتبع النتائج', 
+      shortLabel: 'بث مباشر (Live)', 
+      desc: 'حملات نشطة ومباشرة مع تتبع معدل التحويل والعائد ROAS',
+      color: 'border-emerald-400 text-emerald-700 bg-emerald-50/50', 
+      badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+    },
+    { 
+      id: 'مكتملة ومؤرشفة', 
+      label: '5. مكتملة ومؤرشفة', 
+      shortLabel: 'مكتملة ومؤرشفة', 
+      desc: 'انتهاء فترة البث، مطابقة المصروفات، وتصدير التقارير النهائية',
+      color: 'border-slate-300 text-slate-700 bg-slate-50/50', 
+      badgeColor: 'bg-slate-100 text-slate-800 border-slate-200' 
+    }
+  ];
+
+  // Helper function to normalize workflow status
+  const getNormalizedStage = (c: any) => {
+    const ws = c.workflowStatus || '';
+    if (ws.includes('تجهيز') || ws === 'تحت التجهيز') return 'تحت التجهيز والتصميم';
+    if (ws.includes('موافقة') || ws === 'بانتظار موافقة العميل') return 'بانتظار موافقة المزود';
+    if (ws.includes('جدولة') || ws === 'تمت الجدولة') return 'تمت الجدولة والإطلاق';
+    if (ws.includes('مباشر') || ws.includes('نتائج') || ws === 'نشطة') return 'بث مباشر وتتبع النتائج';
+    if (ws.includes('مكتمل') || ws === 'مكتملة') return 'مكتملة ومؤرشفة';
+    return 'تحت التجهيز والتصميم';
+  };
+
+  // Metrics Calculations
+  const totalBudget = campaigns.reduce((sum: number, c: any) => sum + (c.adBudget || c.budget || 0), 0);
+  const totalSpent = campaigns.reduce((sum: number, c: any) => sum + (c.spent || 0), 0);
+  const availableBudget = Math.max(0, totalBudget - totalSpent);
+  const totalAgencyFees = campaigns.reduce((sum: number, c: any) => sum + (c.agencyFee || 0), 0);
+  const lailahCommission = totalAgencyFees * (mComm / 100);
+  const agencyNetProfit = totalAgencyFees - lailahCommission;
+  const activeCampaigns = campaigns.filter((c: any) => c.status === 'نشطة' || getNormalizedStage(c) === 'بث مباشر وتتبع النتائج').length;
+  const totalReach = campaigns.reduce((sum: number, c: any) => sum + (c.reach || 0), 0);
+  const totalConversions = campaigns.reduce((sum: number, c: any) => sum + (c.conversions || 0), 0);
+  const avgRoas = campaigns.length ? (campaigns.reduce((sum: number, c: any) => sum + (c.roas || 4.5), 0) / campaigns.length).toFixed(1) : '5.2';
+
+  // Providers list for filtering
+  const uniqueProviders = Array.from(new Set(campaigns.map((c: any) => c.providerName).filter(Boolean)));
+
+  // Filtered campaigns for Kanban / Master sheet
+  const filteredCampaigns = campaigns.filter((c: any) => {
+    const stage = getNormalizedStage(c);
+    const matchesSearch = !searchQuery.trim() || 
+      (c.title && c.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.providerName && c.providerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (c.channel && c.channel.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesChannel = filterChannel === 'all' || (c.channel && c.channel.includes(filterChannel)) || (c.type && c.type.includes(filterChannel));
+    const matchesProvider = filterProvider === 'all' || c.providerName === filterProvider;
+    const matchesStage = filterStage === 'all' || stage === filterStage;
+    return matchesSearch && matchesChannel && matchesProvider && matchesStage;
+  });
+
+  // Action: Move card to target stage
+  const handleMoveCard = (campaignId: number, targetStage: string) => {
+    setCampaigns((prev: any[]) => {
+      return prev.map((c: any) => {
+        if (c.id === campaignId) {
+          const newStatus = (targetStage === 'مكتملة ومؤرشفة') ? 'مكتملة' : 'نشطة';
+          return {
+            ...c,
+            workflowStatus: targetStage,
+            status: newStatus,
+            lastMovedAt: new Date().toISOString()
+          };
+        }
+        return c;
+      });
+    });
+
+    const targetStageObj = KANBAN_STAGES.find(s => s.id === targetStage);
+    showNotice('success', `تم نقل الحملة بنجاح إلى مرحلة: ${targetStageObj?.shortLabel || targetStage}`);
+  };
+
+  // Action: Move card Forward
+  const handleMoveNext = (c: any) => {
+    const currentStage = getNormalizedStage(c);
+    const currentIndex = KANBAN_STAGES.findIndex(s => s.id === currentStage);
+    if (currentIndex < KANBAN_STAGES.length - 1) {
+      const nextStage = KANBAN_STAGES[currentIndex + 1].id;
+      handleMoveCard(c.id, nextStage);
+    }
+  };
+
+  // Action: Move card Backward
+  const handleMovePrev = (c: any) => {
+    const currentStage = getNormalizedStage(c);
+    const currentIndex = KANBAN_STAGES.findIndex(s => s.id === currentStage);
+    if (currentIndex > 0) {
+      const prevStage = KANBAN_STAGES[currentIndex - 1].id;
+      handleMoveCard(c.id, prevStage);
+    }
+  };
+
+  const showNotice = (type: 'success' | 'error', text: string) => {
+    setNotificationMsg({ type, text });
+    setTimeout(() => setNotificationMsg(null), 3500);
+  };
+
+  // Action: Log Expense
+  const handleLogExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountNum = Number(expenseAmount);
+    if (!expenseCampaignId || isNaN(amountNum) || amountNum <= 0) {
+      showNotice('error', 'يرجى اختيار الحملة وتحديد مبلغ صرف صحيح.');
+      return;
+    }
+
+    const targetCamp = campaigns.find((c: any) => c.id === Number(expenseCampaignId));
+    if (!targetCamp) {
+      showNotice('error', 'الحملة المحددة غير موجودة.');
+      return;
+    }
+
+    const currentSpent = targetCamp.spent || 0;
+    const campBudget = targetCamp.adBudget || targetCamp.budget || 0;
+    const newSpent = currentSpent + amountNum;
+
+    const newExpenseRecord = {
+      id: Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      amount: amountNum,
+      platform: expensePlatform,
+      description: expenseDescription.trim() || `مصروف إعلاني على ${expensePlatform}`,
+      reference: expenseRef.trim() || `EXP-${Date.now().toString().slice(-6)}`
+    };
+
+    setCampaigns((prev: any[]) => prev.map((c: any) => {
+      if (c.id === Number(expenseCampaignId)) {
+        const history = c.expensesHistory || [];
+        return {
+          ...c,
+          spent: newSpent,
+          expensesHistory: [newExpenseRecord, ...history]
+        };
+      }
+      return c;
+    }));
+
+    setExpenseAmount('');
+    setExpenseDescription('');
+    setExpenseRef('');
+    showNotice('success', `تم تسجيل المصروف بقيمة ${formatCurrency(amountNum)} للحملة بنجاح.`);
+  };
+
+  // Action: Copy LPAS Campaign Link
+  const handleCopyLpasLink = (slug: string, campaignId: number) => {
+    const link = `${window.location.origin}/landing/${slug}?utm_source=lailah_agency&utm_campaign=cmp_${campaignId}&utm_medium=paid_media`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(`${slug}-${campaignId}`);
+    setTimeout(() => setCopiedLink(null), 2500);
+    showNotice('success', 'تم نسخ رابط الحملة وتتبع التحويلات بنجاح!');
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 text-right font-sans" dir="rtl">
+      {/* Top Banner / Agency Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gradient-to-l from-slate-950 via-slate-900 to-indigo-950 p-6 rounded-3xl text-white shadow-xl border border-slate-800 relative overflow-hidden">
+        <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">إدارة الحملات (لوحة الوكالة المعتمدة)</h2>
-          <p className="text-slate-500 mt-1">إدارة ميزانيات البث، أتعاب الوكالة، سير العمل، وتقارير أداء الحملات التسويقية.</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-black border border-amber-500/30 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              وكالة ليلة الرقمية المعتمدة (Certified Growth Agency)
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+              عمولة سيادية {mComm}% على الأتعاب فقط
+            </span>
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+            <span>لوحة إدارة الحملات وسير العمل (Kanban Engine)</span>
+          </h2>
+          <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
+            التحكم الشامل في بث الحملات الإعلانية، سير العمل التفاعلي، تدفق الميزانيات، وتتبع العائد على الإنفاق بالربط مع محرك صفحات الهبوط LPAS.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          <button
+            onClick={() => setIsAiCopywriterOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer grow lg:grow-0"
+          >
+            <Wand2 className="w-4 h-4 text-amber-300" />
+            <span>مولّد النصوص الذكي 🪄</span>
+          </button>
+          <button
+            onClick={() => setIsNewCampaignModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all shadow-md hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer grow lg:grow-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>إطلاق حملة وكالة جديدة</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('expenses')}
+            className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/15 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Banknote className="w-4 h-4 text-emerald-400" />
+            <span>تسجيل صرف مباشر</span>
+          </button>
         </div>
       </div>
 
-      <div className="flex space-x-2 space-x-reverse mb-6 border-b border-slate-200 overflow-x-auto no-scrollbar">
-        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'overview' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-500'}`} onClick={() => setActiveSubTab('overview')}>نظرة عامة</button>
-        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'master' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-500'}`} onClick={() => setActiveSubTab('master')}>الجدول الموحد (Master Sheet)</button>
-        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'kanban' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('kanban')}>سير العمل (Kanban)</button>
-        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'expenses' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('expenses')}>المصروفات والميزانيات</button>
-        <button className={`px-4 py-2 font-medium cursor-pointer ${activeSubTab === 'agreements' ? 'text-amber-600 border-b-2 border-amber-600 font-bold' : 'text-slate-505'}`} onClick={() => setActiveSubTab('agreements')}>اتفاقية الوكالة والعمولة (Agreement)</button>
+      {/* Notification Toast */}
+      {notificationMsg && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 shadow-lg border transition-all animate-in fade-in slide-in-from-top-2 ${
+          notificationMsg.type === 'success' 
+            ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
+            : 'bg-rose-50 text-rose-900 border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {notificationMsg.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span className="text-xs sm:text-sm font-bold">{notificationMsg.text}</span>
+          </div>
+          <button onClick={() => setNotificationMsg(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="flex items-center space-x-1 space-x-reverse border-b border-slate-200 overflow-x-auto no-scrollbar pb-1 bg-white p-2 rounded-2xl shadow-xs">
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'kanban' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('kanban')}
+        >
+          <Layers className="w-4 h-4" />
+          <span>سير العمل التفاعلي (Kanban)</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-slate-900/10 text-[10px] font-black">{campaigns.length}</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'overview' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('overview')}
+        >
+          <BarChart2 className="w-4 h-4" />
+          <span>المؤشرات والنظرة العامة</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'api_integrations' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('api_integrations')}
+        >
+          <Zap className="w-4 h-4 text-indigo-600" />
+          <span>الربط البرمجي للمنصات (Live APIs)</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'notifications' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('notifications')}
+        >
+          <Bell className="w-4 h-4" />
+          <span>أتمتة الإشعارات (WhatsApp & Email)</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'ai_copywriter' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('ai_copywriter')}
+        >
+          <Wand2 className="w-4 h-4 text-purple-600" />
+          <span>مولّد الإعلانات والنصوص 🪄</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'master' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('master')}
+        >
+          <FileText className="w-4 h-4" />
+          <span>الجدول الموحد (Master Sheet)</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'expenses' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('expenses')}
+        >
+          <Banknote className="w-4 h-4" />
+          <span>المصروفات والميزانيات</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'lpas_link' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('lpas_link')}
+        >
+          <Target className="w-4 h-4" />
+          <span>محرك صفحات الهبوط (LPAS)</span>
+        </button>
+
+        <button
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeSubTab === 'agreements' 
+              ? 'bg-amber-500 text-slate-950 shadow-xs' 
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+          onClick={() => setActiveSubTab('agreements')}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>اتفاقية الوكالة والعمولة ({mComm}%)</span>
+        </button>
       </div>
 
+      {/* 1. OVERVIEW SUB-TAB */}
       {activeSubTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:border-amber-500 transition-colors">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0"><Megaphone className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">الحملات النشطة</p>
-              <h3 className="text-2xl font-bold text-slate-800">{activeCampaigns}</h3>
+        <div className="space-y-6 animate-in fade-in">
+          {/* Main KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-amber-400 transition-all">
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Megaphone className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-bold">الحملات النشطة / الحية</p>
+                <h3 className="text-2xl font-black text-slate-900 mt-0.5">{activeCampaigns} <span className="text-xs font-bold text-slate-400">حملة</span></h3>
+                <p className="text-[10px] text-emerald-600 font-bold mt-0.5">من أصل {campaigns.length} حملة مسجلة</p>
+              </div>
             </div>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:border-purple-505 transition-colors">
-            <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Wallet className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">ميزانية الإعلانات المتاحة</p>
-              <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(totalBudget - totalSpent)}</h3>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:border-green-500 transition-colors">
-            <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0"><Banknote className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm text-slate-500 font-medium">الأرباح الصافية (أتعاب الوكالة)</p>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {formatCurrency(campaigns.reduce((sum: any, c: any) => sum + (c.agencyNetProfit || 0), 0))}
-              </h3>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {activeSubTab === 'master' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-right">
-              <thead className="bg-slate-50 text-slate-500 text-sm border-b border-slate-100">
-                <tr>
-                  <th className="p-4 font-medium">العميل (مزود الخدمة)</th>
-                  <th className="p-4 font-medium">الحملة النشطة</th>
-                  <th className="p-4 font-medium">الميزانية الإعلانية</th>
-                  <th className="p-4 font-medium">ما تم صرفه</th>
-                  <th className="p-4 font-medium text-center">CPA (التكلفة للنتيجة)</th>
-                  <th className="p-4 font-medium">الأرباح الصافية</th>
-                  <th className="p-4 font-medium">الحالة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {campaigns.map((c: any) => (
-                  <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-bold text-slate-800">{c.providerName || 'مزود خدمة غير محدد'}</td>
-                    <td className="p-4 text-slate-600">{c.title}</td>
-                    <td className="p-4 font-mono text-purple-600 font-bold">{formatCurrency(c.adBudget || 0)}</td>
-                    <td className="p-4 font-mono text-red-600">{formatCurrency(c.spent || 0)}</td>
-                    <td className="p-4 text-center font-bold text-slate-700">{formatCurrency(c.cpa || 0)}</td>
-                    <td className="p-4 font-mono text-green-600 font-bold">{formatCurrency(c.agencyNetProfit || 0)}</td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                        c.status === 'نشطة' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-705 border-slate-200'
-                      }`}>
-                        {c.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-purple-400 transition-all">
+              <div className="w-12 h-12 bg-purple-500/10 text-purple-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-bold">الميزانية الإعلانية المباشرة</p>
+                <h3 className="text-2xl font-black text-slate-900 mt-0.5">{formatCurrency(totalBudget)}</h3>
+                <p className="text-[10px] text-purple-600 font-bold mt-0.5">تم صرف: {formatCurrency(totalSpent)}</p>
+              </div>
+            </div>
 
-      {activeSubTab === 'kanban' && (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {['تحت التجهيز', 'بانتظار موافقة العميل', 'تمت الجدولة', 'نتائج مباشرة'].map((columnTitle) => (
-            <div key={columnTitle} className="w-80 shrink-0 bg-slate-100 rounded-2xl p-4 flex flex-col h-[600px]">
-              <h3 className="font-bold text-slate-700 mb-4">{columnTitle}</h3>
-              <div className="space-y-4 overflow-y-auto flex-1 pr-2">
-                {campaigns.filter((c:any) => (c.workflowStatus || 'تحت التجهيز') === columnTitle).map((c:any) => (
-                  <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 cursor-move hover:border-amber-400 transition-colors">
-                    <h4 className="font-bold text-slate-800 mb-1">{c.title}</h4>
-                    <p className="text-xs text-slate-500 mb-3">{c.providerName}</p>
-                    <div className="flex gap-2">
-                      <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">{c.channel || 'متعدد'}</span>
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-emerald-400 transition-all">
+              <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Banknote className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-bold">أتعاب الوكالة الصافية</p>
+                <h3 className="text-2xl font-black text-slate-900 mt-0.5">{formatCurrency(agencyNetProfit)}</h3>
+                <p className="text-[10px] text-amber-600 font-bold mt-0.5">عمولة ليلة: {formatCurrency(lailahCommission)}</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200/80 flex items-center gap-4 hover:border-blue-400 transition-all">
+              <div className="w-12 h-12 bg-blue-500/10 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-bold">متوسط العائد الإعلاني (ROAS)</p>
+                <h3 className="text-2xl font-black text-slate-900 mt-0.5">{avgRoas}x</h3>
+                <p className="text-[10px] text-blue-600 font-bold mt-0.5">{totalConversions.toLocaleString('ar-SA')} تحويل مؤكد</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Channels & LPAS Attribution Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-500" />
+                  <span>توزيع القنوات الإعلانية المعتمدة والأداء</span>
+                </h3>
+                <span className="text-xs text-slate-400 font-bold">معدل التحويل ومتوسط CPA</span>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  { channel: 'سناب شات (Snapchat Ads & Filters)', budget: 15000, spent: 12200, roas: '5.2x', cpa: '32 ر.س', color: 'bg-amber-400' },
+                  { channel: 'تيك توك وإنستغرام (Shorts & Reels)', budget: 18000, spent: 9500, roas: '6.4x', cpa: '28 ر.س', color: 'bg-rose-500' },
+                  { channel: 'جوجل سيرش ومابز (Google Search & Maps)', budget: 8000, spent: 6500, roas: '4.8x', cpa: '42 ر.س', color: 'bg-blue-500' },
+                  { channel: 'بوابة رسائل SMS والمؤثرين', budget: 14000, spent: 11000, roas: '7.1x', cpa: '24 ر.س', color: 'bg-emerald-500' },
+                ].map((item, idx) => (
+                  <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="space-y-1">
+                      <span className="text-xs font-extrabold text-slate-800">{item.channel}</span>
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 font-medium">
+                        <span>الميزانية: <strong className="text-slate-800">{formatCurrency(item.budget)}</strong></span>
+                        <span>تم صرف: <strong className="text-rose-600">{formatCurrency(item.spent)}</strong></span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-mono">
+                      <span className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold">ROAS {item.roas}</span>
+                      <span className="px-2 py-1 rounded-lg bg-blue-100 text-blue-800 font-bold">CPA {item.cpa}</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {activeSubTab === 'expenses' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">تسجيل المصروفات الإعلانية</h3>
-          <p className="text-sm text-slate-500 mb-6">يتم خصم هذه المبالغ حصرياً من ميزانية الإعلانات المخصصة للحملة.</p>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-             <select className="p-3 border rounded-xl" defaultValue="">
-               <option value="" disabled>اختر الحملة...</option>
-               {campaigns.filter((c:any) => c.status === 'نشطة').map((c:any) => (
-                 <option key={c.id} value={c.id}>{c.title} - {formatCurrency((c.adBudget||0) - (c.spent||0))} متبقي</option>
-               ))}
-             </select>
-             <input type="number" placeholder="المبلغ (ر.س)" className="p-3 border rounded-xl" />
-             <input type="text" placeholder="البيان (مثال: إعلانات سناب شات)" className="p-3 border rounded-xl" />
-             <button className="bg-amber-500 text-slate-900 font-bold px-6 py-3 rounded-xl hover:bg-amber-600">تسجيل الصرف</button>
+            <div className="bg-gradient-to-br from-indigo-950 to-slate-900 p-6 rounded-2xl text-white shadow-md border border-indigo-900/50 flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="w-5 h-5 text-amber-400" />
+                  <h4 className="text-base font-black text-white">محرك صفحات الهبوط (LPAS)</h4>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                  توجيه حركة الزوار المدفوعة إلى صفحات هبوط مخصصة وموجهة حسب المدينة والفئة لرفع معدل التحويل (Conversion Rate).
+                </p>
+                <div className="p-3 rounded-xl bg-white/10 border border-white/10 space-y-1.5 text-xs">
+                  <div className="flex justify-between text-slate-300">
+                    <span>الصفحات المتاحة:</span>
+                    <strong className="text-white">{lpasPages.length} صفحة</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-300">
+                    <span>معدل التحويل المستهدف:</span>
+                    <strong className="text-amber-300">12% - 18%</strong>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveSubTab('lpas_link')}
+                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>استعراض وربط صفحات الهبوط</span>
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* 2. KANBAN SUB-TAB (CORE REQUIREMENT) */}
+      {activeSubTab === 'kanban' && (
+        <div className="space-y-4 animate-in fade-in">
+          {/* Kanban Filter and Search Toolbar */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="بحث باسم الحملة، المزود، أو القناة..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-amber-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filterProvider}
+                onChange={(e) => setFilterProvider(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-slate-50 focus:outline-hidden focus:border-amber-500"
+              >
+                <option value="all">جميع المزودين</option>
+                {uniqueProviders.map((p: any, idx) => (
+                  <option key={idx} value={p}>{p}</option>
+                ))}
+              </select>
+
+              <select
+                value={filterChannel}
+                onChange={(e) => setFilterChannel(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-slate-50 focus:outline-hidden focus:border-amber-500"
+              >
+                <option value="all">جميع القنوات</option>
+                <option value="سناب شات">سناب شات</option>
+                <option value="تيك توك">تيك توك وإنستغرام</option>
+                <option value="Google">جوجل سيرش ومابز</option>
+                <option value="SMS">رسائل SMS</option>
+              </select>
+
+              <select
+                value={filterStage}
+                onChange={(e) => setFilterStage(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-slate-50 focus:outline-hidden focus:border-amber-500"
+              >
+                <option value="all">جميع المراحل (5)</option>
+                {KANBAN_STAGES.map((s) => (
+                  <option key={s.id} value={s.id}>{s.shortLabel}</option>
+                ))}
+              </select>
+
+              {(searchQuery || filterProvider !== 'all' || filterChannel !== 'all' || filterStage !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterProvider('all');
+                    setFilterChannel('all');
+                    setFilterStage('all');
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>إعادة تعيين</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Kanban Columns Grid with Drag & Drop & Action Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-start overflow-x-auto pb-4 pt-1">
+            {KANBAN_STAGES.map((stage, stageIndex) => {
+              const stageCampaigns = filteredCampaigns.filter((c: any) => getNormalizedStage(c) === stage.id);
+              const isDragOver = dragOverColumn === stage.id;
+
+              return (
+                <div
+                  key={stage.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverColumn(stage.id);
+                  }}
+                  onDragLeave={() => setDragOverColumn(null)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const cid = Number(e.dataTransfer.getData('text/plain') || draggedCardId);
+                    if (cid) {
+                      handleMoveCard(cid, stage.id);
+                    }
+                    setDragOverColumn(null);
+                    setDraggedCardId(null);
+                  }}
+                  className={`rounded-2xl border transition-all duration-200 flex flex-col min-h-[580px] ${
+                    isDragOver 
+                      ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-400/50 shadow-md' 
+                      : 'bg-slate-50/80 border-slate-200'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className={`p-3.5 rounded-t-2xl border-b bg-white ${stage.color} flex flex-col gap-1`}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-black text-xs sm:text-sm flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-current"></span>
+                        <span>{stage.label}</span>
+                      </h3>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${stage.badgeColor}`}>
+                        {stageCampaigns.length}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 line-clamp-1">{stage.desc}</p>
+                  </div>
+
+                  {/* Column Body / Cards List */}
+                  <div className="p-2.5 space-y-3 flex-1 overflow-y-auto max-h-[640px] no-scrollbar">
+                    {stageCampaigns.length === 0 ? (
+                      <div className="py-12 px-4 text-center border border-dashed border-slate-200 rounded-xl bg-white/50">
+                        <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2 opacity-50" />
+                        <p className="text-xs text-slate-400 font-medium">لا توجد بطاقات في هذه المرحلة</p>
+                        <p className="text-[10px] text-slate-400 mt-1">اسحب أي بطاقة هنا أو انقلها مباشرة</p>
+                      </div>
+                    ) : (
+                      stageCampaigns.map((c: any) => {
+                        const campBudget = c.adBudget || c.budget || 0;
+                        const campSpent = c.spent || 0;
+                        const spendPct = campBudget > 0 ? Math.min(100, Math.round((campSpent / campBudget) * 100)) : 0;
+                        const isDragging = draggedCardId === c.id;
+
+                        return (
+                          <div
+                            key={c.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', String(c.id));
+                              setDraggedCardId(c.id);
+                            }}
+                            onDragEnd={() => setDraggedCardId(null)}
+                            className={`bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all duration-200 space-y-3 cursor-grab active:cursor-grabbing hover:border-amber-400 ${
+                              isDragging ? 'opacity-40 scale-95' : 'opacity-100'
+                            }`}
+                          >
+                            {/* Card Top: Provider & Channel */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60 block truncate max-w-[170px]">
+                                  {c.providerName || 'مزود خدمة معتمد'}
+                                </span>
+                                <h4 className="font-black text-slate-900 text-xs sm:text-sm line-clamp-1 mt-1 leading-snug">
+                                  {c.title}
+                                </h4>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold shrink-0">
+                                {c.channel || c.type || 'متعدد'}
+                              </span>
+                            </div>
+
+                            {/* Core Message / Content Excerpt */}
+                            {c.content && (
+                              <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                {c.content}
+                              </p>
+                            )}
+
+                            {/* Budget Progress Bar */}
+                            <div className="space-y-1 pt-1">
+                              <div className="flex justify-between items-center text-[10px] font-bold">
+                                <span className="text-slate-500">الصرف: <strong className="text-slate-900">{formatCurrency(campSpent)}</strong></span>
+                                <span className="text-purple-700">الميزانية: {formatCurrency(campBudget)}</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-500 ${
+                                    spendPct > 90 ? 'bg-rose-500' : spendPct > 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                                  }`}
+                                  style={{ width: `${spendPct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Performance metrics pill */}
+                            <div className="grid grid-cols-3 gap-1 pt-1 text-center text-[10px]">
+                              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                <span className="text-slate-400 block">CPA</span>
+                                <strong className="text-slate-800 font-mono">{c.cpa || 30} ر.س</strong>
+                              </div>
+                              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                <span className="text-slate-400 block">ROAS</span>
+                                <strong className="text-emerald-700 font-mono">{c.roas || 4.5}x</strong>
+                              </div>
+                              <div className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                <span className="text-slate-400 block">تحويلات</span>
+                                <strong className="text-blue-700 font-mono">{c.conversions || 0}</strong>
+                              </div>
+                            </div>
+
+                            {/* LPAS Page Link Badge */}
+                            {c.lpasPageSlug && (
+                              <div className="flex items-center justify-between gap-1 p-1.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[10px]">
+                                <span className="text-indigo-900 font-bold truncate flex items-center gap-1">
+                                  <Target className="w-3 h-3 text-indigo-600 shrink-0" />
+                                  <span>{c.lpasPageSlug}</span>
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyLpasLink(c.lpasPageSlug, c.id);
+                                  }}
+                                  className="text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded-md hover:bg-indigo-100 font-bold shrink-0 cursor-pointer flex items-center gap-1"
+                                >
+                                  {copiedLink === `${c.lpasPageSlug}-${c.id}` ? (
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                  <span>{copiedLink === `${c.lpasPageSlug}-${c.id}` ? 'تم النسخ' : 'نسخ الرابط'}</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Action Buttons: Move Next, Move Prev, Stage Dropdown, Quick View */}
+                            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                              {/* Direct Forward / Backward Buttons */}
+                              <div className="flex items-center gap-1.5">
+                                {stageIndex > 0 && (
+                                  <button
+                                    onClick={() => handleMovePrev(c)}
+                                    title="نقل للمرحلة السابقة"
+                                    className="px-2 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>السابق</span>
+                                  </button>
+                                )}
+
+                                {stageIndex < KANBAN_STAGES.length - 1 ? (
+                                  <button
+                                    onClick={() => handleMoveNext(c)}
+                                    className="flex-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                                  >
+                                    <span>نقل للعمود التالي</span>
+                                    <ArrowLeft className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="flex-1 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 text-[10px] font-black text-center border border-emerald-200">
+                                    مكتملة بنجاح ✅
+                                  </span>
+                                )}
+
+                                <button
+                                  onClick={() => setSelectedCampaignForExecutiveReport(c)}
+                                  title="تقرير أداء تنفيذي PDF"
+                                  className="p-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 transition-colors cursor-pointer border border-purple-200/60"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => setSelectedCampaignForDetails(c)}
+                                  title="عرض كامل التفاصيل"
+                                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Direct Column Jump Selector */}
+                              <div className="flex items-center gap-1.5 text-[10px]">
+                                <span className="text-slate-400 shrink-0 font-bold">المرحلة:</span>
+                                <select
+                                  value={stage.id}
+                                  onChange={(e) => handleMoveCard(c.id, e.target.value)}
+                                  className="w-full p-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-700 bg-white focus:outline-hidden focus:border-amber-500"
+                                >
+                                  {KANBAN_STAGES.map((st) => (
+                                    <option key={st.id} value={st.id}>
+                                      {st.shortLabel}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3. MASTER SHEET SUB-TAB */}
+      {activeSubTab === 'master' && (
+        <div className="space-y-4 animate-in fade-in">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="بحث في الجدول الموحد..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-10 py-2 rounded-xl border border-slate-200 text-xs"
+              />
+            </div>
+            <div className="text-xs text-slate-500 font-bold shrink-0">
+              إجمالي السجلات: <span className="text-slate-900 font-black">{filteredCampaigns.length}</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">العميل (مزود الخدمة)</th>
+                    <th className="p-3.5">اسم الحملة والقناة</th>
+                    <th className="p-3.5">الميزانية الإعلانية</th>
+                    <th className="p-3.5">ما تم صرفه</th>
+                    <th className="p-3.5">أتعاب الوكالة</th>
+                    <th className="p-3.5">عمولة ليلة ({mComm}%)</th>
+                    <th className="p-3.5">ROAS</th>
+                    <th className="p-3.5">مرحلة سير العمل</th>
+                    <th className="p-3.5 text-center">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredCampaigns.map((c: any) => {
+                    const currentStage = getNormalizedStage(c);
+                    const campBudget = c.adBudget || c.budget || 0;
+                    const campSpent = c.spent || 0;
+                    const fee = c.agencyFee || 0;
+                    const comm = fee * (mComm / 100);
+
+                    return (
+                      <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 font-bold text-slate-900">{c.providerName || 'مزود خدمة معتمد'}</td>
+                        <td className="p-3.5">
+                          <div className="font-extrabold text-slate-800">{c.title}</div>
+                          <span className="text-[10px] text-slate-500">{c.channel || 'متعدد'}</span>
+                        </td>
+                        <td className="p-3.5 font-mono text-purple-700 font-bold">{formatCurrency(campBudget)}</td>
+                        <td className="p-3.5 font-mono text-rose-600 font-bold">{formatCurrency(campSpent)}</td>
+                        <td className="p-3.5 font-mono text-emerald-700 font-bold">{formatCurrency(fee)}</td>
+                        <td className="p-3.5 font-mono text-amber-700 font-bold">{formatCurrency(comm)}</td>
+                        <td className="p-3.5 font-mono font-black text-slate-800">{c.roas || 4.5}x</td>
+                        <td className="p-3.5">
+                          <select
+                            value={currentStage}
+                            onChange={(e) => handleMoveCard(c.id, e.target.value)}
+                            className="p-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 bg-white"
+                          >
+                            {KANBAN_STAGES.map((st) => (
+                              <option key={st.id} value={st.id}>{st.shortLabel}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => setSelectedCampaignForExecutiveReport(c)}
+                              className="p-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 cursor-pointer border border-purple-200/60"
+                              title="تقرير تنفيذي PDF"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setSelectedCampaignForDetails(c)}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                              title="عرض التفاصيل"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setExpenseCampaignId(c.id);
+                                setActiveSubTab('expenses');
+                              }}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 cursor-pointer"
+                              title="تسجيل صرف"
+                            >
+                              <Banknote className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. EXPENSES & MEDIA SPEND SUB-TAB */}
+      {activeSubTab === 'expenses' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
+          {/* Expense Logging Form */}
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 space-y-4">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-emerald-600" />
+                <span>تسجيل المصروفات الإعلانية المباشرة</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">يتم خصم هذه المبالغ حصرياً من ميزانية البث الإعلاني للحملة.</p>
+            </div>
+
+            <form onSubmit={handleLogExpense} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">اختر الحملة المستهدفة *</label>
+                <select
+                  value={expenseCampaignId}
+                  onChange={(e) => setExpenseCampaignId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 focus:outline-hidden focus:border-amber-500"
+                  required
+                >
+                  <option value="" disabled>اختر الحملة...</option>
+                  {campaigns.map((c: any) => {
+                    const rem = Math.max(0, (c.adBudget || c.budget || 0) - (c.spent || 0));
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.title} ({c.providerName}) - متبقي {formatCurrency(rem)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">مبلغ الصرف (ر.س) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="مثال: 1500"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-amber-500 font-mono text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">المنصة / القناة الإعلانية *</label>
+                <select
+                  value={expensePlatform}
+                  onChange={(e) => setExpensePlatform(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 focus:outline-hidden focus:border-amber-500"
+                >
+                  <option value="سناب شات">سناب شات (Snap Ads)</option>
+                  <option value="تيك توك">تيك توك (TikTok Ads)</option>
+                  <option value="إنستغرام وميتا">إنستغرام وفيس بوك (Meta)</option>
+                  <option value="جوجل أدز">جوجل سيرش ومابز (Google Ads)</option>
+                  <option value="بوابة رسائل SMS">بوابة رسائل SMS المعتمدة</option>
+                  <option value="شبكة المؤثرين">شبكة المؤثرين وصناع المحتوى</option>
+                  <option value="إنتاج وتصوير">إنتاج محتوى وتصوير</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">رقم المرجع / الفاتورة (Invoice Ref)</label>
+                <input
+                  type="text"
+                  placeholder="مثال: SNAP-INV-88912"
+                  value={expenseRef}
+                  onChange={(e) => setExpenseRef(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1.5">البيان والتفاصيل</label>
+                <textarea
+                  rows={2}
+                  placeholder="مثال: إعلانات فيديو تفاعلية لاستهداف العرسان بالرياض..."
+                  value={expenseDescription}
+                  onChange={(e) => setExpenseDescription(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-amber-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>تسجيل وخصم المصروف</span>
+              </button>
+            </form>
+          </div>
+
+          {/* Real-time Expense Audit Log */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">سجل العمليات والمصروفات الإعلانية</h3>
+                <p className="text-xs text-slate-500 mt-0.5">توثيق شامل لكافة القيود والمصروفات المرتبطة بالحملات</p>
+              </div>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono font-bold">
+                إجمالي المصروفات: {formatCurrency(totalSpent)}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-extrabold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">التاريخ</th>
+                    <th className="p-3">الحملة / المزود</th>
+                    <th className="p-3">المنصة</th>
+                    <th className="p-3">البيان</th>
+                    <th className="p-3">المبلغ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {campaigns.flatMap((c: any) => (c.expensesHistory || []).map((exp: any) => ({ ...exp, campTitle: c.title, provider: c.providerName }))).length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-slate-400 font-medium">
+                        لا توجد عمليات صرف مسجلة حالياً
+                      </td>
+                    </tr>
+                  ) : (
+                    campaigns.flatMap((c: any) => (c.expensesHistory || []).map((exp: any) => ({ ...exp, campTitle: c.title, provider: c.providerName }))).map((exp: any) => (
+                      <tr key={exp.id} className="hover:bg-slate-50/80">
+                        <td className="p-3 font-mono text-slate-500">{exp.date}</td>
+                        <td className="p-3">
+                          <strong className="text-slate-800 block">{exp.campTitle}</strong>
+                          <span className="text-[10px] text-slate-400">{exp.provider}</span>
+                        </td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
+                            {exp.platform}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600">{exp.description}</td>
+                        <td className="p-3 font-mono text-rose-600 font-bold">{formatCurrency(exp.amount)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. LPAS LINK & ATTRIBUTION SUB-TAB */}
+      {activeSubTab === 'lpas_link' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/90 space-y-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Target className="w-5 h-5 text-indigo-600" />
+                <span>محرك صفحات الهبوط الاستهدافية (LPAS Growth Studio)</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                ربط الحملات التسويقية مع صفحات هبوط سريعة الاستجابة ومحسنة لمعدلات التحويل (CRO) مع وسوم التتبع UTM.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {lpasPages.map((page) => (
+                <div key={page.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 flex flex-col justify-between hover:border-indigo-400 transition-all">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold">
+                        {page.targetCityNameAr || 'الرياض'} - {page.targetCategoryNameAr || 'قاعات'}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">/{page.slug}</span>
+                    </div>
+                    <h4 className="font-extrabold text-slate-900 text-sm">{page.title}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2">{page.heroHeadline}</p>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-200/80 flex items-center gap-2">
+                    <button
+                      onClick={() => handleCopyLpasLink(page.slug, 1)}
+                      className="flex-1 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>نسخ رابط التتبع UTM</span>
+                    </button>
+                    <a
+                      href={`/landing/${page.slug}?utm_source=lailah_agency_preview`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                      title="معاينة الصفحة"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. AGREEMENTS & SOVEREIGN COMMISSION SUB-TAB */}
       {activeSubTab === 'agreements' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6 text-right">
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 p-6 space-y-6 text-right animate-in fade-in">
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-800">عقود واتفاقيات الوكالة الرقمية المعتمدة</h3>
+              <h3 className="text-lg font-black text-slate-900">عقود واتفاقيات الوكالة الرقمية المعتمدة</h3>
               <p className="text-xs text-slate-500 mt-0.5">شروط الشراكة والاستحقاقات المالية وعمولة منصة ليلة المحددة في النظام</p>
             </div>
-            <span className="bg-amber-100 text-amber-800 font-extrabold text-xs px-3 py-1.5 rounded-full border border-amber-200">
+            <span className="bg-amber-100 text-amber-900 font-black text-xs px-3.5 py-1.5 rounded-full border border-amber-200">
               اتفاقية سارية المفعول ✅
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-150 space-y-1">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
               <span className="text-xs text-slate-400 font-bold">اسم الوكالة المشغلة:</span>
-              <p className="font-extrabold text-slate-800 text-sm">وكالة ليلة المعتمدة للتسويق وإدارة الحملات</p>
+              <p className="font-extrabold text-slate-900 text-sm">وكالة ليلة المعتمدة للتسويق وإدارة الحملات</p>
             </div>
-            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-1">
-              <span className="text-xs text-amber-800 font-bold">نسبة عمولة ليلة من أتعاب الوكالة:</span>
-              <p className="font-black text-amber-600 text-base font-mono">{mComm}% ({mComm * 100} BPS) - محددة بالإعدادات المالية</p>
+            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200/80 space-y-1">
+              <span className="text-xs text-amber-900 font-bold">نسبة عمولة ليلة من أتعاب الوكالة:</span>
+              <p className="font-black text-amber-700 text-base font-mono">{mComm}% ({mComm * 100} BPS) - محددة بالإعدادات المالية</p>
             </div>
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-150 space-y-1">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
               <span className="text-xs text-slate-400 font-bold">اتفاقية مستوى الخدمة (SLA):</span>
-              <p className="font-extrabold text-slate-800 text-sm">إصدار العرض خلال 24 ساعة / إطلاق خلال 48 ساعة</p>
+              <p className="font-extrabold text-slate-900 text-sm">إصدار العرض خلال 24 ساعة / إطلاق خلال 48 ساعة</p>
             </div>
           </div>
 
-          <div className="p-4 bg-amber-50/30 rounded-xl border border-amber-100/60 text-xs leading-relaxed text-slate-700 space-y-2">
-            <h4 className="font-black text-amber-900 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-amber-600" /> الضوابط السيادية لحفظ الحقوق وتوثيق اللقطات المالية ومسار الاسترداد
+          <div className="p-5 bg-amber-50/40 rounded-2xl border border-amber-200 text-xs leading-relaxed text-slate-800 space-y-3">
+            <h4 className="font-black text-amber-950 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
+              <span>الضوابط السيادية لحفظ الحقوق وتوثيق اللقطات المالية ومسار الاسترداد</span>
             </h4>
-            <ul className="list-disc list-inside space-y-1 font-sans text-slate-600">
+            <ul className="list-disc list-inside space-y-2 text-slate-700">
               <li>يتم توثيق لقطة اتفاقية العقد الحالية (AgreementSnapshot) في قاعدة البيانات فور اعتماد أي حملة جديدة لمنع تأثر العقود الجارية بأي تحديثات مستقبلية لنسب العمولة.</li>
               <li>عمولة منصة ليلة تُقتطع حصرياً من أتعاب الوكالة (Agency Fee) ولا تُحسب إطلاقاً على ميزانية الشراء الإعلامي للبث المباشر (Ad Budget).</li>
               <li><strong>مسار الاسترداد (Refund Path):</strong> عند طلب إلغاء حملة تم سدادها وقبل بدء تشغيلها، تتحول تلقائياً إلى مسار استرداد موثق عبر بوابة السداد (`RefundPending` ➔ `Refunded`). أما إذا ألغيت بعد بدء التشغيل والإنفاق، فتكون ملغاة بدون استرداد (No Refund).</li>
             </ul>
           </div>
         </div>
+      )}
+
+      {/* 7. LIVE AD APIS SYNC SUB-TAB */}
+      {activeSubTab === 'api_integrations' && (
+        <div className="animate-in fade-in">
+          <AdPlatformsApiSyncView
+            campaigns={campaigns}
+            setCampaigns={setCampaigns}
+            formatCurrency={formatCurrency}
+            showNotice={showNotice}
+          />
+        </div>
+      )}
+
+      {/* 8. AUTOMATED NOTIFICATIONS SUB-TAB */}
+      {activeSubTab === 'notifications' && (
+        <div className="animate-in fade-in">
+          <CampaignNotificationManager
+            showNotice={showNotice}
+            campaigns={campaigns}
+          />
+        </div>
+      )}
+
+      {/* 9. AI COPYWRITER & AD STUDIO SUB-TAB */}
+      {activeSubTab === 'ai_copywriter' && (
+        <div className="bg-white rounded-3xl shadow-xs border border-slate-200/90 p-6 space-y-6 text-right animate-in fade-in">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-xs font-black">
+                  مولّد النصوص الذكي (Under Agency & Admin Oversight)
+                </span>
+              </div>
+              <h3 className="text-xl font-black text-slate-900">استوديو توليد النصوص والإعلانات التفاعلي بالذكاء الاصطناعي</h3>
+              <p className="text-xs text-slate-500 mt-1">توليد نصوص إعلانية محكمة وجذابة مع سجل تدقيق وموافقة الإدارة والوكالة لتجنب أي أخطاء أو تجاوزات.</p>
+            </div>
+            <button
+              onClick={() => setIsAiCopywriterOpen(true)}
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-black shadow-md flex items-center gap-2 cursor-pointer"
+            >
+              <Wand2 className="w-4 h-4 text-amber-300" />
+              <span>فتح استوديو التوليد والموافقة</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black">1</div>
+              <h4 className="font-black text-slate-900 text-sm">صياغة موجهة للجمهور السعودي</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">توليد نصوص متوافقة مع اللهجة والأسلوب التسويقي لقاعات المناسبات، المؤتمرات، وحفلات الزفاف.</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black">2</div>
+              <h4 className="font-black text-slate-900 text-sm">رقابة وحوكمة الوكالة والإدارة</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">كل نص يتم توليده يدخل مسار المراجعة والتدقيق، ولا يتم تطبيقه إلا بعد الموافقة الرسمية.</p>
+            </div>
+            <div className="p-5 rounded-2xl bg-amber-50/50 border border-amber-100 space-y-2">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black">3</div>
+              <h4 className="font-black text-slate-900 text-sm">تطبيق فوري وتصدير للقنوات</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">إمكانية ربط النص مباشرة بالحملات النشطة في سير العمل (Kanban) أو صفحات الهبوط LPAS.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Campaign Full Details */}
+      {selectedCampaignForDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 text-right border border-slate-100">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+              <div>
+                <span className="px-2.5 py-1 rounded-md bg-amber-100 text-amber-800 text-xs font-black">
+                  {selectedCampaignForDetails.providerName || 'مزود خدمة معتمد'}
+                </span>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5">{selectedCampaignForDetails.title}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedCampaignForDetails(null)}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block">الميزانية الإعلانية</span>
+                <strong className="text-purple-700 text-sm font-mono">{formatCurrency(selectedCampaignForDetails.adBudget || selectedCampaignForDetails.budget || 0)}</strong>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block">ما تم صرفه</span>
+                <strong className="text-rose-600 text-sm font-mono">{formatCurrency(selectedCampaignForDetails.spent || 0)}</strong>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block">أتعاب الوكالة</span>
+                <strong className="text-emerald-700 text-sm font-mono">{formatCurrency(selectedCampaignForDetails.agencyFee || 0)}</strong>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block">ROAS التقديري</span>
+                <strong className="text-slate-900 text-sm font-mono">{selectedCampaignForDetails.roas || 4.5}x</strong>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-700">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                <strong className="text-slate-900 block">الجمهور المستهدف والقنوات:</strong>
+                <p className="text-slate-600">{selectedCampaignForDetails.targetAudience || 'العملاء النشطين والعائلات'}</p>
+                <p className="text-indigo-600 font-bold mt-1">القنوات: {selectedCampaignForDetails.channel || 'متعدد'}</p>
+              </div>
+
+              {selectedCampaignForDetails.content && (
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                  <strong className="text-slate-900 block">نص ومحتوى الإعلان:</strong>
+                  <p className="text-slate-600 leading-relaxed">{selectedCampaignForDetails.content}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Actions in Modal */}
+            <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-slate-500 font-bold">تغيير المرحلة:</span>
+                <select
+                  value={getNormalizedStage(selectedCampaignForDetails)}
+                  onChange={(e) => {
+                    handleMoveCard(selectedCampaignForDetails.id, e.target.value);
+                    setSelectedCampaignForDetails({ ...selectedCampaignForDetails, workflowStatus: e.target.value });
+                  }}
+                  className="p-2 rounded-xl border border-slate-200 font-bold text-slate-800"
+                >
+                  {KANBAN_STAGES.map((st) => (
+                    <option key={st.id} value={st.id}>{st.shortLabel}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedCampaignForExecutiveReport(selectedCampaignForDetails)}
+                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>تصدير تقرير تنفيذي PDF</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedCampaignForDetails(null)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: New Agency Campaign */}
+      {isNewCampaignModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 text-right border border-slate-100">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-amber-500" />
+                <span>إطلاق حملة وكالة جديدة</span>
+              </h3>
+              <button
+                onClick={() => setIsNewCampaignModalOpen(false)}
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const fd = new FormData(form);
+                const title = fd.get('title') as string;
+                const providerName = fd.get('providerName') as string;
+                const channel = fd.get('channel') as string;
+                const targetAudience = fd.get('targetAudience') as string;
+                const adBudget = Number(fd.get('adBudget')) || 3000;
+                const agencyFee = Number(fd.get('agencyFee')) || 1000;
+                const lpasPageSlug = fd.get('lpasPageSlug') as string;
+                const content = fd.get('content') as string;
+
+                const newCamp = {
+                  id: Date.now(),
+                  title,
+                  providerName,
+                  channel,
+                  type: channel,
+                  targetAudience,
+                  adBudget,
+                  budget: adBudget,
+                  agencyFee,
+                  agencyNetProfit: agencyFee * (1 - mComm / 100),
+                  spent: 0,
+                  reach: 10000,
+                  clicks: 1200,
+                  conversions: 40,
+                  cpa: 30,
+                  roas: 5.0,
+                  status: 'نشطة',
+                  workflowStatus: 'تحت التجهيز والتصميم',
+                  startDate: new Date().toISOString().split('T')[0],
+                  endDate: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+                  content,
+                  lpasPageSlug,
+                  expensesHistory: []
+                };
+
+                setCampaigns((prev: any[]) => [newCamp, ...prev]);
+                setIsNewCampaignModalOpen(false);
+                showNotice('success', 'تم إنشاء وإدراج الحملة الجديدة في مرحلة التجهيز بنجاح!');
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">عنوان الحملة *</label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  placeholder="مثال: حملة صيف 2026 لقاعات الرياض"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">اسم المزود / العميل *</label>
+                  <input
+                    type="text"
+                    name="providerName"
+                    required
+                    placeholder="مثال: شركة أطياف لتنظيم المعارض"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">القناة الإعلانية الرئيسية *</label>
+                  <select
+                    name="channel"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-hidden focus:border-amber-500 font-bold"
+                  >
+                    <option value="سناب شات وإنستغرام">سناب شات وإنستغرام</option>
+                    <option value="تيك توك وإنستغرام">تيك توك وإنستغرام</option>
+                    <option value="Google Search & Maps">جوجل سيرش ومابز</option>
+                    <option value="رسائل SMS وشبكة المؤثرين">رسائل SMS والمؤثرين</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ميزانية الإعلانات المباشرة (ر.س) *</label>
+                  <input
+                    type="number"
+                    name="adBudget"
+                    defaultValue={5000}
+                    required
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">أتعاب الوكالة (ر.س) *</label>
+                  <input
+                    type="number"
+                    name="agencyFee"
+                    defaultValue={1500}
+                    required
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الجمهور المستهدف</label>
+                <input
+                  type="text"
+                  name="targetAudience"
+                  placeholder="مثال: العرسان الجدد والشركات بالرياض"
+                  className="w-full p-2.5 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">ربط صفحة هبوط LPAS</label>
+                <select
+                  name="lpasPageSlug"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50"
+                >
+                  <option value="">بدون ربط (صفحة عامة)</option>
+                  {lpasPages.map((p) => (
+                    <option key={p.id} value={p.slug}>
+                      {p.title} (/{p.slug})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">الرسالة والعرض الإعلاني</label>
+                <textarea
+                  name="content"
+                  rows={2}
+                  placeholder="مثال: احجز الآن واحصل على خصم 20% وضيافة VIP مجانية..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewCampaignModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black cursor-pointer shadow-md"
+                >
+                  حفظ وإطلاق
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AI Copywriting & Ad Studio */}
+      <AiCopywritingStudioModal
+        isOpen={isAiCopywriterOpen}
+        onClose={() => setIsAiCopywriterOpen(false)}
+        showNotice={showNotice}
+        onApplyCopy={(text, title) => {
+          setNotificationMsg({ type: 'success', text: `تم اعتماد وتطبيق النص الإعلاني: "${title}" بنجاح!` });
+        }}
+      />
+
+      {/* MODAL: Executive Report PDF */}
+      {selectedCampaignForExecutiveReport && (
+        <ExecutiveReportModal
+          campaign={selectedCampaignForExecutiveReport}
+          onClose={() => setSelectedCampaignForExecutiveReport(null)}
+          formatCurrency={formatCurrency}
+          marketingCommissionPercentage={mComm}
+        />
       )}
     </div>
   );

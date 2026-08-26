@@ -236,6 +236,15 @@ export class SecurityController {
       const sqliteSequelize = new Sequelize({
         dialect: 'sqlite',
         storage: './database.sqlite',
+        pool: {
+          max: 1,
+          min: 1,
+          idle: 10000,
+          acquire: 30000
+        },
+        dialectOptions: {
+          busyTimeout: 30000
+        },
         logging: false
       });
 

@@ -148,5 +148,29 @@ export const sequelize = (dbUrl && isConnectable) ? new Sequelize(dbUrl, {
 }) : new Sequelize({
   dialect: 'sqlite',
   storage: './database.sqlite',
+  pool: {
+    max: 1,
+    min: 1,
+    idle: 10000,
+    acquire: 30000
+  },
+  retry: {
+    max: 5,
+    match: [
+      /SQLITE_BUSY/,
+      /database is locked/,
+      /Resource deadlock avoided/
+    ]
+  },
+  dialectOptions: {
+    busyTimeout: 30000
+  },
   logging: false
 });
+
+// Enable SQLite Write-Ahead Logging (WAL) mode & busy timeout for concurrent safety
+if (!dbUrl || !isConnectable) {
+  sequelize.query('PRAGMA journal_mode = WAL;').catch(() => {});
+  sequelize.query('PRAGMA busy_timeout = 30000;').catch(() => {});
+  sequelize.query('PRAGMA synchronous = NORMAL;').catch(() => {});
+}
