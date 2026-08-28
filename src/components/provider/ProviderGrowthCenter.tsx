@@ -4,11 +4,12 @@ import {
   AlertTriangle, Plus, Search, Building2, Tag, Filter, Layers, 
   BarChart3, ArrowUpRight, ShieldCheck, RefreshCw, X, ChevronRight,
   Send, HelpCircle, FileText, Check, AlertCircle, Play, DollarSign, CalendarDays,
-  Wallet, Activity
+  Wallet, Activity, Scale, CheckCircle, XCircle, Info
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/helpers';
 import { ProviderMarketingWizard } from '../MarketingComponents';
 import { AdRequestProviderWizard } from '../AdRequestProviderWizard';
+import { evaluatePromoFinancialCompliance, FinancialComplianceEvaluation } from '../../utils/discounts';
 
 interface ProviderGrowthCenterProps {
   currentProviderName: string;
@@ -80,6 +81,7 @@ export function ProviderGrowthCenter({
       earlyBird?: number;
       seasonal?: { start: string; end: string };
       bundleCount?: number;
+      minBookingValue?: number;
     };
     hasAdCampaign: boolean;
     startDate: string;
@@ -127,6 +129,40 @@ export function ProviderGrowthCenter({
     const randSeq = Math.floor(1000000000 + Math.random() * 9000000000).toString();
     return `SRV-${year}-${randSeq}`;
   };
+
+  // تقييم التوافق المالي اللحظي للعرض الترويجي مع القواعد الرقابية في المركز المالي
+  const promoFinancialEvaluation: FinancialComplianceEvaluation = useMemo(() => {
+    // احتساب متوسط السعر التقديري بناءً على النطاق المختار
+    let samplePrice = 8000;
+    if (promoFormData.applyTo === 'services') {
+      const selectedSrvs = services.filter((s: any) => promoFormData.targetIds.includes(s.id));
+      if (selectedSrvs.length > 0) {
+        samplePrice = selectedSrvs.reduce((acc: number, s: any) => acc + Number(s.price || 500), 0) / selectedSrvs.length;
+      } else {
+        samplePrice = 800;
+      }
+    } else {
+      const selectedHalls = halls.filter((h: any) => promoFormData.targetIds.includes(h.id));
+      if (selectedHalls.length > 0) {
+        samplePrice = selectedHalls.reduce((acc: number, h: any) => acc + Number(h.price || 8000), 0) / selectedHalls.length;
+      } else {
+        samplePrice = 12000;
+      }
+    }
+
+    return evaluatePromoFinancialCompliance({
+      promotionPattern: promoFormData.promotionPattern,
+      type: promoFormData.type,
+      value: Number(promoFormData.value || 0),
+      commissionPolicy: promoFormData.commissionPolicy,
+      applyTo: promoFormData.applyTo,
+      targetCount: promoFormData.targetIds.length,
+      samplePrice: samplePrice,
+      earlyBirdDays: promoFormData.conditions?.earlyBird || 7,
+      hasAdCampaign: promoFormData.hasAdCampaign,
+      minBookingValueCondition: promoFormData.conditions?.minBookingValue
+    });
+  }, [promoFormData, halls, services]);
 
   // Open Smart Promotion Design Wizard Modal
   const handleOpenPromoWizard = (promoToEdit?: any) => {
@@ -207,6 +243,13 @@ export function ProviderGrowthCenter({
       return;
     }
 
+    // فحص القواعد الرقابية الصارمة المسجلة في المركز المالي ومنع الحفظ في حال الانتهاك
+    if (!promoFinancialEvaluation.isCompliant) {
+      const primaryReason = promoFinancialEvaluation.reasons[0] || 'العرض ينتهك السياسات المالية والرقابية الصارمة للمنصة.';
+      showNotification('error', `⛔ حظر الحفظ والاعتماد: ${primaryReason}`);
+      return;
+    }
+
     const srvNumber = editingPromo?.srvNumber || generateNewSrvNumber();
     const newPromo = {
       id: editingPromo?.id || Date.now(),
@@ -228,6 +271,12 @@ export function ProviderGrowthCenter({
       hasAdCampaign: promoFormData.hasAdCampaign,
       startDate: promoFormData.startDate,
       endDate: promoFormData.endDate,
+      financialCompliance: {
+        status: promoFinancialEvaluation.status,
+        score: promoFinancialEvaluation.score,
+        marginPct: promoFinancialEvaluation.calculatedMarginPercentage,
+        checkedAt: new Date().toISOString()
+      },
       usageCount: editingPromo?.usageCount || 0,
       maxUsage: promoFormData.usageLimit || 100,
       providerName: currentProviderName,
@@ -1170,6 +1219,98 @@ export function ProviderGrowthCenter({
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800">
 
+              {/* Financial Compliance & Margin Indicator Banner (Linked with Financial Center Rules) */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                promoFinancialEvaluation.status === 'compliant'
+                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
+                  : promoFinancialEvaluation.status === 'warning'
+                  ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-sm'
+                  : 'bg-rose-50 border-rose-300 text-rose-950 shadow-md ring-1 ring-rose-200'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-black/5">
+                  <div className="flex items-center gap-2.5">
+                    {promoFinancialEvaluation.status === 'compliant' ? (
+                      <div className="p-1.5 bg-emerald-600 text-white rounded-xl shadow-sm">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                    ) : promoFinancialEvaluation.status === 'warning' ? (
+                      <div className="p-1.5 bg-amber-500 text-slate-950 rounded-xl shadow-sm">
+                        <AlertTriangle className="w-5 h-5" />
+                      </div>
+                    ) : (
+                      <div className="p-1.5 bg-rose-600 text-white rounded-xl shadow-sm">
+                        <XCircle className="w-5 h-5" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black">
+                          مؤشر التوافق المالي والرقابي للمنصة (Financial Compliance Guard)
+                        </span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          promoFinancialEvaluation.status === 'compliant'
+                            ? 'bg-emerald-200/70 text-emerald-900'
+                            : promoFinancialEvaluation.status === 'warning'
+                            ? 'bg-amber-200/70 text-amber-900'
+                            : 'bg-rose-200 text-rose-900'
+                        }`}>
+                          {promoFinancialEvaluation.status === 'compliant' ? 'متوافق مع المعايير ✓' : promoFinancialEvaluation.status === 'warning' ? 'تنبيه مالي ⚠️' : 'انتهاك لقواعد الخزينة ⛔'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium opacity-90 mt-0.5">
+                        {promoFinancialEvaluation.title}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Profit Margin Badge */}
+                  <div className="flex items-center gap-2 shrink-0 bg-white/80 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-black/5">
+                    <Scale className="w-4 h-4 text-slate-600" />
+                    <div className="text-left dir-ltr text-xs">
+                      <span className="text-[10px] text-slate-500 block">Net Margin</span>
+                      <span className={`font-mono font-black ${
+                        (promoFinancialEvaluation.calculatedMarginPercentage || 0) >= 60
+                          ? 'text-emerald-700'
+                          : (promoFinancialEvaluation.calculatedMarginPercentage || 0) >= 40
+                          ? 'text-amber-700'
+                          : 'text-rose-700'
+                      }`}>
+                        {promoFinancialEvaluation.calculatedMarginPercentage}% صافي الهامش
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Violation or Warning Details */}
+                {promoFinancialEvaluation.reasons.length > 0 && (
+                  <div className="mt-2.5 space-y-1">
+                    <p className="text-[11px] font-black text-rose-900 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                      أسباب حظر الحفظ في المحرك المالي:
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] text-rose-800 space-y-0.5 font-bold">
+                      {promoFinancialEvaluation.reasons.map((r, idx) => (
+                        <li key={idx}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {promoFinancialEvaluation.warnings.length > 0 && promoFinancialEvaluation.reasons.length === 0 && (
+                  <div className="mt-2.5 space-y-1">
+                    <p className="text-[11px] font-black text-amber-900 flex items-center gap-1">
+                      <Info className="w-3.5 h-3.5 text-amber-600" />
+                      ملاحظات وتوجيهات المركز المالي:
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] text-amber-800 space-y-0.5">
+                      {promoFinancialEvaluation.warnings.map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
               {/* STEP 1: BASICS & PATTERN */}
               {promoWizardStep === 1 && (
                 <div className="space-y-5">
@@ -1312,16 +1453,73 @@ export function ProviderGrowthCenter({
                     </div>
 
                     {promoFormData.type !== 'free_service' ? (
-                      <div className="pt-2">
-                        <label className="text-[11px] font-bold text-slate-600 block mb-1">
-                          {promoFormData.type === 'percentage' ? 'نسبة الخصم المئوية (مثال: 15)' : 'مبلغ الخصم بالريال (مثال: 500)'}
-                        </label>
+                      <div className="pt-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold text-slate-600 block">
+                            {promoFormData.type === 'percentage' ? 'نسبة الخصم المئوية (مثال: 15)' : 'مبلغ الخصم بالريال (مثال: 500)'}
+                          </label>
+                          <span className="text-[10px] text-slate-500 font-bold">
+                            {promoFormData.type === 'percentage' 
+                              ? `السقف الرقابي الأعلى: ${promoFinancialEvaluation.appliedRules?.maxDiscountPercentage || 50}%` 
+                              : `السقف النسبي لهذا السعر: ${(promoFinancialEvaluation.maxAllowedDiscountForPrice || 5000).toLocaleString('ar-SA')} ر.س`}
+                          </span>
+                        </div>
                         <input
                           type="number"
                           value={promoFormData.value}
                           onChange={(e) => setPromoFormData(prev => ({ ...prev, value: Number(e.target.value) }))}
-                          className="w-full p-3 border border-slate-200 rounded-xl text-sm font-mono font-black outline-none bg-slate-50/50"
+                          className={`w-full p-3 border rounded-xl text-sm font-mono font-black outline-none transition-all ${
+                            !promoFinancialEvaluation.isCompliant
+                              ? 'border-rose-400 bg-rose-50/50 text-rose-900 ring-2 ring-rose-200'
+                              : promoFinancialEvaluation.status === 'warning'
+                              ? 'border-amber-400 bg-amber-50/50 text-amber-900'
+                              : 'border-slate-200 bg-slate-50/50 text-slate-900'
+                          }`}
                         />
+                        
+                        {/* Instant Margin & Cap Warning */}
+                        {promoFormData.value > 0 && (
+                          <div className={`p-2.5 rounded-xl text-xs flex items-center justify-between border ${
+                            !promoFinancialEvaluation.isCompliant
+                              ? 'bg-rose-100/70 border-rose-300 text-rose-900'
+                              : promoFinancialEvaluation.status === 'warning'
+                              ? 'bg-amber-100/70 border-amber-300 text-amber-900'
+                              : 'bg-emerald-100/70 border-emerald-300 text-emerald-900'
+                          }`}>
+                            <span className="font-bold flex items-center gap-1.5">
+                              <Scale className="w-3.5 h-3.5" />
+                              صافي الربح المتوقع بعد الخصم:
+                            </span>
+                            <span className="font-mono font-black">
+                              {promoFinancialEvaluation.calculatedMarginPercentage}% من السعر الأصلي
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Quick Auto-Fix for Fixed Discounts with low item price */}
+                        {promoFormData.type === 'fixed' && !promoFinancialEvaluation.isCompliant && promoFinancialEvaluation.requiredMinBookingValue && promoFinancialEvaluation.requiredMinBookingValue > 0 && (!promoFormData.conditions?.minBookingValue || promoFormData.conditions.minBookingValue < promoFinancialEvaluation.requiredMinBookingValue) && (
+                          <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-xl flex items-center justify-between gap-2">
+                            <div className="text-[11px] text-indigo-900">
+                              <span className="font-bold block">💡 مقترح التوافق المحاسبي السريع:</span>
+                              للموافقة على خصم ({promoFormData.value.toLocaleString('ar-SA')} ر.س)، يلزم ربطه بحد أدنى للحجز ({promoFinancialEvaluation.requiredMinBookingValue.toLocaleString('ar-SA')} ر.س).
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPromoFormData(prev => ({
+                                  ...prev,
+                                  conditions: {
+                                    ...prev.conditions,
+                                    minBookingValue: promoFinancialEvaluation.requiredMinBookingValue
+                                  }
+                                }));
+                              }}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black shrink-0 cursor-pointer shadow-sm transition-all"
+                            >
+                              تفعيل شرط الحد الأدنى تلقائياً
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3 bg-purple-50/60 p-4 rounded-2xl border border-purple-200">
@@ -1529,6 +1727,53 @@ export function ProviderGrowthCenter({
                     )}
                   </div>
 
+                  {/* Minimum Booking Value Condition (MOV) */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-xs font-black text-slate-900 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!promoFormData.conditions?.minBookingValue}
+                          onChange={(e) => setPromoFormData(prev => ({
+                            ...prev,
+                            conditions: {
+                              ...prev.conditions,
+                              minBookingValue: e.target.checked 
+                                ? (promoFinancialEvaluation.requiredMinBookingValue || 3000) 
+                                : undefined
+                            }
+                          }))}
+                          className="accent-emerald-600 w-4 h-4"
+                        />
+                        <span>اشتراط حد أدنى لإجمالي الفاتورة / الحجز (Minimum Booking Value Rule)</span>
+                      </label>
+                      {promoFinancialEvaluation.requiredMinBookingValue && promoFinancialEvaluation.requiredMinBookingValue > 0 && (
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                          موصى به: {promoFinancialEvaluation.requiredMinBookingValue.toLocaleString('ar-SA')} ر.س
+                        </span>
+                      )}
+                    </div>
+
+                    {promoFormData.conditions?.minBookingValue !== undefined && (
+                      <div className="pt-2 border-t border-slate-200 flex items-center gap-3">
+                        <span className="text-xs font-bold text-slate-600">الحد الأدنى لقيمة الحجز:</span>
+                        <input
+                          type="number"
+                          value={promoFormData.conditions.minBookingValue}
+                          onChange={(e) => setPromoFormData(prev => ({
+                            ...prev,
+                            conditions: {
+                              ...prev.conditions,
+                              minBookingValue: Number(e.target.value)
+                            }
+                          }))}
+                          className="p-2 border border-slate-300 rounded-xl text-xs font-mono font-bold w-36 text-center bg-white"
+                        />
+                        <span className="text-xs font-bold text-slate-500">ر.س كحد أدنى للفاتورة للاستفادة من الخصم</span>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Bundle Minimum Services Count */}
                   <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 space-y-3">
                     <label className="flex items-center gap-2 text-xs font-black text-slate-900 cursor-pointer">
@@ -1690,9 +1935,19 @@ export function ProviderGrowthCenter({
                 <button
                   type="button"
                   onClick={handleSavePromoWizard}
-                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  disabled={!promoFinancialEvaluation.isCompliant}
+                  className={`px-6 py-2.5 font-black rounded-xl text-xs shadow-lg transition-all flex items-center gap-2 cursor-pointer ${
+                    promoFinancialEvaluation.isCompliant
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-amber-500/20 hover:scale-[1.02] active:scale-95'
+                      : 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-80 shadow-none'
+                  }`}
+                  title={!promoFinancialEvaluation.isCompliant ? promoFinancialEvaluation.reasons[0] : 'إرسال طلب العرض للاعتماد'}
                 >
-                  <Send className="w-4 h-4 text-slate-950" />
+                  {promoFinancialEvaluation.isCompliant ? (
+                    <Send className="w-4 h-4 text-slate-950" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-rose-500" />
+                  )}
                   {editingPromo ? 'تحديث وإعادة تقديم العرض للإدارة' : 'إرسال طلب العرض الترويجي للاعتماد'}
                 </button>
               )}

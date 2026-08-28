@@ -44,8 +44,8 @@ export const EntitlementProvider: React.FC<{ children: React.ReactNode }> = ({ c
       case 'provider_staff':
       case 'staff':
         return {
-          isEntitled: capabilities.hasEmployeeManagement,
-          requiredFeature: 'إدارة الموظفين والعاملين والصلاحيات',
+          isEntitled: capabilities.hasEmployeeManagement || (capabilities.staffSeatsLimit === 'unlimited' || (typeof capabilities.staffSeatsLimit === 'number' && capabilities.staffSeatsLimit > 0)),
+          requiredFeature: 'إدارة الموظفين والعاملين وتراخيص المقاعد',
           isUpgradeAvailable: true,
         };
       case 'marketing':
@@ -58,13 +58,92 @@ export const EntitlementProvider: React.FC<{ children: React.ReactNode }> = ({ c
       case 'logistics':
         return {
           isEntitled: capabilities.hasOperationsDashboard || capabilities.hasAdvancedPortal,
-          requiredFeature: 'نظام إدارة العمليات واللوجستيات المتقدمة',
+          requiredFeature: 'بوابة الطلبات اللوجستية وإدارة السيولة المتقدمة',
           isUpgradeAvailable: true,
         };
       case 'analytics':
         return {
           isEntitled: capabilities.hasAnalytics || capabilities.hasAdvancedAnalytics,
-          requiredFeature: 'التحليلات المالية والتوقعات المتقدمة',
+          requiredFeature: 'لوحة الإحصائيات المتقدمة',
+          isUpgradeAvailable: true,
+        };
+      case 'growth_charts':
+        return {
+          isEntitled: capabilities.hasGrowthCharts,
+          requiredFeature: 'الرسومات التفاعلية والنمو',
+          isUpgradeAvailable: true,
+        };
+      case 'financial_forecast':
+        return {
+          isEntitled: capabilities.hasSmartFinancialForecast,
+          requiredFeature: 'ميزانية التوقعات المالية الذكية',
+          isUpgradeAvailable: true,
+        };
+      case 'weekend_pricing':
+        return {
+          isEntitled: capabilities.hasWeekendPricing,
+          requiredFeature: 'تسعير عطلة نهاية الأسبوع (الويكند)',
+          isUpgradeAvailable: true,
+        };
+      case 'dynamic_surge':
+      case 'dynamic_surge_pricing':
+        return {
+          isEntitled: capabilities.hasDynamicSurgePricing,
+          requiredFeature: 'محرك التسعير الديناميكي وزيادة الذروة الذكي',
+          isUpgradeAvailable: true,
+        };
+      case 'six_stages':
+        return {
+          isEntitled: capabilities.hasSixStages,
+          requiredFeature: 'نظام دورات الحياة المتقدمة (المراحل الست)',
+          isUpgradeAvailable: true,
+        };
+      case 'mini_store':
+      case 'mini_products_store':
+        return {
+          isEntitled: capabilities.hasMiniStore,
+          requiredFeature: 'متجر المنتجات والمستلزمات المصغر',
+          isUpgradeAvailable: true,
+        };
+      case 'whatsapp_campaigns':
+      case 'whatsapp_campaign_alerts':
+        return {
+          isEntitled: capabilities.hasWhatsAppAlerts,
+          requiredFeature: 'إشعارات رسائل واتس أب في الحملات التسويقية',
+          isUpgradeAvailable: true,
+        };
+      case 'dedicated_account_manager':
+        return {
+          isEntitled: capabilities.hasDedicatedAccountManager,
+          requiredFeature: 'مدير حساب وإدارة العملاء',
+          isUpgradeAvailable: true,
+        };
+      case 'live_chat_vip':
+        return {
+          isEntitled: capabilities.hasLiveChatVIP,
+          requiredFeature: 'قناة المحادثة الفورية والدعم الفني المباشر (Live Chat & Instant Support)',
+          isUpgradeAvailable: true,
+        };
+      case 'partial_payment':
+      case 'deposit_system':
+        return {
+          isEntitled: capabilities.hasDepositSystem,
+          requiredFeature: 'نظام الدفع الجزئي (العربون)',
+          isUpgradeAvailable: true,
+        };
+      case 'invoices_export':
+      case 'financial_export':
+        return {
+          isEntitled: capabilities.hasInvoices,
+          requiredFeature: 'استعراض وتصدير الفواتير والتقارير المالية',
+          isUpgradeAvailable: true,
+        };
+      case 'floor_plan':
+      case 'floorplan':
+      case 'floor_plan_360':
+        return {
+          isEntitled: capabilities.hasFloorPlan360 !== false,
+          requiredFeature: 'مخطط القاعة وتوزيع الطاولات الميداني 360° وحاسبة السعة ومعايير التوزيع',
           isUpgradeAvailable: true,
         };
       default:

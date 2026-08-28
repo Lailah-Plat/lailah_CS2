@@ -10,10 +10,11 @@ import PaymentGatewayLimitsPanel from './PaymentGatewayLimitsPanel';
 import { DiagnosticsDashboard } from '../DiagnosticsDashboard';
 import UnifiedInvoiceTab from '../UnifiedInvoiceTab';
 import SensitiveDataApprovalsPanel from './SensitiveDataApprovalsPanel';
+import { UnifiedPricingRevenueEngine } from '../finance/UnifiedPricingRevenueEngine';
 
 interface FinancialSettingsSectionProps {
   showNotification?: (type: 'success' | 'error' | 'info' | 'warning', message: string) => void;
-  initialSubTab?: 'tokens_audit' | 'gateways' | 'general_settings' | 'financial_taxes' | 'sensitive_approvals' | 'thresholds' | 'diagnostics' | 'unified_invoice';
+  initialSubTab?: 'tokens_audit' | 'gateways' | 'general_settings' | 'financial_taxes' | 'sensitive_approvals' | 'thresholds' | 'diagnostics' | 'unified_invoice' | 'pricing_engine';
   bookings?: any[];
   halls?: any[];
   providers?: any[];
@@ -62,8 +63,8 @@ const SettingInput = ({
 
 export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
   const [subTab, setSubTab] = useState<
-    'tokens_audit' | 'gateways' | 'general_settings' | 'financial_taxes' | 'sensitive_approvals' | 'thresholds' | 'diagnostics' | 'unified_invoice'
-  >(props.initialSubTab || 'tokens_audit');
+    'tokens_audit' | 'gateways' | 'general_settings' | 'financial_taxes' | 'sensitive_approvals' | 'thresholds' | 'diagnostics' | 'unified_invoice' | 'pricing_engine'
+  >(props.initialSubTab || 'financial_taxes');
 
   // Financial & Taxes State
   const [financialTaxesSubTab, setFinancialTaxesSubTab] = useState<'taxes' | 'splitting'>('taxes');
@@ -96,6 +97,23 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
   const [storeCommissionRate, setStoreCommissionRate] = useState<string>(() => {
     return (typeof window !== 'undefined' && localStorage.getItem('STORE_COMMISSION_RATE')) || '5';
   });
+
+  // Sovereign Dynamic Pricing & Surge Controls State
+  const [sovereignOccupancyThreshold, setSovereignOccupancyThreshold] = useState<number>(() => {
+    const val = typeof window !== 'undefined' ? localStorage.getItem('SOVEREIGN_OCCUPANCY_THRESHOLD') : null;
+    return val ? parseInt(val) || 80 : 80;
+  });
+  const [sovereignMaxSurgeCap, setSovereignMaxSurgeCap] = useState<number>(() => {
+    const val = typeof window !== 'undefined' ? localStorage.getItem('SOVEREIGN_MAX_SURGE_CAP') : null;
+    return val ? parseInt(val) || 40 : 40;
+  });
+  const [sovereignSurgeFreezeActive, setSovereignSurgeFreezeActive] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('SOVEREIGN_SURGE_FREEZE_ACTIVE') === 'true' : false;
+  });
+  const [sovereignSurgeFreezeReason, setSovereignSurgeFreezeReason] = useState<string>(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('SOVEREIGN_SURGE_FREEZE_REASON')) || 'مناسبة وطنية رسمية';
+  });
+
   const [activeSettlementMethod, setActiveSettlementMethod] = useState<'deposit_only' | 'split_payments' | 'weekly_clearance'>(() => {
     return (typeof window !== 'undefined' && localStorage.getItem('SETTLEMENT_METHOD') as any) || 'deposit_only';
   });
@@ -240,6 +258,18 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
           >
             <Coins className="w-4 h-4 text-slate-950" />
             <span>المالية والضريبية</span>
+          </button>
+
+          <button
+            onClick={() => setSubTab('pricing_engine')}
+            className={`flex-1 min-w-[170px] py-2.5 px-3 text-xs font-black rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              subTab === 'pricing_engine'
+                ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                : 'text-slate-300 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-400" />
+            <span>محرك إدارة التسعير والإيرادات الموحد</span>
           </button>
 
           <button
@@ -586,6 +616,148 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
                           * يتم اقتطاع هذه النسبة من صافي مبيعات المتجر لصالح المنصة وتحويل المتبقي لحساب المزود عند تفعيل الخيار.
                         </p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* الرقابة السيادية على محركات التسعير الديناميكي وزيادة الذروة */}
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                      <Zap className="w-5 h-5 text-amber-500" />
+                      <span>الرقابة السيادية على محركات التسعير الديناميكي وزيادة الذروة (Sovereign Dynamic Pricing Controls)</span>
+                    </h3>
+                    <span className={`text-xs font-black px-3 py-1 rounded-full border self-start sm:self-auto ${
+                      sovereignSurgeFreezeActive 
+                        ? 'bg-rose-100 text-rose-800 border-rose-200' 
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    }`}>
+                      {sovereignSurgeFreezeActive ? '⚠️ التجميد الطارئ نشط' : '✓ المحركات تعمل بانتظام'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-6">
+                    {/* Notice & Immutability rule */}
+                    <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-950 text-xs space-y-2">
+                      <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                        <Lock className="w-4 h-4 text-amber-600" />
+                        <span>حوكمة التسعير وثبات الحجوزات السابقة (المادة 4 من الشروط والأحكام):</span>
+                      </div>
+                      <p className="leading-relaxed text-slate-600 text-[11px]">
+                        تخضع مضاعفات الذروة وتسعير الويكند للرقابة السيادية للإدارة العليا لمنع المغالاة والاحتكار.
+                        <strong> الحجوزات السابقة المعتمدة والمؤكدة مقفلة مالياً تماماً (<span className="font-mono font-bold">Financial Pricing Snapshot</span>)</strong> ولا تتأثر بأي تغيرات سعرية مستقبلية.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-200">
+                      {/* Occupancy Trigger Threshold */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-bold text-slate-800">معامل نسبة الإشغال لتفعيل الذروة التلقائية (%)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="50"
+                            max="99"
+                            step="1"
+                            value={sovereignOccupancyThreshold}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 80;
+                              setSovereignOccupancyThreshold(val);
+                              localStorage.setItem('SOVEREIGN_OCCUPANCY_THRESHOLD', val.toString());
+                              notify('info', `تم ضبط معامل نسبة الإشغال لتفعيل الذروة إلى ${val}%`);
+                            }}
+                            className="w-full p-3 rounded-xl border border-slate-200 focus:border-amber-500 font-mono text-left outline-none bg-white text-slate-900 font-bold"
+                            dir="ltr"
+                          />
+                          <span className="absolute left-3 top-3.5 text-slate-400 font-mono font-bold">%</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          الحد الأدنى لنسبة إشغال القاعة/المنشأة الذي يبدأ عنده محرك الذروة باقتراح وتطبيق مضاعفات الطلب العالي.
+                        </p>
+                      </div>
+
+                      {/* Max Surge Cap */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-bold text-slate-800">السقف الأعلى لمضاعفات زيادة الذروة (Max Surge Cap %)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="10"
+                            max="100"
+                            step="5"
+                            value={sovereignMaxSurgeCap}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 40;
+                              setSovereignMaxSurgeCap(val);
+                              localStorage.setItem('SOVEREIGN_MAX_SURGE_CAP', val.toString());
+                              notify('info', `تم تعديل السقف الأعلى لمضاعف الذروة إلى +${val}%`);
+                            }}
+                            className="w-full p-3 rounded-xl border border-slate-200 focus:border-amber-500 font-mono text-left outline-none bg-white text-slate-900 font-bold"
+                            dir="ltr"
+                          />
+                          <span className="absolute left-3 top-3.5 text-slate-400 font-mono font-bold">+%</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          أقصى نسبة زيادة مسموح بها للشركاء فوق السعر الأساسي لحماية المستهلك النهائي من المغالاة السعرية.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Emergency Kill-Switch / Freeze */}
+                    <div className={`p-5 rounded-2xl border transition-all ${
+                      sovereignSurgeFreezeActive ? 'bg-rose-50/80 border-rose-300' : 'bg-white border-slate-200'
+                    }`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <ShieldAlert className={`w-5 h-5 ${sovereignSurgeFreezeActive ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
+                            <h4 className="text-sm font-extrabold text-slate-900">
+                              مفتاح التجميد والتعطيل الطارئ للتسعير الديناميكي (Emergency Kill-Switch)
+                            </h4>
+                          </div>
+                          <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+                            تفعيل هذا الخيار يجمد كافة محركات التسعير الديناميكي ومضاعفات الذروة فورياً على مستوى النظام بالكامل، ويعيد الأسعار إلى السعر الأساسي المعتمد خلال الأعياد الوطنية، حالات الطوارئ والظروف القاهرة (Force Majeure).
+                          </p>
+                        </div>
+
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={sovereignSurgeFreezeActive}
+                            onChange={(e) => {
+                              const active = e.target.checked;
+                              setSovereignSurgeFreezeActive(active);
+                              localStorage.setItem('SOVEREIGN_SURGE_FREEZE_ACTIVE', active ? 'true' : 'false');
+                              notify(active ? 'warning' : 'success', active 
+                                ? '⚠️ تم تفعيل التجميد والتعطيل الطارئ لمحركات التسعير الديناميكي بنجاح' 
+                                : '✓ تم إلغاء التجميد وإعادة تشغيل محركات التسعير الديناميكي المعتادة');
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-12 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                        </label>
+                      </div>
+
+                      {sovereignSurgeFreezeActive && (
+                        <div className="mt-4 pt-4 border-t border-rose-200/80 space-y-3 animate-in fade-in">
+                          <label className="block text-xs font-bold text-rose-900">السبب النظامي للتجميد الطارئ (يظهر في لوحات الشركاء):</label>
+                          <select
+                            value={sovereignSurgeFreezeReason}
+                            onChange={(e) => {
+                              const reason = e.target.value;
+                              setSovereignSurgeFreezeReason(reason);
+                              localStorage.setItem('SOVEREIGN_SURGE_FREEZE_REASON', reason);
+                              notify('info', `تم تحديث السبب النظامي للتجميد: ${reason}`);
+                            }}
+                            className="w-full p-2.5 rounded-xl border border-rose-300 bg-white text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500"
+                          >
+                            <option value="مناسبة وطنية رسمية">مناسبة وطنية رسمية (وفق التوجيهات الحكومية والوزارية)</option>
+                            <option value="حالة طوارئ وظروف قاهرة (Force Majeure)">حالة طوارئ وظروف قاهرة وأحوال جوية استثنائية (Force Majeure)</option>
+                            <option value="تدخل رقابي لحماية عدالة السوق ومنع المغالاة">تدخل رقابي لحماية عدالة السوق ومنع الممارسات الاحتكارية</option>
+                            <option value="توجيه وزاري وتنظيمي مؤقت">توجيه وزاري وتنظيمي مؤقت</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1294,6 +1466,23 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* محرك إدارة التسعير والإيرادات الموحد */}
+        {subTab === 'pricing_engine' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <UnifiedPricingRevenueEngine
+              halls={props.halls || []}
+              services={props.services || []}
+              userRole="admin"
+              showNotification={notify}
+              onUpdateHall={(hallId, updatedFields) => {
+                if (props.onUpdateHall) {
+                  props.onUpdateHall(hallId, updatedFields);
+                }
+              }}
+            />
           </div>
         )}
 

@@ -643,10 +643,12 @@ export default function ProfilePage() {
         includesGrowthCharts: !!selectedUpgradePackage.includesGrowthCharts,
         includesFinancialForecast: !!selectedUpgradePackage.includesFinancialForecast,
         includesPartialPayment: !!selectedUpgradePackage.includesPartialPayment,
+        includesWeekendPricing: selectedUpgradePackage.id === 'pro' || selectedUpgradePackage.id === 'business' || !!selectedUpgradePackage.includesWeekendPricing,
+        includesDynamicSurgePricing: selectedUpgradePackage.id === 'pro' || !!selectedUpgradePackage.includesDynamicSurgePricing,
         addons: selectedUpgradePackage.id === 'pro'
-          ? ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing']
+          ? ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing', 'dynamic_surge_pricing']
           : selectedUpgradePackage.id === 'business'
-          ? ['inventory', 'suppliers', 'invoice_export', 'support']
+          ? ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing']
           : [],
         startDate: new Date().toISOString()
       };

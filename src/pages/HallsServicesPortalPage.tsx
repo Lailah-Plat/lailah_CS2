@@ -917,7 +917,7 @@ export default function HallsServicesPortalPage() {
     return reg ? reg.cities : [];
   }, [hallForm.region]);
 
-  // Check if provider has dynamic pricing
+  // Check if provider has dynamic pricing or weekend pricing
   const hasDynamicPricing = useMemo(() => {
     if (userRole === 'admin') return true;
     try {
@@ -929,7 +929,7 @@ export default function HallsServicesPortalPage() {
         const storedSub = localStorage.getItem(key);
         if (storedSub) {
           const sub = JSON.parse(storedSub);
-          return !!sub?.includesDynamicPricing || !!sub?.addons?.includes('dynamic_pricing');
+          return !!sub?.includesWeekendPricing || !!sub?.includesDynamicSurgePricing || !!sub?.includesDynamicPricing || !!sub?.addons?.includes('weekend_pricing') || !!sub?.addons?.includes('dynamic_surge_pricing') || !!sub?.addons?.includes('dynamic_pricing') || sub?.id === 'pro' || sub?.id === 'business';
         }
       }
     } catch (e) {

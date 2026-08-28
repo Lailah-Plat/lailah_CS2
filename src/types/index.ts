@@ -248,6 +248,7 @@ export interface Promotion {
     earlyBird?: number; // days before
     seasonal?: { start: string; end: string };
     bundleCount?: number;
+    minBookingValue?: number; // minimum order/booking value in SAR
   };
   hasAdCampaign?: boolean;
   adCampaignId?: number | string;

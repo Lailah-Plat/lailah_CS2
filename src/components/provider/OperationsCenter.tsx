@@ -19,6 +19,7 @@ interface OperationsCenterProps {
   currentUserName: string;
   myBookings: any[];
   mySupportRequests: any[];
+  providerSubscription?: any;
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
 }
 
@@ -27,6 +28,7 @@ export function OperationsCenter({
   currentUserName,
   myBookings: initialBookings,
   mySupportRequests: initialSupportRequests,
+  providerSubscription,
   showNotification
 }: OperationsCenterProps) {
   // Helpers to ensure strict, standardized ID formatting
@@ -656,6 +658,7 @@ export function OperationsCenter({
           currentUserName={currentUserName}
           myBookings={localBookings}
           mySupportRequests={localSupportRequests}
+          providerSubscription={providerSubscription}
           showNotification={showNotification}
           onUpdateBookingStage={(id, stage) => {
             setLocalBookings(prev => prev.map(b => b.id === id ? { ...b, stage } : b));
@@ -1321,7 +1324,7 @@ export function OperationsCenter({
 
       {/* ==================== FLOOR PLAN TAB ==================== */}
       {opsActiveTab === 'floorplan' && (
-        <FloorPlanVisualizer />
+        <FloorPlanVisualizer bookings={localBookings} showNotification={showNotification} />
       )}
 
       {/* ==================== PROCUREMENT TAB ==================== */}

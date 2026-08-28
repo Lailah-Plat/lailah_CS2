@@ -3825,7 +3825,7 @@ export default function FinanceDashboard({
           ...(userRole === 'provider' ? [{ id: 'refunds', label: 'إدارة المستردات 🔄', title: 'طلبات استرداد الحجوزات والخدمات والعمليات السابقة', icon: RefreshCw }] : []),
           { id: 'invoices', label: 'الفواتير', icon: FileText },
           ...(userRole === 'provider' ? [{ id: 'wallet', label: 'المحفظة الذكية', icon: Wallet }] : []),
-          ...(userRole === 'provider' && (!providerSubscription || providerSubscription?.includesDynamicPricing || providerSubscription?.addons?.includes('dynamic_pricing')) ? [{ id: 'seasons', label: 'المواسم والأعياد', icon: Sparkles }] : []),
+          ...(userRole === 'provider' && (!providerSubscription || providerSubscription?.includesWeekendPricing || providerSubscription?.includesDynamicSurgePricing || providerSubscription?.includesDynamicPricing || providerSubscription?.addons?.includes('weekend_pricing') || providerSubscription?.addons?.includes('dynamic_surge_pricing') || providerSubscription?.addons?.includes('dynamic_pricing') || providerSubscription?.id === 'pro' || providerSubscription?.id === 'business') ? [{ id: 'seasons', label: 'المواسم والأعياد', icon: Sparkles }] : []),
           ...(userRole === 'admin' ? [{ id: 'providers', label: 'عمليات الشركاء', icon: Briefcase }] : []),
           ...(userRole === 'admin' ? [{ id: 'customer_ledgers', label: 'محافظ وأرصدة العملاء 👥', title: 'إدارة وتتبع أرصدة محافظ العملاء والمحفظة الدفترية المعلقة', icon: Users }] : []),
           ...(userRole === 'admin' ? [{ id: 'variance_alerts', label: 'انحرافات الميزانية 🚨', title: 'نظام الإشعارات الاستباقية للانحرافات المالية ومراقبة ميزانية المنصة', icon: ShieldAlert }] : []),

@@ -1295,7 +1295,7 @@ export const SubscriptionsSection = (props: any) => {
             <button 
               onClick={() => { 
                 setEditingItem(null); 
-                setSubscriptionForm({ name: '', priceMonthly: 0, priceYearly: 0, features: '', status: 'مفعل', isPopular: false, discount: 0, commissionRate: 0, includesInventory: false, includesSuppliers: false, canExportFinancials: false, hasSupport: false, hallsLimit: '', servicesLimit: '', staffSeatsLimit: '', includesGrowthCharts: false, includesFinancialForecast: false, includesPartialPayment: false, includesAdvancedStats: false, includesFullManagement: false, includesAdvancedProviderDashboard: false, includesLogisticsPortal: false, isHidden: false }); 
+                setSubscriptionForm({ name: '', priceMonthly: 0, priceYearly: 0, features: '', status: 'مفعل', isPopular: false, discount: 0, commissionRate: 0, includesInventory: false, includesSuppliers: false, canExportFinancials: false, hasSupport: false, hallsLimit: '', servicesLimit: '', staffSeatsLimit: '', includesGrowthCharts: false, includesFinancialForecast: false, includesPartialPayment: false, includesAdvancedStats: false, includesFullManagement: false, includesLogisticsPortal: false, isHidden: false }); 
                 setIsSubscriptionModalOpen(true); 
               }}
               className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-6 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-amber-500/30 transition-all hover:scale-105"

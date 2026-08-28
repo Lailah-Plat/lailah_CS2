@@ -407,13 +407,15 @@ export function useAppState() {
       includesSuppliers: matchedPlan ? matchedPlan.includesSuppliers : true, 
       canExportFinancials: matchedPlan ? matchedPlan.canExportFinancials : true, 
       hasSupport: matchedPlan ? matchedPlan.hasSupport : true, 
+      includesWeekendPricing: true,
+      includesDynamicSurgePricing: true,
       includesDynamicPricing: true,
       includesGrowthCharts: matchedPlan ? matchedPlan.includesGrowthCharts : true,
       includesAdvancedStats: matchedPlan ? matchedPlan.includesAdvancedStats : true,
       includesFullManagement: matchedPlan ? matchedPlan.includesFullManagement : true,
       includesAdvancedProviderDashboard: matchedPlan ? matchedPlan.includesAdvancedProviderDashboard : true,
       includesLogisticsPortal: matchedPlan ? matchedPlan.includesLogisticsPortal : (actualSubPackageName.includes('الاحترافية') || actualSubPackageName.includes('pro')),
-      addons: baseSub.addons || ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing']
+      addons: baseSub.addons || ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing', 'dynamic_surge_pricing']
     }; // fallback with everything enabled by default for demo
   });
 
@@ -543,13 +545,15 @@ export function useAppState() {
       includesSuppliers: matchedPlan ? matchedPlan.includesSuppliers : true, 
       canExportFinancials: matchedPlan ? matchedPlan.canExportFinancials : true, 
       hasSupport: matchedPlan ? matchedPlan.hasSupport : true, 
+      includesWeekendPricing: true,
+      includesDynamicSurgePricing: true,
       includesDynamicPricing: true,
       includesGrowthCharts: matchedPlan ? matchedPlan.includesGrowthCharts : true,
       includesAdvancedStats: matchedPlan ? matchedPlan.includesAdvancedStats : true,
       includesFullManagement: matchedPlan ? matchedPlan.includesFullManagement : true,
       includesAdvancedProviderDashboard: matchedPlan ? matchedPlan.includesAdvancedProviderDashboard : true,
       includesLogisticsPortal: matchedPlan ? matchedPlan.includesLogisticsPortal : (actualSubPackageName.includes('الاحترافية') || actualSubPackageName.includes('pro')),
-      addons: baseSub.addons || ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing']
+      addons: baseSub.addons || ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing', 'dynamic_surge_pricing']
     };
 
     // Prevent infinite refetch write loops - only write if changed
@@ -625,10 +629,11 @@ export function useAppState() {
 
   const fetchForceMajeureRequests = async () => {
     try {
-      const data = await apiService.getForceMajeureRequests();
+      const data = await apiService.getForceMajeureRequests().catch(() => []);
       setForceMajeureRequests(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error('Error fetching force majeure requests:', err);
+    } catch (err: any) {
+      console.warn('⚠️ تنبيه: تعذر جلب طلبات القوة القاهرة، استخدام مصفوفة فارغة:', err?.message || err);
+      setForceMajeureRequests([]);
     }
   };
 
@@ -1827,18 +1832,22 @@ export function useAppState() {
       { id: 'suppliers', name: 'ميزة إدارة الموردين', description: 'تنظيم الموردين، كشف الحسابات، عرض الأسعار وسجلات فواتير التوريد.', priceMonthly: 150, priceYearly: 1500, discount: 15 },
       { id: 'invoice_export', name: 'ميزة استعراض وتصدير الفواتير', description: 'فلترة الفواتير الضريبية وتصديرها بصيغ Excel/PDF متوافقة مع متطلبات هيئة الزكاة.', priceMonthly: 120, priceYearly: 1200, discount: 15 },
       { id: 'support', name: 'ميزة الدعم الفني والمحادثة المباشرة للشركاء', description: 'تواصل عاجل وآمن للتنسيق وحل كافة طلبات الدعم المالي والتقني وإعدادات التهيئة مباشرة عبر محادثة حية مع إدارة المنصة.', priceMonthly: 150, priceYearly: 1500, discount: 15 },
-      { id: 'dynamic_pricing', name: 'ميزة التسعير الديناميكي ومبلغ التأمين', description: 'تتيح تعديل وتغيير الأسعار حسب فترات نهاية الأسبوع والمواسم الذروة وإقران مبالغ تأمين مستردة لحماية العقار آلياً.', priceMonthly: 200, priceYearly: 2000, discount: 15 },
+      { id: 'weekend_pricing', name: 'ميزة تسعير عطلة نهاية الأسبوع (الويكند)', description: 'تتيح تخصيص هوامش وأسعار مستقلة لأيام الخميس والجمعة والسبت والفترات الصباحية والمسائية واليوم الكامل.', priceMonthly: 120, priceYearly: 1200, discount: 15, unit: 'ميزة' },
+      { id: 'dynamic_surge_pricing', name: 'محرك التسعير الديناميكي وزيادة الذروة الذكي', description: 'تفعيل خوارزميات زيادة الذروة الذكية المرتبطة بنسب الإشغال ومواسم الطلب العالي تلقائياً وفق الضوابط والأسقف السيادية.', priceMonthly: 180, priceYearly: 1800, discount: 15, unit: 'محرك' },
       { id: 'financial_forecast', name: 'ميزة ميزانية التوقعات المالية الذكية', description: 'تتيح الحصول على تقديرات ومحاكاة ذكية للتدفقات والأرباح التشغيلية للأشهر القادمة مع إمكانية تصدير التقرير المالي كـ PDF للفترة المقبلة.', priceMonthly: 250, priceYearly: 2400, discount: 15 },
       { id: 'partial_payment', name: 'ميزة نظام الدفع الجزئي (العربون)', description: 'تفعيل وتنشيط نظام الدفع الجزئي: السماح للعملاء بدفع عربون مقدم والمتبقي لاحقاً آلياً والتحصيل الإلكتروني اللاحق.', priceMonthly: 180, priceYearly: 1800, discount: 15 },
       { id: 'mini_products_store', name: 'متجر المنتجات والمستلزمات المصغر', description: 'تمكين بيع مستلزمات الحفلات، إعاشة العشاء VIP، المشروبات، الأثاث الإضافي، والمرشات للعملاء أثناء حجز القاعة وربطها بالمخزون.', priceMonthly: 89, priceYearly: 890, discount: 15, unit: 'متجر' },
       { id: 'hall_bundles', name: 'ميزة زيادة باقات القاعات المسموحة (النمط أ)', description: 'ميزة تفاعلية إضافية لرفع حد باقات الصالة المغلقة والجاهزة المفردة لإضافة المزيد من العروض والخيارات لكل صالة ومتابعة تدفقاتها بصورة مرنة.', priceMonthly: 40, priceYearly: 400, discount: 15, unit: 'باقة' },
-      { id: 'whatsapp_campaign_alerts', name: 'تفعيل إشعارات رسائل واتس أب في الحملات التسويقية', description: 'أتمتة إرسال إشعارات وتنبيهات فورية وتفاعلية عبر WhatsApp Business API للشريك لاعتماد ميزانيات وعروض الحملات التسويقية وبدء البث المباشر.', priceMonthly: 120, priceYearly: 1200, discount: 15, unit: 'باقة' }
+      { id: 'whatsapp_campaign_alerts', name: 'تفعيل إشعارات رسائل واتس أب في الحملات التسويقية', description: 'أتمتة إرسال إشعارات وتنبيهات فورية وتفاعلية عبر WhatsApp Business API للشريك لاعتماد ميزانيات وعروض الحملات التسويقية وبدء البث المباشر.', priceMonthly: 120, priceYearly: 1200, discount: 15, unit: 'باقة' },
+      { id: 'six_stages_lifecycle', name: 'ميزة نظام دورات الحياة المتقدمة (المراحل الست)', description: 'تفعيل مسار إدارة الحجوزات التشغيلي المتقدم عبر 6 مراحل مفصلة مع تدقيق مهام الجاهزية الثمانية وإخلاء الطرف وإيداع الأرباح بدلاً من النمط السريع المباشر.', priceMonthly: 150, priceYearly: 1500, discount: 15, unit: 'ميزة' }
     ];
     try {
       const stored = localStorage.getItem('additional_features_pricing');
       if (stored) {
         const parsed = JSON.parse(stored);
-        const merged = [...parsed];
+        // Filter out any legacy obsolete entries like dynamic_pricing to avoid redundancy
+        const filteredParsed = Array.isArray(parsed) ? parsed.filter((p: any) => p && p.id !== 'dynamic_pricing') : [];
+        const merged = [...filteredParsed];
         baseList.forEach(item => {
           if (!merged.some((m: any) => m.id === item.id)) {
             merged.push(item);
@@ -2281,22 +2290,28 @@ export function useAppState() {
             if (stored) {
               const localReqs = JSON.parse(stored);
               if (Array.isArray(localReqs) && localReqs.length > 0) {
+                setSupportServiceRequests(localReqs);
                 for (const req of localReqs) {
                   const { id, ...reqData } = req;
-                  await apiService.saveSupportRequest(reqData);
-                }
-                const lstReload = await apiService.getSupportRequests();
-                if (Array.isArray(lstReload) && lstReload.length > 0) {
-                  setSupportServiceRequests(lstReload);
+                  await apiService.saveSupportRequest(reqData).catch(() => {});
                 }
               }
             }
           } catch (e) {
-            console.error('Failed to migrate support requests from local storage:', e);
+            console.warn('Failed to migrate support requests from local storage:', e);
           }
         }
       })
-      .catch(err => console.error('Support requests load error from DB:', err));
+      .catch(err => {
+        console.warn('Support requests load warning from DB (using local storage):', err?.message || err);
+        try {
+          const stored = localStorage.getItem('SUPPORT_SERVICE_REQUESTS_V4');
+          if (stored) {
+            const localReqs = JSON.parse(stored);
+            if (Array.isArray(localReqs)) setSupportServiceRequests(localReqs);
+          }
+        } catch {}
+      });
 
     apiService.getInventory()
       .then(async data => {
@@ -2308,22 +2323,28 @@ export function useAppState() {
             if (stored) {
               const localItems = JSON.parse(stored);
               if (Array.isArray(localItems) && localItems.length > 0) {
+                setInventory(localItems);
                 for (const item of localItems) {
                   const { id, ...itemData } = item;
-                  await apiService.saveInventory(itemData);
-                }
-                const lstReload = await apiService.getInventory();
-                if (Array.isArray(lstReload) && lstReload.length > 0) {
-                  setInventory(lstReload);
+                  await apiService.saveInventory(itemData).catch(() => {});
                 }
               }
             }
           } catch (e) {
-            console.error('Failed to migrate inventory from local storage:', e);
+            console.warn('Failed to migrate inventory from local storage:', e);
           }
         }
       })
-      .catch(err => console.error('Inventory loading error from DB:', err));
+      .catch(err => {
+        console.warn('Inventory loading warning from DB (using local storage):', err?.message || err);
+        try {
+          const stored = localStorage.getItem('INVENTORY_ITEMS');
+          if (stored) {
+            const localItems = JSON.parse(stored);
+            if (Array.isArray(localItems)) setInventory(localItems);
+          }
+        } catch {}
+      });
 
     apiService.getSuppliers()
       .then(async data => {
@@ -2335,22 +2356,28 @@ export function useAppState() {
             if (stored) {
               const localSuppliers = JSON.parse(stored);
               if (Array.isArray(localSuppliers) && localSuppliers.length > 0) {
+                setSuppliers(localSuppliers);
                 for (const s of localSuppliers) {
                   const { id, ...supplierData } = s;
-                  await apiService.saveSupplier(supplierData);
-                }
-                const lstReload = await apiService.getSuppliers();
-                if (Array.isArray(lstReload) && lstReload.length > 0) {
-                  setSuppliers(lstReload);
+                  await apiService.saveSupplier(supplierData).catch(() => {});
                 }
               }
             }
           } catch (e) {
-            console.error('Failed to migrate suppliers from local storage:', e);
+            console.warn('Failed to migrate suppliers from local storage:', e);
           }
         }
       })
-      .catch(err => console.error('Suppliers loading error from DB:', err));
+      .catch(err => {
+        console.warn('Suppliers loading warning from DB (using local storage):', err?.message || err);
+        try {
+          const stored = localStorage.getItem('EXTERNAL_SUPPLIERS_V1');
+          if (stored) {
+            const localSuppliers = JSON.parse(stored);
+            if (Array.isArray(localSuppliers)) setSuppliers(localSuppliers);
+          }
+        } catch {}
+      });
 
     fetchForceMajeureRequests();
   }, [isAuthenticated]);
@@ -4793,7 +4820,7 @@ export function useAppState() {
             setSupportServiceRequests(data);
           }
         })
-        .catch(err => console.error('Support requests load error:', err));
+        .catch(err => console.warn('Support requests load warning:', err?.message || err));
     });
 
     return () => {

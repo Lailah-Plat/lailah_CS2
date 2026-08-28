@@ -220,13 +220,15 @@ export function useAppSubscriptions({
           includesSuppliers: true,
           canExportFinancials: true,
           hasSupport: true,
+          includesWeekendPricing: true,
+          includesDynamicSurgePricing: true,
           includesDynamicPricing: true,
           includesFinancialForecast: true,
           includesPartialPayment: true,
           includesGrowthCharts: true,
           includesAdvancedStats: true,
           includesLogisticsPortal: true,
-          addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing']
+          addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing', 'dynamic_surge_pricing']
         };
 
         // Update local providers state and providersData in localStorage

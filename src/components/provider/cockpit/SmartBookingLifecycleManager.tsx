@@ -6,7 +6,8 @@ import {
   UserCheck, Calendar, DollarSign, Lock, Download, Award,
   CheckSquare, Square, ClipboardCheck, Star, BadgeCheck,
   Building2, Truck, MessageSquareOff, Receipt, Wallet,
-  FileCheck, ShieldAlert, Check, ChevronDown, Eye
+  FileCheck, ShieldAlert, Check, ChevronDown, Eye, Zap,
+  SlidersHorizontal, Unlock, ExternalLink, HelpCircle, X
 } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -16,6 +17,8 @@ interface SmartBookingLifecycleManagerProps {
   onUpdateBookingStage?: (bookingId: string, newStage: number) => void;
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
   currentProviderName: string;
+  providerSubscription?: any;
+  onNavigateToSubscriptions?: () => void;
 }
 
 export interface Stage6TaskItem {
@@ -110,11 +113,15 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
   myBookings,
   onUpdateBookingStage,
   showNotification,
-  currentProviderName
+  currentProviderName,
+  providerSubscription,
+  onNavigateToSubscriptions
 }) => {
   const { providers } = useApp();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const STAGES = [
     { level: 1, percent: 15, title: 'طلب مبدئي', desc: 'استلام وتدقيق البيانات' },
@@ -135,20 +142,79 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
     );
   }, [providers, currentProviderName]);
 
+  // Check entitlement for 6-Stage Lifecycle Mode based on subscription & add-ons
+  const isSixStagesEntitled = useMemo(() => {
+    // 1. Check explicit prop if passed
+    if (providerSubscription) {
+      if (providerSubscription.includesSixStages) return true;
+      if (providerSubscription.addons?.includes('six_stages_lifecycle')) return true;
+      if (providerSubscription.id === 'pro' || providerSubscription.id === 'business') return true;
+    }
+    // 2. Check currentProviderObj
+    const tier = currentProviderObj?.subscriptionTier || currentProviderObj?.tier || '';
+    if (tier === 'pro' || tier === 'business' || tier === 'professional') return true;
+    if (currentProviderObj?.includesSixStages) return true;
+    if (currentProviderObj?.addons?.includes('six_stages_lifecycle')) return true;
+    
+    // 3. Check local storage for persistent subscription
+    try {
+      const storedSub = localStorage.getItem(`provider_subscription_${currentProviderName}`) || localStorage.getItem('provider_subscription');
+      if (storedSub) {
+        const parsed = JSON.parse(storedSub);
+        if (parsed.includesSixStages || parsed.addons?.includes('six_stages_lifecycle') || parsed.id === 'pro' || parsed.id === 'business') {
+          return true;
+        }
+      }
+    } catch {}
+
+    return false;
+  }, [providerSubscription, currentProviderObj, currentProviderName]);
+
+  // Active Workflow Mode: 'direct' (Fast-Track / Express Direct Settlement) vs 'advanced' (6-Stage Full Lifecycle)
+  const [workflowMode, setWorkflowMode] = useState<'direct' | 'advanced'>(() => {
+    const saved = localStorage.getItem(`provider_workflow_mode_${currentProviderName}`);
+    if (saved === 'advanced' && isSixStagesEntitled) return 'advanced';
+    if (saved === 'direct') return 'direct';
+    return isSixStagesEntitled ? 'advanced' : 'direct';
+  });
+
+  // Automatically enforce direct mode if provider is not entitled
+  useEffect(() => {
+    if (!isSixStagesEntitled && workflowMode === 'advanced') {
+      setWorkflowMode('direct');
+      localStorage.setItem(`provider_workflow_mode_${currentProviderName}`, 'direct');
+    }
+  }, [isSixStagesEntitled, workflowMode, currentProviderName]);
+
+  const handleSwitchMode = (newMode: 'direct' | 'advanced') => {
+    if (newMode === 'advanced' && !isSixStagesEntitled) {
+      setShowUpgradeModal(true);
+      showNotification('warning', '⚠️ ميزة نظام دورات الحياة المتقدمة (المراحل الست) مقفلة وتتطلب الترقية لباقة الأعمال أو الاحترافية.');
+      return;
+    }
+    setWorkflowMode(newMode);
+    localStorage.setItem(`provider_workflow_mode_${currentProviderName}`, newMode);
+    if (newMode === 'direct') {
+      showNotification('info', '⚡ تم تفعيل "النمط السريع المباشر" - إنجاز وتسوية فورية بدون مراحل تشغيلية.');
+    } else {
+      showNotification('success', '🔄 تم تفعيل "نظام المراحل الست المتقدم" - إدارة تشغيلية ولوجستية شاملة.');
+    }
+  };
+
   // Subscription Tier & Commission Rate (Rule #8)
   const providerCommissionRate = useMemo(() => {
-    const tier = currentProviderObj?.subscriptionTier || currentProviderObj?.tier || 'advanced';
+    const tier = currentProviderObj?.subscriptionTier || currentProviderObj?.tier || (providerSubscription?.id) || 'advanced';
     if (tier === 'basic') return 0.15; // 15%
     if (tier === 'pro' || tier === 'professional') return 0.05; // 5%
-    return 0.07; // 7% for Advanced (النموذج المتقدم)
-  }, [currentProviderObj]);
+    return 0.10; // 10% for Business / default
+  }, [currentProviderObj, providerSubscription]);
 
   const providerTierLabel = useMemo(() => {
-    const tier = currentProviderObj?.subscriptionTier || currentProviderObj?.tier || 'advanced';
+    const tier = currentProviderObj?.subscriptionTier || currentProviderObj?.tier || (providerSubscription?.id) || 'advanced';
     if (tier === 'basic') return 'الباقة الأساسية (عمولة 15%)';
     if (tier === 'pro' || tier === 'professional') return 'الباقة الاحترافية Pro (عمولة 5%)';
-    return 'الباقة المتقدمة (عمولة 7%)';
-  }, [currentProviderObj]);
+    return 'باقة الأعمال (عمولة 10%)';
+  }, [currentProviderObj, providerSubscription]);
 
   // Map bookings to a manageable format with strict provider isolation
   const activeBookings = useMemo(() => {
@@ -195,7 +261,6 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
-    // Default initial state: first 4 tasks checked if already at stage 6
     const initial: Record<string, string[]> = {};
     activeBookings.forEach((b: any) => {
       if (b.currentStage === 6) {
@@ -287,8 +352,6 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
     }
 
     const stageObj = STAGES.find(s => s.level === targetLevel);
-    const bkg = activeBookings.find((b: any) => b.id === bookingId);
-    
     if (targetLevel === 6) {
       showNotification('info', `انتقل الحجز (${bookingId}) إلى المرحلة 6: جاهزية الإغلاق والمصفوفة الثمانية.`);
     } else {
@@ -296,7 +359,45 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
     }
   };
 
-  // Final Release Action (Escrow Release & Wallet Payout)
+  // Direct Fast-Track Immediate Settlement Action
+  const handleDirectFastTrackSettlement = (bkg: any) => {
+    const grossPrice = Number(bkg.price || 25000);
+    const commissionAmount = grossPrice * providerCommissionRate;
+    const vatOnCommission = commissionAmount * 0.15;
+    const netPayout = grossPrice - (commissionAmount + vatOnCommission);
+
+    const invoiceId = formatInvoiceId(bkg.id);
+    const revId = formatRevenueId(bkg.id);
+    const expId = formatExpenseId(bkg.id);
+
+    const record = {
+      releasedAt: new Date().toISOString(),
+      invoiceId,
+      revId,
+      expId,
+      grossPrice,
+      commissionRate: providerCommissionRate,
+      commissionAmount,
+      vatOnCommission,
+      netPayout,
+      depositRefunded: bkg.depositAmount || 3000,
+      mode: 'direct_fast_track',
+      status: 'settled_and_closed'
+    };
+
+    setReleasedPayouts(prev => {
+      const updated = { ...prev, [bkg.id]: record };
+      localStorage.setItem(`provider_stage6_payouts_${currentProviderName}`, JSON.stringify(updated));
+      return updated;
+    });
+
+    // Mark stage 6 checked
+    setBookingStages(prev => ({ ...prev, [bkg.id]: 6 }));
+
+    showNotification('success', `⚡ تم الإغلاق المباشر بنجاح! صدرت الفاتورة (${invoiceId})، قيد الإيراد (${revId})، وتم إيداع الصافي (${netPayout.toLocaleString()} ر.س) في المحفظة.`);
+  };
+
+  // Final Release Action for 6-Stage Advanced Mode (Escrow Release & Wallet Payout)
   const handleReleasePayout = (bkg: any) => {
     const checked = stage6ChecklistMap[bkg.id] || [];
     if (checked.length < STAGE_6_TASKS.length) {
@@ -324,6 +425,7 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
       vatOnCommission,
       netPayout,
       depositRefunded: bkg.depositAmount || 3000,
+      mode: 'advanced_6_stages',
       status: 'settled_and_closed'
     };
 
@@ -337,20 +439,99 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-6" dir="rtl">
+    <div className={`rounded-3xl p-6 border shadow-sm space-y-6 ${
+      isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/80 text-slate-900'
+    }`} dir="rtl">
       
-      {/* Top Header & Search/Filter Controls */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b border-slate-100">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-indigo-600 uppercase tracking-wider">Stage 6 Settlement & Operational Engine</span>
-            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full font-bold">
-              المصفوفة الثمانية التفاعلية ({filteredBookings.length} حجز)
+      {/* 1. Workflow Mode Switcher Banner (Direct Mode vs Advanced 6-Stage Mode) */}
+      <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
+        isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white'
+      }`}>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              نمط إدارة العمليات والتسوية المالية
+            </span>
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold font-mono border ${
+              isSixStagesEntitled 
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+            }`}>
+              {isSixStagesEntitled ? 'متاح للباقة (مفعل)' : 'الباقة الأساسية (نمط سريع)'}
             </span>
           </div>
-          <h3 className="text-lg font-black text-slate-900 mt-0.5">مدير دورة حياة الحجز ومسار الجاهزية والتسوية</h3>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            تتبع مستقل للحجوزات ومصفوفة بنود الجاهزية الثمانية (3 مسارات تكاملية) لإغلاق الحجز وتصفية الأرباح
+          <h4 className="text-base font-black text-white">
+            {workflowMode === 'direct' ? '⚡ النمط السريع المباشر (Direct Settlement Mode)' : '🔄 نظام دورات الحياة المتقدمة (المراحل الست)'}
+          </h4>
+          <p className="text-xs text-indigo-200 font-medium">
+            {workflowMode === 'direct' 
+              ? 'مخصص للمزودين والخدمات المنفردة: إغلاق فوري وتسوية أرباح بضغطة زر واحدة دون متطلبات تشغيلية أو طواقم.' 
+              : 'مخصص للمنشآت والمناسبات الكبرى: مسار تشغيلي شامل بـ 6 مراحل ومصفوفة بنود الجاهزية الثمانية وإخلاء الطرف.'}
+          </p>
+        </div>
+
+        {/* Mode Toggle Pills */}
+        <div className="flex items-center bg-white/10 p-1.5 rounded-2xl border border-white/10 shrink-0 w-full sm:w-auto justify-center">
+          <button
+            onClick={() => handleSwitchMode('direct')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              workflowMode === 'direct'
+                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                : 'text-white hover:bg-white/10'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-700" />
+            <span>النمط السريع المباشر</span>
+          </button>
+
+          <button
+            onClick={() => handleSwitchMode('advanced')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              workflowMode === 'advanced'
+                ? 'bg-amber-400 text-slate-950 shadow-sm'
+                : isSixStagesEntitled
+                  ? 'text-white hover:bg-white/10'
+                  : 'text-slate-300 hover:bg-white/5 opacity-85'
+            }`}
+          >
+            {!isSixStagesEntitled ? (
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            <span>المراحل الست المتقدمة</span>
+            {!isSixStagesEntitled && (
+              <span className="text-[9px] bg-amber-400/30 text-amber-300 px-1.5 py-0.2 rounded font-mono">
+                ترقية
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Top Header & Search/Filter Controls */}
+      <div className={`flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b ${
+        isDark ? 'border-slate-800' : 'border-slate-100'
+      }`}>
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-indigo-600 uppercase tracking-wider">
+              {workflowMode === 'direct' ? 'Fast-Track Direct Payout Engine' : 'Stage 6 Settlement & Operational Engine'}
+            </span>
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+              isDark ? 'bg-indigo-900/40 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            }`}>
+              {filteredBookings.length} حجز نشط • {providerTierLabel}
+            </span>
+          </div>
+          <h3 className={`text-lg font-black mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            {workflowMode === 'direct' ? 'لوحة الإنجاز والتسوية المالية المباشرة' : 'مدير دورة حياة الحجز ومسار الجاهزية والتسوية'}
+          </h3>
+          <p className={`text-xs font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            {workflowMode === 'direct'
+              ? 'إدارة مختصرة للحجوزات واعتماد مباشر لإيداع الأرباح وإصدار الفواتير ZATCA وسندات القبض والصرف فورياً.'
+              : 'تتبع مستقل للحجوزات ومصفوفة بنود الجاهزية الثمانية (3 مسارات تكاملية) لإغلاق الحجز وتصفية الأرباح.'}
           </p>
         </div>
 
@@ -361,557 +542,684 @@ export const SmartBookingLifecycleManager: React.FC<SmartBookingLifecycleManager
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث برقم الحجز، القاعة، أو العميل..."
-            className="bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2 text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-60"
+            className={`border rounded-2xl px-3.5 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-60 ${
+              isDark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-slate-50 border-slate-200 text-slate-900'
+            }`}
           />
 
-          <select
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            <option value="all">كل المراحل (1 - 6)</option>
-            {STAGES.map(s => (
-              <option key={s.level} value={s.level}>مرحلة {s.level}: {s.title}</option>
-            ))}
-          </select>
+          {workflowMode === 'advanced' && (
+            <select
+              value={filterStage}
+              onChange={(e) => setFilterStage(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className={`border rounded-2xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${
+                isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}
+            >
+              <option value="all">كل المراحل (1 - 6)</option>
+              {STAGES.map(s => (
+                <option key={s.level} value={s.level}>مرحلة {s.level}: {s.title}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
-      {/* Sequential Independent Booking Cards Stack */}
-      {filteredBookings.length === 0 ? (
-        <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-          <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h4 className="text-sm font-black text-slate-700">لا توجد حجوزات مطابقة لمعايير البحث والفلترة</h4>
-          <p className="text-xs text-slate-500 mt-1">يمكنك تغيير معايير البحث أو اختيار "كل المراحل" لاستعراض الحجوزات.</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {filteredBookings.map((bkg: any) => {
-            const currentStageLevel = bookingStages[bkg.id] || bkg.currentStage || 1;
-            const currentStageObj = STAGES.find(s => s.level === currentStageLevel) || STAGES[0];
-            const isService = bkg.type === 'service' || bkg.id.startsWith('SRV');
+      {/* ============================================================ */}
+      {/* 2. DIRECT FAST-TRACK VIEW (النمط السريع المباشر)              */}
+      {/* ============================================================ */}
+      {workflowMode === 'direct' ? (
+        <div className="space-y-4">
+          {filteredBookings.length === 0 ? (
+            <div className={`p-12 text-center rounded-3xl border border-dashed ${
+              isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <Calendar className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <h4 className="text-sm font-black text-slate-700 dark:text-slate-300">لا توجد طلبات أو حجوزات مطابقة</h4>
+              <p className="text-xs text-slate-500 mt-1">ستظهر هنا كافة حجوزاتك مع خيار الإغلاق الفوري والتسوية المباشرة.</p>
+            </div>
+          ) : (
+            filteredBookings.map((bkg: any) => {
+              const payoutSettled = releasedPayouts[bkg.id];
+              const isService = bkg.type === 'service' || bkg.id.startsWith('SRV');
 
-            // 8-Pillar Task computations
-            const checkedTasks = stage6ChecklistMap[bkg.id] || [];
-            const checkedCount = checkedTasks.length;
-            const totalTasks = STAGE_6_TASKS.length;
-            const readinessPercent = Math.round((checkedCount / totalTasks) * 100);
-            const isFullyReady = checkedCount === totalTasks;
-            const payoutSettled = releasedPayouts[bkg.id];
+              // Financial Calculations
+              const grossPrice = Number(bkg.price || 25000);
+              const taxableAmount = grossPrice / 1.15;
+              const vatAmount = grossPrice - taxableAmount;
+              const commissionAmount = grossPrice * providerCommissionRate;
+              const vatOnCommission = commissionAmount * 0.15;
+              const netPayout = grossPrice - (commissionAmount + vatOnCommission);
+              const depositAmount = bkg.depositAmount || 3000;
 
-            // Calculations
-            const grossPrice = Number(bkg.price || 25000);
-            const commissionAmount = grossPrice * providerCommissionRate;
-            const vatOnCommission = commissionAmount * 0.15;
-            const netPayout = grossPrice - (commissionAmount + vatOnCommission);
-            const depositAmount = bkg.depositAmount || 3000;
+              const invoiceId = formatInvoiceId(bkg.id);
+              const revId = formatRevenueId(bkg.id);
+              const expId = formatExpenseId(bkg.id);
 
-            const invoiceId = formatInvoiceId(bkg.id);
-            const revId = formatRevenueId(bkg.id);
-            const expId = formatExpenseId(bkg.id);
-
-            return (
-              <motion.div
-                key={bkg.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all p-5 sm:p-6 space-y-5"
-              >
-                {/* 1. Card Top Bar & Info */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
-                  <div className="space-y-1.5">
+              return (
+                <motion.div
+                  key={bkg.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`rounded-3xl border p-5 sm:p-6 transition-all space-y-4 ${
+                    isDark 
+                      ? 'bg-slate-950/60 border-slate-800 hover:border-slate-700' 
+                      : 'bg-white border-slate-200 hover:border-indigo-200 shadow-xs'
+                  }`}
+                >
+                  {/* Top Line */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-xs bg-slate-900 text-amber-400 font-black px-3 py-1 rounded-xl font-mono tracking-wide shadow-sm">
+                      <span className="text-xs bg-slate-900 text-amber-400 font-black px-3 py-1 rounded-xl font-mono tracking-wide">
                         {bkg.id}
                       </span>
-                      <h4 className="text-base font-black text-slate-900">{bkg.customerName}</h4>
+                      <h4 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {bkg.customerName}
+                      </h4>
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
                         isService 
-                          ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                          : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300' 
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300'
                       }`}>
-                        {isService ? '🚚 طلب خدمة مساندة' : '🏢 حجز قاعة ومنشأة'}
+                        {isService ? '🚚 خدمة مساندة' : '🏢 حجز قاعة'}
                       </span>
-                      {payoutSettled && (
-                        <span className="text-[10px] bg-emerald-500 text-white font-black px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                          <Check className="w-3 h-3" /> تم الإغلاق والتسوية
+                      {payoutSettled ? (
+                        <span className="text-[10px] bg-emerald-500 text-white font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3" /> تم الإغلاق والتسوية
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> حجز نشط وجاهز للتسوية
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 text-xs text-slate-500 font-medium flex-wrap">
-                      <span>المنشأة/الخدمة: <strong className="text-slate-800">{bkg.hallName}</strong></span>
-                      <span>•</span>
-                      <span>موعد المناسبة: <strong className="text-slate-800 font-mono">{bkg.date}</strong></span>
-                      <span>•</span>
-                      <span>تأمين الأضرار: <strong className="text-amber-700 font-mono">{depositAmount.toLocaleString()} ر.س</strong></span>
+                    <div className="text-xs font-mono text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                      <span>تاريخ المناسبة: <strong className="text-slate-800 dark:text-slate-200">{bkg.date}</strong></span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-center">
-                    <div className="text-left sm:text-right">
-                      <span className="text-[10px] text-slate-400 font-bold block">إجمالي الحجز:</span>
-                      <span className="text-base font-black text-emerald-600 font-mono">
+                  {/* Middle Financial Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200/80'
+                    }`}>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+                        إجمالي القيمة (شامل الضريبة 15%)
+                      </span>
+                      <span className={`text-sm font-black font-mono mt-0.5 block ${isDark ? 'text-white' : 'text-slate-900'}`}>
                         {grossPrice.toLocaleString()} ر.س
                       </span>
                     </div>
 
-                    <div className="bg-slate-100 px-3 py-1.5 rounded-xl text-center border border-slate-200/80">
-                      <span className="text-[9px] text-slate-500 block font-bold">نسبة التقدم</span>
-                      <span className="text-sm font-black text-indigo-600 font-mono">
-                        {currentStageObj.percent}%
+                    <div className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200/80'
+                    }`}>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+                        عمولة المنصة السيادية ({providerCommissionRate * 100}%)
+                      </span>
+                      <span className={`text-sm font-black font-mono mt-0.5 block ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                        -{(commissionAmount + vatOnCommission).toLocaleString(undefined, { maximumFractionDigits: 1 })} ر.س
+                      </span>
+                    </div>
+
+                    <div className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50/70 border-amber-200/70'
+                    }`}>
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 block">
+                        تأمين الضمان المسترد للعميل
+                      </span>
+                      <span className="text-sm font-black font-mono mt-0.5 block text-amber-800 dark:text-amber-200">
+                        {depositAmount.toLocaleString()} ر.س
+                      </span>
+                    </div>
+
+                    <div className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-emerald-500/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+                    }`}>
+                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 block">
+                        صافي الأرباح المحررة بالمحفظة
+                      </span>
+                      <span className="text-base font-black font-mono mt-0.5 block text-emerald-800 dark:text-emerald-300">
+                        {netPayout.toLocaleString(undefined, { maximumFractionDigits: 1 })} ر.س
                       </span>
                     </div>
                   </div>
-                </div>
 
-                {/* 2. Horizontal Linear 6-Stage Stepper Line */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-slate-700 flex items-center gap-2">
-                      <span>مسار الجاهزية والتنفيذ:</span>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
-                        مرحلة {currentStageLevel} من 6: {currentStageObj.title}
-                      </span>
-                    </span>
-
-                    {currentStageLevel < 6 && (
-                      <button
-                        onClick={() => advanceStage(bkg.id, Math.min(currentStageLevel + 1, 6))}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95"
-                      >
-                        <span>ترقية للمرحلة التالية</span>
-                        <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-                      </button>
+                  {/* Bottom Actions */}
+                  <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
+                    payoutSettled
+                      ? isDark ? 'bg-emerald-950/40 border-emerald-800/60' : 'bg-emerald-50/70 border-emerald-200'
+                      : isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    {payoutSettled ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                          <BadgeCheck className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-black ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
+                              تمت التسوية المباشرة وإيداع الأرباح بالمحفظة
+                            </span>
+                            <span className="text-[9px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-mono font-bold">
+                              ZATCA Ready
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            الفاتورة: <span className="font-mono font-bold text-slate-900 dark:text-white">{invoiceId}</span> • قيد الإيراد: <span className="font-mono font-bold text-slate-900 dark:text-white">{revId}</span>
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-right">
+                        <h5 className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          إجراء الإغلاق السريع والتسوية الفورية
+                        </h5>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          بنقرة واحدة سيتم إنشاء الفاتورة الضريبية ZATCA وقيد الإيراد وتحويل صافي المبلغ للمحفظة.
+                        </p>
+                      </div>
                     )}
-                  </div>
 
-                  {/* Connecting Line & Interactive Nodes */}
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 overflow-x-auto scrollbar-thin">
-                    <div className="min-w-[820px] relative">
-                      
-                      {/* Background Progress Track */}
-                      <div className="absolute top-5 right-8 left-8 h-1 bg-slate-200 rounded-full z-0">
-                        <div 
-                          className="h-full bg-gradient-to-l from-indigo-600 via-indigo-500 to-emerald-500 rounded-full transition-all duration-500"
-                          style={{ width: `${((currentStageLevel - 1) / 5) * 100}%` }}
-                        />
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      {payoutSettled ? (
+                        <button
+                          onClick={() => showNotification('info', `جاري طباعة الفاتورة الضريبية ZATCA (${invoiceId}) وإشعار الإغلاق المالي.`)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Printer className="w-4 h-4" /> طباعة الفاتورة والإشعار
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleDirectFastTrackSettlement(bkg)}
+                          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                        >
+                          <Zap className="w-4 h-4 text-amber-300" />
+                          <span>اعتماد الإنجاز والتسوية الفورية للمحفظة</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        /* ============================================================ */
+        /* 3. ADVANCED 6-STAGE LIFECYCLE VIEW (المراحل الست المتقدمة)   */
+        /* ============================================================ */
+        <div className="space-y-6">
+          {filteredBookings.length === 0 ? (
+            <div className={`p-12 text-center rounded-3xl border border-dashed ${
+              isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h4 className="text-sm font-black text-slate-700 dark:text-slate-300">لا توجد حجوزات مطابقة لمعايير البحث والفلترة</h4>
+              <p className="text-xs text-slate-500 mt-1">يمكنك تغيير معايير البحث أو اختيار "كل المراحل" لاستعراض الحجوزات.</p>
+            </div>
+          ) : (
+            filteredBookings.map((bkg: any) => {
+              const currentStageLevel = bookingStages[bkg.id] || bkg.currentStage || 1;
+              const currentStageObj = STAGES.find(s => s.level === currentStageLevel) || STAGES[0];
+              const isService = bkg.type === 'service' || bkg.id.startsWith('SRV');
+
+              // 8-Pillar Task computations
+              const checkedTasks = stage6ChecklistMap[bkg.id] || [];
+              const checkedCount = checkedTasks.length;
+              const totalTasks = STAGE_6_TASKS.length;
+              const readinessPercent = Math.round((checkedCount / totalTasks) * 100);
+              const isFullyReady = checkedCount === totalTasks;
+              const payoutSettled = releasedPayouts[bkg.id];
+
+              // Calculations
+              const grossPrice = Number(bkg.price || 25000);
+              const commissionAmount = grossPrice * providerCommissionRate;
+              const vatOnCommission = commissionAmount * 0.15;
+              const netPayout = grossPrice - (commissionAmount + vatOnCommission);
+              const depositAmount = bkg.depositAmount || 3000;
+
+              const invoiceId = formatInvoiceId(bkg.id);
+              const revId = formatRevenueId(bkg.id);
+              const expId = formatExpenseId(bkg.id);
+
+              return (
+                <motion.div
+                  key={bkg.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`rounded-3xl border shadow-sm hover:shadow-md transition-all p-5 sm:p-6 space-y-5 ${
+                    isDark 
+                      ? 'bg-slate-950/80 border-slate-800' 
+                      : 'bg-white border-slate-200/90'
+                  }`}
+                >
+                  {/* 1. Card Top Bar & Info */}
+                  <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b ${
+                    isDark ? 'border-slate-800' : 'border-slate-100'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-xs bg-slate-900 text-amber-400 font-black px-3 py-1 rounded-xl font-mono tracking-wide shadow-sm">
+                          {bkg.id}
+                        </span>
+                        <h4 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{bkg.customerName}</h4>
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                          isService 
+                            ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300' 
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300'
+                        }`}>
+                          {isService ? '🚚 طلب خدمة مساندة' : '🏢 حجز قاعة ومنشأة'}
+                        </span>
+                        {payoutSettled && (
+                          <span className="text-[10px] bg-emerald-500 text-white font-black px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                            <Check className="w-3 h-3" /> تم الإغلاق والتسوية
+                          </span>
+                        )}
                       </div>
 
-                      {/* Step Nodes */}
-                      <div className="grid grid-cols-6 gap-2 relative z-10">
-                        {STAGES.map((st) => {
-                          const isDone = st.level < currentStageLevel;
-                          const isCurrent = st.level === currentStageLevel;
+                      <div className={`flex items-center gap-3 text-xs font-medium flex-wrap ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
+                        <span>المنشأة/الخدمة: <strong className={isDark ? 'text-slate-200' : 'text-slate-800'}>{bkg.hallName}</strong></span>
+                        <span>•</span>
+                        <span>موعد المناسبة: <strong className={`font-mono ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{bkg.date}</strong></span>
+                        <span>•</span>
+                        <span>تأمين الأضرار: <strong className="text-amber-600 dark:text-amber-400 font-mono">{depositAmount.toLocaleString()} ر.س</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Quick Stage Indicator & Actions */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
+                        currentStageLevel === 6
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300'
+                      }`}>
+                        المرحلة {currentStageLevel}: {currentStageObj.title} ({currentStageObj.percent}%)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 2. Interactive 6 Stages Stepper Bar */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      {STAGES.map((s) => {
+                        const isCurrent = s.level === currentStageLevel;
+                        const isPast = s.level < currentStageLevel;
+
+                        return (
+                          <button
+                            key={s.level}
+                            onClick={() => advanceStage(bkg.id, s.level)}
+                            className={`p-3 rounded-2xl text-right transition-all border cursor-pointer relative overflow-hidden ${
+                              isCurrent
+                                ? isDark
+                                  ? 'bg-indigo-950/80 border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+                                  : 'bg-indigo-50/80 border-indigo-500 shadow-sm ring-2 ring-indigo-500/20'
+                                : isPast
+                                  ? isDark
+                                    ? 'bg-emerald-950/40 border-emerald-800 text-slate-300 hover:border-emerald-700'
+                                    : 'bg-emerald-50/50 border-emerald-200 text-slate-700 hover:border-emerald-300'
+                                  : isDark
+                                    ? 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                                    : 'bg-slate-50 border-slate-200/80 text-slate-400 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-[10px] font-mono font-black px-1.5 py-0.2 rounded-md ${
+                                isCurrent
+                                  ? 'bg-indigo-600 text-white'
+                                  : isPast
+                                    ? 'bg-emerald-600 text-white'
+                                    : isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                {s.level}
+                              </span>
+                              <span className="text-[10px] font-bold opacity-75">{s.percent}%</span>
+                            </div>
+                            <h5 className={`text-xs font-black leading-tight ${
+                              isCurrent 
+                                ? isDark ? 'text-indigo-300' : 'text-indigo-950' 
+                                : isPast 
+                                  ? isDark ? 'text-emerald-300' : 'text-emerald-900' 
+                                  : isDark ? 'text-slate-400' : 'text-slate-600'
+                            }`}>
+                              {s.title}
+                            </h5>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 3. Stage 6: The 8-Pillar Interactive Checklist Matrix */}
+                  {currentStageLevel === 6 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className={`rounded-2xl p-5 border space-y-5 ${
+                        isDark 
+                          ? 'bg-slate-900/90 border-slate-800' 
+                          : 'bg-indigo-50/40 border-indigo-100'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-indigo-200/50 dark:border-slate-800">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="p-1.5 bg-indigo-600 text-white rounded-xl">
+                              <ClipboardCheck className="w-4 h-4" />
+                            </span>
+                            <h4 className={`text-sm font-black ${isDark ? 'text-white' : 'text-indigo-950'}`}>
+                              المصفوفة الثمانية للجاهزية التشغيلية والمالية (Stage 6)
+                            </h4>
+                          </div>
+                          <p className={`text-xs mt-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                            استيفاء البنود الثمانية إلزامي لتصفية حساب الضمان وإيداع صافي أرباح الحجز بالمحفظة.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                          <div className="text-left">
+                            <span className="text-xs font-black font-mono text-indigo-600 dark:text-indigo-400">
+                              {checkedCount} / {totalTasks} بنود مكتملة ({readinessPercent}%)
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => selectAllTasks(bkg.id)}
+                            className="text-[11px] font-bold px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all cursor-pointer shadow-xs"
+                          >
+                            اعتماد الكل (100%)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 8 Tasks Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {STAGE_6_TASKS.map((task) => {
+                          const isChecked = checkedTasks.includes(task.id);
 
                           return (
                             <div
-                              key={st.level}
-                              onClick={() => advanceStage(bkg.id, st.level)}
-                              className={`flex flex-col items-center text-center p-2.5 rounded-xl transition-all cursor-pointer group ${
-                                isCurrent
-                                  ? 'bg-white border-2 border-indigo-600 shadow-md scale-105'
-                                  : isDone
-                                  ? 'bg-emerald-50/70 border border-emerald-200 hover:bg-emerald-100/60'
-                                  : 'bg-white/80 border border-slate-200 opacity-60 hover:opacity-100'
+                              key={task.id}
+                              onClick={() => toggleTask(bkg.id, task.id)}
+                              className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                                isChecked
+                                  ? isDark
+                                    ? 'bg-emerald-950/30 border-emerald-500/50 text-white shadow-xs'
+                                    : 'bg-emerald-50/90 border-emerald-300 text-slate-900 shadow-xs'
+                                  : isDark
+                                    ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                                    : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
                               }`}
                             >
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all mb-1.5 shadow-sm ${
-                                isCurrent
-                                  ? 'bg-indigo-600 text-white ring-4 ring-indigo-200 animate-pulse'
-                                  : isDone
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-slate-200 text-slate-700'
-                              }`}>
-                                {isDone ? (
-                                  <CheckCircle2 className="w-4 h-4 text-white" />
+                              <div className="mt-0.5 shrink-0">
+                                {isChecked ? (
+                                  <div className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </div>
                                 ) : (
-                                  <span>{st.level}</span>
+                                  <div className={`w-5 h-5 rounded-lg border flex items-center justify-center ${
+                                    isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-300 bg-slate-50'
+                                  }`} />
                                 )}
                               </div>
 
-                              <span className={`text-[11px] font-black leading-tight ${
-                                isCurrent ? 'text-indigo-950' : isDone ? 'text-emerald-950' : 'text-slate-800'
-                              }`}>
-                                {st.title}
-                              </span>
-
-                              <span className={`text-[9px] font-mono font-bold mt-1 px-1.5 py-0.2 rounded-full ${
-                                isCurrent ? 'bg-indigo-100 text-indigo-700' : isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
-                              }`}>
-                                {st.percent}%
-                              </span>
-
-                              <p className="text-[10px] text-slate-500 font-medium mt-1 leading-snug line-clamp-2">
-                                {st.desc}
-                              </p>
+                              <div className="space-y-1 text-right flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`text-xs font-black ${
+                                    isChecked 
+                                      ? isDark ? 'text-emerald-300' : 'text-emerald-950' 
+                                      : isDark ? 'text-slate-200' : 'text-slate-900'
+                                  }`}>
+                                    {task.title}
+                                  </span>
+                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                                    task.category === 'operational'
+                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                      : task.category === 'financial'
+                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                  }`}>
+                                    {task.badge}
+                                  </span>
+                                </div>
+                                <p className={`text-[11px] leading-relaxed ${
+                                  isChecked 
+                                    ? isDark ? 'text-emerald-200/80' : 'text-emerald-800/80' 
+                                    : isDark ? 'text-slate-400' : 'text-slate-500'
+                                }`}>
+                                  {task.desc}
+                                </p>
+                              </div>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* 3. Stage 6: The 8-Pillar Operational & Settlement Engine */}
-                {currentStageLevel === 6 && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className={`rounded-3xl p-5 sm:p-6 space-y-5 border shadow-lg transition-colors ${
-                      isDark
-                        ? 'bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white border-indigo-500/30 shadow-indigo-950/40'
-                        : 'bg-gradient-to-b from-slate-50 via-indigo-50/50 to-slate-50 text-slate-900 border-indigo-200/80 shadow-indigo-100/50'
-                    }`}
-                  >
-                    {/* Top Engine Banner */}
-                    <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b ${
-                      isDark ? 'border-white/10' : 'border-indigo-100'
-                    }`}>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`p-1.5 rounded-xl font-bold ${
-                            isDark ? 'bg-emerald-500 text-slate-950' : 'bg-emerald-600 text-white shadow-xs'
-                          }`}>
-                            <Sparkles className="w-4 h-4" />
+                      {/* Financial Settlement Breakdown Card */}
+                      <div className={`p-4 rounded-2xl border ${
+                        isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200/90'
+                      }`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className={`text-xs font-black flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                            <Receipt className="w-4 h-4 text-indigo-600" />
+                            بيانات التسوية المالية النهائية وإصدار الفاتورة ZATCA
                           </span>
-                          <span className={`text-xs font-black uppercase tracking-wide ${
-                            isDark ? 'text-emerald-400' : 'text-emerald-700'
-                          }`}>
-                            المرحلة 6: مصفوفة الجاهزية التشغيلية والتسوية المالية (8 البنود)
-                          </span>
-                          <span className={`text-[10px] border px-2.5 py-0.5 rounded-full font-bold ${
-                            isDark 
-                              ? 'bg-white/10 border-white/20 text-indigo-200' 
-                              : 'bg-indigo-100/80 border-indigo-200 text-indigo-800'
-                          }`}>
+                          <span className="text-[10px] font-mono text-slate-500">
                             {providerTierLabel}
                           </span>
                         </div>
-                        <h4 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                          محرك فحص الجاهزية، فك الضمان، والفوترة الإلكترونية للحجز ({bkg.id})
-                        </h4>
-                      </div>
 
-                      {/* Readiness Meter */}
-                      <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl border ${
-                        isDark 
-                          ? 'bg-white/10 border-white/15' 
-                          : 'bg-white border-indigo-100 shadow-xs'
-                      }`}>
-                        <div className="text-right">
-                          <span className={`text-[10px] block font-bold ${isDark ? 'text-indigo-200' : 'text-slate-500'}`}>
-                            مؤشر الجاهزية الثماني
-                          </span>
-                          <span className={`text-xs font-bold font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            {checkedCount} من {totalTasks} بنود مكتملة
-                          </span>
-                        </div>
-                        <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center font-black text-sm font-mono ${
-                          isDark 
-                            ? 'border-emerald-400 text-emerald-300 bg-emerald-950/40' 
-                            : 'border-emerald-500 text-emerald-700 bg-emerald-50'
-                        }`}>
-                          {readinessPercent}%
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Checklist Header & Quick Action */}
-                    <div className={`p-3 rounded-2xl border space-y-2.5 ${
-                      isDark 
-                        ? 'bg-black/20 border-white/10' 
-                        : 'bg-indigo-100/40 border-indigo-100'
-                    }`}>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <ClipboardCheck className={`w-4 h-4 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                          <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            مصفوفة بنود الجاهزية الثمانية (الميداني، المالي، والأرشفة):
-                          </span>
-                          <span className={`text-[10px] border px-2 py-0.5 rounded-full font-bold ${
-                            isDark 
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
-                              : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                          <div className={`p-2.5 rounded-xl border ${
+                            isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
                           }`}>
-                            {checkedCount} / {totalTasks} مكتملة ({readinessPercent}%)
-                          </span>
-                        </div>
+                            <span className="text-[10px] block font-bold text-slate-500">إجمالي الحجز (شامل)</span>
+                            <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                              {grossPrice.toLocaleString()} ر.س
+                            </span>
+                            <span className="text-[8px] text-slate-400 block font-mono">شامل الضريبة 15%</span>
+                          </div>
 
-                        <button
-                          onClick={() => selectAllTasks(bkg.id)}
-                          className={`text-xs px-3 py-1.5 rounded-xl transition-all font-bold cursor-pointer flex items-center gap-1.5 ${
-                            isDark 
-                              ? 'bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white border border-white/10' 
-                              : 'bg-white hover:bg-slate-50 text-indigo-700 hover:text-indigo-900 border border-indigo-200 shadow-2xs'
-                          }`}
-                        >
-                          <CheckCircle2 className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                          تحديد الكل كمكتمل (Fast Pass)
-                        </button>
-                      </div>
-
-                      {/* Animated Progress Bar for 8-Pillar Selection */}
-                      <div className="space-y-1">
-                        <div className={`w-full h-2 rounded-full overflow-hidden border ${
-                          isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/80 border-indigo-200/60 shadow-inner'
-                        }`}>
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${readinessPercent}%` }}
-                            transition={{ duration: 0.4, ease: "easeOut" }}
-                            className={`h-full rounded-full ${
-                              readinessPercent === 100
-                                ? isDark ? 'bg-emerald-400' : 'bg-emerald-500'
-                                : readinessPercent >= 50
-                                  ? isDark ? 'bg-indigo-400' : 'bg-indigo-600'
-                                  : isDark ? 'bg-amber-400' : 'bg-amber-500'
-                            }`}
-                          />
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold">
-                          <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
-                            {checkedCount === totalTasks 
-                              ? 'تم استيفاء كافة المتطلبات الميدانية والمالية والأرشفة بنجاح' 
-                              : `متبقي ${totalTasks - checkedCount} بنود لاعتماد الإغلاق المحاسبي النهائي`}
-                          </span>
-                          <span className={`font-mono ${
-                            readinessPercent === 100 
-                              ? isDark ? 'text-emerald-300' : 'text-emerald-700' 
-                              : isDark ? 'text-indigo-300' : 'text-indigo-700'
+                          <div className={`p-2.5 rounded-xl border ${
+                            isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'
                           }`}>
-                            {readinessPercent}%
-                          </span>
+                            <span className="text-[10px] block font-bold text-slate-500">عمولة المنصة ({providerCommissionRate * 100}%)</span>
+                            <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                              -{(commissionAmount + vatOnCommission).toLocaleString(undefined, { maximumFractionDigits: 1 })} ر.س
+                            </span>
+                            <span className="text-[8px] text-slate-400 block font-mono">قيد: {revId}</span>
+                          </div>
+
+                          <div className={`p-2.5 rounded-xl border ${
+                            isDark ? 'bg-white/5 border-white/5' : 'bg-amber-50/70 border-amber-100'
+                          }`}>
+                            <span className={`text-[10px] block font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                              استرداد التأمين المحرر
+                            </span>
+                            <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>
+                              {depositAmount.toLocaleString()} ر.س
+                            </span>
+                            <span className={`text-[8px] block font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              قيد: {expId}
+                            </span>
+                          </div>
+
+                          <div className={`p-2.5 rounded-xl border ${
+                            isDark 
+                              ? 'bg-emerald-500/20 border-emerald-500/30' 
+                              : 'bg-emerald-50 border-emerald-200'
+                          }`}>
+                            <span className={`text-[10px] block font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
+                              الصافي المودع بالمحفظة
+                            </span>
+                            <span className={`text-sm font-black font-mono mt-0.5 block ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                              {netPayout.toLocaleString(undefined, { maximumFractionDigits: 1 })} ر.س
+                            </span>
+                            <span className={`text-[8px] block font-mono ${isDark ? 'text-emerald-200' : 'text-emerald-600'}`}>
+                              فاتورة: {invoiceId}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Interactive 8-Pillar Task Grid (All 8 items together) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {STAGE_6_TASKS.map((task) => {
-                        const isChecked = checkedTasks.includes(task.id);
-
-                        return (
-                          <div
-                            key={task.id}
-                            onClick={() => toggleTask(bkg.id, task.id)}
-                            className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-start gap-3 ${
-                              isDark
-                                ? isChecked
-                                  ? 'bg-emerald-950/40 border-emerald-500/50 text-white shadow-xs'
-                                  : 'bg-white/5 border-white/10 text-slate-300 hover:border-white/25 hover:bg-white/10'
-                                : isChecked
-                                  ? 'bg-emerald-50/90 border-emerald-300 text-slate-900 shadow-xs'
-                                  : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/20 shadow-2xs'
-                            }`}
-                          >
-                            <div className="mt-1 shrink-0">
-                              {isChecked ? (
-                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center font-bold shadow-sm ${
-                                  isDark ? 'bg-emerald-500 text-slate-950' : 'bg-emerald-600 text-white'
-                                }`}>
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                              ) : (
-                                <div className={`w-5 h-5 rounded-lg border-2 ${
-                                  isDark ? 'border-slate-400/60 bg-white/5' : 'border-slate-300 bg-slate-50'
-                                }`} />
-                              )}
-                            </div>
-
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <h5 className={`text-xs font-black ${
-                                  isDark 
-                                    ? isChecked ? 'text-emerald-300' : 'text-white'
-                                    : isChecked ? 'text-emerald-900' : 'text-slate-900'
-                                }`}>
-                                  {task.title}
-                                </h5>
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                                  task.category === 'operational' 
-                                    ? isDark ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  task.category === 'financial' 
-                                    ? isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                  isDark ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-purple-50 text-purple-700 border-purple-200'
-                                }`}>
-                                  {task.badge}
-                                </span>
-                              </div>
-                              <p className={`text-[11px] leading-relaxed font-normal ${
-                                isDark ? 'text-slate-300/80' : 'text-slate-600'
+                      {/* Action Execution Button / Status Card */}
+                      <div className="pt-1">
+                        {payoutSettled ? (
+                          <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
+                            isDark 
+                              ? 'bg-emerald-900/50 border-emerald-500/50' 
+                              : 'bg-emerald-50 border-emerald-300 shadow-xs'
+                          }`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${
+                                isDark ? 'bg-emerald-500 text-slate-950' : 'bg-emerald-600 text-white'
                               }`}>
-                                {task.desc}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Financial Accounting Breakdown & Codes */}
-                    <div className={`rounded-2xl p-4 border space-y-3 ${
-                      isDark 
-                        ? 'bg-black/40 border-white/10' 
-                        : 'bg-white border-indigo-100 shadow-xs'
-                    }`}>
-                      <div className={`flex items-center justify-between border-b pb-2.5 ${
-                        isDark ? 'border-white/10' : 'border-slate-100'
-                      }`}>
-                        <span className={`text-xs font-black flex items-center gap-1.5 ${
-                          isDark ? 'text-amber-400' : 'text-amber-700'
-                        }`}>
-                          <Receipt className="w-4 h-4" /> القيود المحاسبية والتسوية المالية السيادية:
-                        </span>
-                        <span className={`text-[10px] font-mono font-bold ${
-                          isDark ? 'text-indigo-300' : 'text-indigo-700'
-                        }`}>
-                          عمولة المنصة: {(providerCommissionRate * 100).toFixed(0)}% + VAT 15%
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                        <div className={`p-2.5 rounded-xl border ${
-                          isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-200/70'
-                        }`}>
-                          <span className={`text-[10px] block font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            قيمة الحجز الإجمالي
-                          </span>
-                          <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                            {grossPrice.toLocaleString()} ر.س
-                          </span>
-                        </div>
-
-                        <div className={`p-2.5 rounded-xl border ${
-                          isDark ? 'bg-white/5 border-white/5' : 'bg-rose-50/70 border-rose-100'
-                        }`}>
-                          <span className={`text-[10px] block font-bold ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
-                            عمولة المنصة والضريبة
-                          </span>
-                          <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
-                            -{(commissionAmount + vatOnCommission).toLocaleString()} ر.س
-                          </span>
-                          <span className={`text-[8px] block font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            قيد: {revId}
-                          </span>
-                        </div>
-
-                        <div className={`p-2.5 rounded-xl border ${
-                          isDark ? 'bg-white/5 border-white/5' : 'bg-amber-50/70 border-amber-100'
-                        }`}>
-                          <span className={`text-[10px] block font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
-                            استرداد التأمين المحرر
-                          </span>
-                          <span className={`text-xs font-black font-mono mt-0.5 block ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>
-                            {depositAmount.toLocaleString()} ر.س
-                          </span>
-                          <span className={`text-[8px] block font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            قيد: {expId}
-                          </span>
-                        </div>
-
-                        <div className={`p-2.5 rounded-xl border ${
-                          isDark 
-                            ? 'bg-emerald-500/20 border-emerald-500/30' 
-                            : 'bg-emerald-50 border-emerald-200'
-                        }`}>
-                          <span className={`text-[10px] block font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
-                            الصافي المودع بالمحفظة
-                          </span>
-                          <span className={`text-sm font-black font-mono mt-0.5 block ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                            {netPayout.toLocaleString()} ر.س
-                          </span>
-                          <span className={`text-[8px] block font-mono ${isDark ? 'text-emerald-200' : 'text-emerald-600'}`}>
-                            فاتورة: {invoiceId}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Execution Button / Status Card */}
-                    <div className="pt-1">
-                      {payoutSettled ? (
-                        <div className={`border rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
-                          isDark 
-                            ? 'bg-emerald-900/50 border-emerald-500/50' 
-                            : 'bg-emerald-50 border-emerald-300 shadow-xs'
-                        }`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${
-                              isDark ? 'bg-emerald-500 text-slate-950' : 'bg-emerald-600 text-white'
-                            }`}>
-                              <BadgeCheck className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-xs font-black ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
-                                  تم الإغلاق النهائي وتصفية الأرباح بنجاح
-                                </span>
-                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                                  isDark ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-200 text-emerald-900'
-                                }`}>
-                                  ZATCA Verified
-                                </span>
+                                <BadgeCheck className="w-6 h-6" />
                               </div>
-                              <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                                الفاتورة المعتمدة: <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{invoiceId}</span> • قيد الإيراد: <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{revId}</span>
-                              </p>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-xs font-black ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
+                                    تم الإغلاق النهائي وتصفية الأرباح بنجاح
+                                  </span>
+                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                                    isDark ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-200 text-emerald-900'
+                                  }`}>
+                                    ZATCA Verified
+                                  </span>
+                                </div>
+                                <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                                  الفاتورة المعتمدة: <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{invoiceId}</span> • قيد الإيراد: <span className={`font-mono font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{revId}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <button
+                                onClick={() => showNotification('info', `جاري طباعة الفاتورة الضريبية ZATCA (${invoiceId}) وكشف التسوية المحاسبي.`)}
+                                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm w-full sm:w-auto justify-center"
+                              >
+                                <Printer className="w-4 h-4" /> طباعة الفاتورة والإغلاق
+                              </button>
                             </div>
                           </div>
+                        ) : (
+                          <div className={`flex flex-col sm:flex-row justify-between items-center gap-3 p-4 rounded-2xl border ${
+                            isDark 
+                              ? 'bg-white/5 border-white/10' 
+                              : 'bg-white border-indigo-100 shadow-xs'
+                          }`}>
+                            <div className="text-right">
+                              <h5 className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                جاهزية الإطلاق والتحويل المالي للمحفظة
+                              </h5>
+                              <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                                {isFullyReady 
+                                  ? '✅ تم استيفاء كافة البنود الثمانية (100%). يمكنك الآن تحرير الضمان وإيداع صافي الأرباح.' 
+                                  : `⚠️ يرجى استكمال باقي بنود الجاهزية (${checkedCount}/8) لتمكين زر تحرير الأرباح.`}
+                              </p>
+                            </div>
 
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
-                              onClick={() => showNotification('info', `جاري طباعة الفاتورة الضريبية ZATCA (${invoiceId}) وكشف التسوية المحاسبي.`)}
-                              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm w-full sm:w-auto justify-center"
+                              onClick={() => handleReleasePayout(bkg)}
+                              disabled={!isFullyReady}
+                              className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm cursor-pointer ${
+                                isFullyReady
+                                  ? isDark
+                                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 scale-105 active:scale-95 shadow-emerald-500/20'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white scale-105 active:scale-95 shadow-emerald-600/20'
+                                  : isDark
+                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 border border-slate-700'
+                                    : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70 border border-slate-300'
+                              }`}
                             >
-                              <Printer className="w-4 h-4" /> طباعة الفاتورة والإغلاق
+                              <Wallet className="w-4 h-4" />
+                              <span>اعتماد الإغلاق وتحرير الأرباح للمحفظة</span>
                             </button>
                           </div>
-                        </div>
-                      ) : (
-                        <div className={`flex flex-col sm:flex-row justify-between items-center gap-3 p-4 rounded-2xl border ${
-                          isDark 
-                            ? 'bg-white/5 border-white/10' 
-                            : 'bg-white border-indigo-100 shadow-xs'
-                        }`}>
-                          <div className="text-right">
-                            <h5 className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                              جاهزية الإطلاق والتحويل المالي للمحفظة
-                            </h5>
-                            <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                              {isFullyReady 
-                                ? '✅ تم استيفاء كافة البنود الثمانية (100%). يمكنك الآن تحرير الضمان وإيداع صافي الأرباح.' 
-                                : `⚠️ يرجى استكمال باقي بنود الجاهزية (${checkedCount}/8) لتمكين زر تحرير الأرباح.`}
-                            </p>
-                          </div>
-
-                          <button
-                            onClick={() => handleReleasePayout(bkg)}
-                            disabled={!isFullyReady}
-                            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-sm cursor-pointer ${
-                              isFullyReady
-                                ? isDark
-                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 scale-105 active:scale-95 shadow-emerald-500/20'
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white scale-105 active:scale-95 shadow-emerald-600/20'
-                                : isDark
-                                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60 border border-slate-700'
-                                  : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70 border border-slate-300'
-                            }`}
-                          >
-                            <Wallet className="w-4 h-4" />
-                            <span>اعتماد الإغلاق وتحرير الأرباح للمحفظة</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
-            );
-          })}
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </motion.div>
+              );
+            })
+          )}
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* 4. UPGRADE / FEATURE MODAL                                  */}
+      {/* ============================================================ */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir="rtl">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`max-w-md w-full rounded-3xl p-6 border shadow-2xl space-y-5 relative ${
+                isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+              }`}
+            >
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="absolute top-4 left-4 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center space-y-2 pt-2">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center justify-center mx-auto">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <h4 className="text-lg font-black">ميزة نظام دورات الحياة المتقدمة (المراحل الست)</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  هذه الميزة مصممة للمنشآت والقاعات الكبرى لإدارة الفرق والعمليات الميدانية واللوجستية وقوائم تدقيق الجاهزية الثمانية.
+                </p>
+              </div>
+
+              <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                isDark ? 'bg-slate-950 border-slate-800' : 'bg-amber-50/60 border-amber-200'
+              }`}>
+                <span className="font-black text-amber-800 dark:text-amber-300 block">ما تقدمه الميزة لمؤسستك:</span>
+                <ul className="space-y-1.5 text-slate-600 dark:text-slate-300 list-disc pr-4">
+                  <li>تتبع الحجز عبر 6 مراحل تشغيلية مترابطة.</li>
+                  <li>مصفوفة بنود الجاهزية الثمانية (المسار الميداني، المالي، والتقييم).</li>
+                  <li>ربط الطواقم والمهام اللوجستية وإخلاء الطرف.</li>
+                  <li>مشمولة في <strong>باقة الأعمال</strong> و<strong>الباقة الاحترافية Pro</strong> أو كقدرة إضافية مستقلة.</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    if (onNavigateToSubscriptions) {
+                      onNavigateToSubscriptions();
+                    } else {
+                      showNotification('info', 'يمكنك الانتقال إلى تبويب "باقات الاشتراك" للترقية أو شراء الميزة.');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>ترقية الباقة أو شراء الميزة</span>
+                </button>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className={`px-4 py-3 rounded-xl text-xs font-bold border ${
+                    isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-600'
+                  }`}
+                >
+                  إغلاق
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-

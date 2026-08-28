@@ -516,6 +516,7 @@ export default function App() {
               myBookings={state.bookings || []}
               mySupportRequests={state.supportServiceRequests || []}
               halls={state.halls || []}
+              providerSubscription={state.providerSubscription}
               showNotification={state.showNotification || (() => {})}
               onUpdateBookingStage={(id, stage) => {
                 if (state.setBookings) {

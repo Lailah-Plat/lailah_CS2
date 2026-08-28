@@ -742,7 +742,7 @@ export const HallStepperModal: React.FC<HallStepperModalProps> = ({
                     </div>
                   </div>
 
-                  {((userRole === 'admin') || providerSubscription?.includesDynamicPricing || providerSubscription?.addons?.includes('dynamic_pricing')) && (
+                  {((userRole === 'admin') || providerSubscription?.includesWeekendPricing || providerSubscription?.includesDynamicSurgePricing || providerSubscription?.includesDynamicPricing || providerSubscription?.addons?.includes('weekend_pricing') || providerSubscription?.addons?.includes('dynamic_surge_pricing') || providerSubscription?.addons?.includes('dynamic_pricing') || providerSubscription?.id === 'pro' || providerSubscription?.id === 'business') && (
                     <div className="bg-amber-500/[0.02] p-3 rounded-xl border border-amber-500/10 space-y-2">
                       <h5 className="font-bold text-slate-850 flex items-center gap-1.5 text-xs">
                         <Plus className="w-3.5 h-3.5 text-amber-500 animate-pulse" />

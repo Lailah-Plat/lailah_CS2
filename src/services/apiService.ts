@@ -157,12 +157,29 @@ export const apiService = {
 
   /** جلب طلبات إعادة الجدولة وإلغاء الظروف القاهرة */
   async getForceMajeureRequests() {
-    return fetchWithRetry('/api/bookings/force-majeure');
+    try {
+      const data = await fetchWithRetry('/api/bookings/force-majeure');
+      return Array.isArray(data) ? data : (data?.requests || []);
+    } catch (err: any) {
+      console.warn('⚠️ تعذر جلب طلبات القوة القاهرة من الخادم، استخدام مصفوفة فارغة كبديل:', err.message || err);
+      return [];
+    }
   },
 
   /** جلب طلبات الدعم */
   async getSupportRequests() {
-    return fetchWithRetry('/api/bookings/support-requests');
+    try {
+      const data = await fetchWithRetry('/api/bookings/support-requests');
+      return Array.isArray(data) ? data : (data?.requests || []);
+    } catch (err: any) {
+      console.warn('⚠️ تعذر جلب طلبات الدعم من الخادم، استخدام التخزين المحلي:', err.message || err);
+      try {
+        const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('SUPPORT_SERVICE_REQUESTS_V4') : null;
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
   },
 
   /** إنشاء طلب دعم جديد */
@@ -234,7 +251,18 @@ export const apiService = {
   // --- خدمات إدارة المخزون والمستودعات ---
   /** جلب عناصر المخزون */
   async getInventory() {
-    return fetchWithRetry('/api/bookings/inventory');
+    try {
+      const data = await fetchWithRetry('/api/bookings/inventory');
+      return Array.isArray(data) ? data : (data?.inventory || []);
+    } catch (err: any) {
+      console.warn('⚠️ تعذر جلب عناصر المخزون من الخادم، استخدام التخزين المحلي:', err.message || err);
+      try {
+        const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('INVENTORY_ITEMS') : null;
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
   },
 
   /** إضافة أو تحديث عنصر مخزون */
@@ -266,7 +294,13 @@ export const apiService = {
 
   /** جلب سجلات حركة المخزون */
   async getInventoryLogs() {
-    return fetchWithRetry('/api/bookings/inventory/logs');
+    try {
+      const data = await fetchWithRetry('/api/bookings/inventory/logs');
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      console.warn('⚠️ تعذر جلب سجلات حركة المخزون من الخادم:', err.message || err);
+      return [];
+    }
   },
 
   /** إنشاء سجل حركة مخزون */
@@ -281,7 +315,18 @@ export const apiService = {
   // --- خدمات الموردين الخارجيين والفواتير ---
   /** جلب قائمة الموردين */
   async getSuppliers() {
-    return fetchWithRetry('/api/bookings/suppliers');
+    try {
+      const data = await fetchWithRetry('/api/bookings/suppliers');
+      return Array.isArray(data) ? data : (data?.suppliers || []);
+    } catch (err: any) {
+      console.warn('⚠️ تعذر جلب الموردين من الخادم، استخدام التخزين المحلي:', err.message || err);
+      try {
+        const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('EXTERNAL_SUPPLIERS_V1') : null;
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
   },
 
   /** إضافة أو تحديث مورد */

@@ -3062,6 +3062,8 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
                     includesSuppliers: true,
                     canExportFinancials: true,
                     hasSupport: true,
+                    includesWeekendPricing: true,
+                    includesDynamicSurgePricing: true,
                     includesDynamicPricing: true,
                     includesFinancialForecast: true,
                     includesPartialPayment: true,
@@ -3070,7 +3072,7 @@ export const ProvidersManagement: React.FC<ProvidersManagementProps> = ({
                     includesLogisticsPortal: true,
                     includesMiniProductsStore: true,
                     includesMiniStore: true,
-                    addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'dynamic_pricing', 'mini_products_store']
+                    addons: ['inventory', 'suppliers', 'invoice_export', 'support', 'weekend_pricing', 'dynamic_surge_pricing', 'mini_products_store']
                   };
 
                   // 1. Get providers from localStorage or combinedProviders

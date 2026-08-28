@@ -1791,32 +1791,124 @@ export default function HallDetailsPage() {
           </div>
         )}
 
-        {/* FLOOR PLAN MODAL (مخطط القاعة) */}
+        {/* FLOOR PLAN MODAL (مخطط القاعة التفاعلي) */}
         {isFloorPlanModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
-            <div className="bg-white rounded-3xl max-w-3xl w-full p-6 text-slate-800 relative shadow-2xl border border-slate-100">
+            <div className="bg-slate-900 text-white rounded-3xl max-w-4xl w-full p-6 relative shadow-2xl border border-slate-700 max-h-[90vh] overflow-y-auto">
               <button 
                 onClick={() => setIsFloorPlanModalOpen(false)}
-                className="absolute top-4 left-4 bg-slate-100 hover:bg-slate-200 p-2 rounded-full text-slate-700 cursor-pointer"
+                className="absolute top-4 left-4 bg-slate-800 hover:bg-slate-700 p-2 rounded-full text-slate-300 cursor-pointer transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
-              <h3 className="text-lg font-black mb-4 flex items-center gap-2 text-blue-950">
-                <Layers className="w-5 h-5 text-amber-500" /> مخطط توزيع القاعة والتقسيم الهندسي
-              </h3>
-              <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center space-y-4">
-                <div className="grid grid-cols-3 gap-3 text-xs font-bold">
-                  <div className="bg-amber-100 text-amber-800 p-4 rounded-xl border border-amber-200">
-                    مدخل ومواقف النساء
+              
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-2xl">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">المخطط الهندسي وتوزيع القاعة 360°</h3>
+                  <p className="text-xs text-slate-400">توزيع الطاولات، مسار الكوشة الملكية، طاقة الاستيعاب وأجنحة الضيافة لـ {currentHall?.name || 'القاعة'}</p>
+                </div>
+              </div>
+
+              {/* Stats Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
+                  <span className="text-[10px] text-slate-400 block font-bold">الطاقة الاستيعابية</span>
+                  <span className="text-base font-black text-amber-400">{currentHall?.capacity || 350} ضيف</span>
+                </div>
+                <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
+                  <span className="text-[10px] text-slate-400 block font-bold">عدد الطاولات الموزعة</span>
+                  <span className="text-base font-black text-emerald-400">32 طاولة</span>
+                </div>
+                <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
+                  <span className="text-[10px] text-slate-400 block font-bold">مساحة المسار الملكي</span>
+                  <span className="text-base font-black text-indigo-400">18 × 3 متر</span>
+                </div>
+                <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700/60">
+                  <span className="text-[10px] text-slate-400 block font-bold">مخارج الطوارئ</span>
+                  <span className="text-base font-black text-rose-400">4 مسارات معتمدة</span>
+                </div>
+              </div>
+
+              {/* Visual 2D Canvas */}
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden space-y-4">
+                {/* Stage / Kosha Header */}
+                <div className="w-full bg-gradient-to-r from-amber-600 via-amber-400 to-amber-600 text-slate-950 text-center py-2.5 rounded-xl font-black text-xs shadow-md tracking-wider flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  منصة الكوشة الملكية الرئيسية (Stage & Main Backdrop)
+                </div>
+
+                {/* Catwalk Runway */}
+                <div className="relative min-h-[280px] bg-slate-900/60 rounded-xl border border-slate-800 p-4 flex flex-col justify-between">
+                  {/* Runway line */}
+                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-8 bg-amber-400/15 border-x border-dashed border-amber-400/40 flex items-center justify-center pointer-events-none">
+                    <span className="text-[9px] font-black text-amber-300 -rotate-90 whitespace-nowrap tracking-widest">ممر الزفة الملكي CATWALK</span>
                   </div>
-                  <div className="bg-blue-100 text-blue-800 p-4 rounded-xl border border-blue-200">
-                    الصالة الرئيسية (الممر والكوشة)
+
+                  {/* Left & Right Table Zones */}
+                  <div className="grid grid-cols-2 gap-8 relative z-10">
+                    {/* Left Wing (VIP & Family) */}
+                    <div className="space-y-3">
+                      <div className="text-[10px] font-black text-purple-300 bg-purple-950/60 px-2.5 py-1 rounded-lg border border-purple-800/40 w-fit">
+                        جناح كبار الشخصيات وأهل العروس (VIP Zone)
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3, 4, 5, 6].map(t => (
+                          <div key={`left-t-${t}`} className="bg-purple-900/30 border border-purple-500/40 p-2.5 rounded-xl text-center">
+                            <span className="text-[10px] font-bold text-purple-200 block">طاولة VIP #{t}</span>
+                            <span className="text-[9px] text-purple-400">10 مقاعد</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right Wing (Guests & Friends) */}
+                    <div className="space-y-3">
+                      <div className="text-[10px] font-black text-cyan-300 bg-cyan-950/60 px-2.5 py-1 rounded-lg border border-cyan-800/40 w-fit">
+                        جناح الضيوف والمدعوين (Guest Wing)
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[7, 8, 9, 10, 11, 12].map(t => (
+                          <div key={`right-t-${t}`} className="bg-cyan-900/30 border border-cyan-500/40 p-2.5 rounded-xl text-center">
+                            <span className="text-[10px] font-bold text-cyan-200 block">طاولة #{t}</span>
+                            <span className="text-[9px] text-cyan-400">10 مقاعد</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-purple-100 text-purple-800 p-4 rounded-xl border border-purple-200">
-                    جناح تجهيز العروس الخاص
+
+                  {/* Bottom Amenities (Buffet, Main Entrance, Bridal Suite) */}
+                  <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-800 mt-4 relative z-10">
+                    <div className="bg-emerald-950/50 border border-emerald-700/50 p-2.5 rounded-xl text-center">
+                      <span className="text-[10px] font-black text-emerald-300 block">جناح البوفيه المفتوح</span>
+                      <span className="text-[9px] text-emerald-500">منطقة الخدمة والضيافة</span>
+                    </div>
+                    <div className="bg-indigo-950/50 border border-indigo-700/50 p-2.5 rounded-xl text-center">
+                      <span className="text-[10px] font-black text-indigo-300 block">المدخل الرئيسي والاستقبال</span>
+                      <span className="text-[9px] text-indigo-500">بوابة الدخول ومكتب الترحيب</span>
+                    </div>
+                    <div className="bg-pink-950/50 border border-pink-700/50 p-2.5 rounded-xl text-center">
+                      <span className="text-[10px] font-black text-pink-300 block">جناح العروس الخاص</span>
+                      <span className="text-[9px] text-pink-500">غرفة التجهيز ومصعد خاص</span>
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">مخطط هندسي توضيحي يوضح المساحات ومواقع الكوشة والبوفيه ومصاعد الخدمة.</p>
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-slate-400 pt-2">
+                <span className="flex items-center gap-1.5 text-amber-400 font-bold">
+                  <Check className="w-4 h-4" />
+                  مخطط معتمد ومطابق لاشتراطات السلامة والدفاع المدني
+                </span>
+                <button
+                  onClick={() => setIsFloorPlanModalOpen(false)}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl cursor-pointer transition-all text-xs"
+                >
+                  إغلاق المخطط
+                </button>
               </div>
             </div>
           </div>

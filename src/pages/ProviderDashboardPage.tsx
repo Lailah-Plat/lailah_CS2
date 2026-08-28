@@ -293,7 +293,7 @@ export function ProviderDashboardContent() {
         items: [
           { id: 'finance', label: 'المركز المالي وحساب الضمان', icon: Wallet },
           { id: 'subscriptions', label: 'باقات الاشتراك والعمولة', icon: Award },
-          { id: 'marketing', label: 'التقييمات والتسويق والنمو', icon: Megaphone },
+          { id: 'marketing', label: 'مركز النمو والتسويق', icon: Megaphone },
           { id: 'reviews', label: 'تقييمات وآراء العملاء', icon: Star },
         ]
       },
@@ -361,6 +361,7 @@ export function ProviderDashboardContent() {
               myBookings={state.bookings || []}
               mySupportRequests={state.supportServiceRequests || []}
               halls={state.halls || []}
+              providerSubscription={state.providerSubscription}
               showNotification={state.showNotification || (() => {})}
               onUpdateBookingStage={(id, stage) => {
                 if (state.setBookings) {

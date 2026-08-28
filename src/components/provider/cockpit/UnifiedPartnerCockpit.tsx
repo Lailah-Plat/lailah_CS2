@@ -8,7 +8,7 @@ import {
 import { DailyOperationsDispatchBar } from './DailyOperationsDispatchBar';
 import { LiveKpiCockpit } from './LiveKpiCockpit';
 import { SmartBookingLifecycleManager } from './SmartBookingLifecycleManager';
-import { FloorPlanBuilder } from './FloorPlanBuilder';
+import { FloorPlanVisualizer } from '../FloorPlanVisualizer';
 import { DynamicSurgePricingEngine } from './DynamicSurgePricingEngine';
 import { CashflowForecastingHub } from './CashflowForecastingHub';
 
@@ -18,9 +18,12 @@ interface UnifiedPartnerCockpitProps {
   myBookings: any[];
   mySupportRequests?: any[];
   halls?: any[];
+  services?: any[];
+  providerSubscription?: any;
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', message: string) => void;
   onOpenChat?: (booking: any) => void;
   onUpdateBookingStage?: (bookingId: string, newStage: number) => void;
+  onUpdateHall?: (hallId: string | number, updatedFields: any) => void;
 }
 
 export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
@@ -29,9 +32,12 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
   myBookings,
   mySupportRequests = [],
   halls = [],
+  services = [],
+  providerSubscription,
   showNotification,
   onOpenChat,
-  onUpdateBookingStage
+  onUpdateBookingStage,
+  onUpdateHall
 }) => {
   const [cockpitSubTab, setCockpitSubTab] = useState<'all' | 'dispatch' | 'kpis' | 'lifecycle' | 'floorplan' | 'pricing' | 'cashflow'>('all');
 
@@ -149,13 +155,17 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
           onUpdateBookingStage={onUpdateBookingStage}
           showNotification={showNotification}
           currentProviderName={currentProviderName}
+          providerSubscription={providerSubscription}
         />
       )}
 
-      {/* Module 4: Floor Plan Builder */}
+      {/* Module 4: Floor Plan Visualizer 360° */}
       {(cockpitSubTab === 'all' || cockpitSubTab === 'floorplan') && (
-        <FloorPlanBuilder
+        <FloorPlanVisualizer
           halls={halls}
+          currentProviderName={currentProviderName}
+          providerSubscription={providerSubscription}
+          bookings={filteredBookings}
           showNotification={showNotification}
         />
       )}
@@ -164,7 +174,12 @@ export const UnifiedPartnerCockpit: React.FC<UnifiedPartnerCockpitProps> = ({
       {(cockpitSubTab === 'all' || cockpitSubTab === 'pricing') && (
         <DynamicSurgePricingEngine
           halls={halls}
+          services={services}
+          providerSubscription={providerSubscription}
+          userRole="provider"
+          currentProviderName={currentProviderName}
           showNotification={showNotification}
+          onUpdateHall={onUpdateHall}
         />
       )}
 

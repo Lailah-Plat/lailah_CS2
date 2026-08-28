@@ -49,7 +49,7 @@ export const ServiceModalForm: React.FC<ServiceModalFormProps> = ({
     if (!p) return false;
     const packageName = (p.packageName || '').toLowerCase();
     const isPremiumPackage = packageName.includes('pro') || packageName.includes('احترافية') || packageName.includes('premium') || packageName.includes('متقدمة');
-    const hasAddon = p.addons?.includes('dynamic_pricing') || p.includesDynamicPricing || p.subscriptionStatus === 'Active';
+    const hasAddon = p.addons?.includes('weekend_pricing') || p.addons?.includes('dynamic_surge_pricing') || p.addons?.includes('dynamic_pricing') || p.includesWeekendPricing || p.includesDynamicSurgePricing || p.includesDynamicPricing || p.subscriptionStatus === 'Active';
     return isPremiumPackage || hasAddon;
   }, [serviceForm?.provider, providers]);
 

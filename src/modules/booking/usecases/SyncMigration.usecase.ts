@@ -1,8 +1,78 @@
 import { BookingRepository } from '../booking.repository.js';
-import { Hall, Service, Booking, SupportServiceRequest } from '../../../models/BookingModels.js';
+import { Hall, Service, Booking, SupportServiceRequest, HallExtraServices } from '../../../models/BookingModels.js';
 import { User, PlatformConfig } from '../../../models/UserModels.js';
 import { Ticket, syncSupportModels } from '../../../models/SupportModels.js';
 import { syncHallExtraServicesTable } from '../booking.helpers.js';
+
+/**
+ * Safe helper to parse a finite number with a fallback
+ */
+function toSafeNumber(val: any, defaultVal = 0): number {
+  if (val === null || val === undefined || val === '') return defaultVal;
+  const n = Number(val);
+  return isNaN(n) || !isFinite(n) ? defaultVal : n;
+}
+
+/**
+ * Safe helper to parse a nullable integer
+ */
+function toSafeInt(val: any, defaultVal: number | null = null): number | null {
+  if (val === null || val === undefined || val === '') return defaultVal;
+  const n = parseInt(String(val).replace(/[^\d\-]/g, ''), 10);
+  return isNaN(n) || !isFinite(n) ? defaultVal : n;
+}
+
+/**
+ * Safe helper to extract numeric ID from strings like 'PRV-123', 'CUST-001', 'BKG-26-0000000001', etc.
+ */
+function extractNumericId(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  if (typeof val === 'string') {
+    const digitsOnly = val.replace(/[^\d]/g, '');
+    if (digitsOnly.length > 0) {
+      const parsed = parseInt(digitsOnly, 10);
+      return isNaN(parsed) ? null : parsed;
+    }
+  }
+  return null;
+}
+
+/**
+ * Safe helper to validate and parse a Date
+ */
+function toSafeDate(val: any, defaultDate: Date = new Date()): Date {
+  if (!val) return defaultDate;
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? defaultDate : d;
+  } catch (e) {
+    return defaultDate;
+  }
+}
+
+/**
+ * Safe helper for JSON serialization
+ */
+function toSafeJsonString(val: any, defaultVal = '[]'): string {
+  if (val === null || val === undefined) return defaultVal;
+  if (typeof val === 'string') {
+    try {
+      JSON.parse(val);
+      return val;
+    } catch {
+      return JSON.stringify([val]);
+    }
+  }
+  if (Array.isArray(val) || typeof val === 'object') {
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return defaultVal;
+    }
+  }
+  return defaultVal;
+}
 
 export class SyncMigrationUseCase {
   constructor(private repo: BookingRepository) {}
@@ -22,92 +92,101 @@ export class SyncMigrationUseCase {
       let insertedHalls = 0;
       let updatedHalls = 0;
       for (const h of clientHalls) {
-        if (!h.name) continue;
+        if (!h || !h.name) continue;
+        try {
+          let hall = await Hall.findOne({ where: { name: String(h.name).trim() } });
 
-        let hall = await Hall.findOne({ where: { name: h.name } });
-
-        let resolvedProviderId: number | null = null;
-        if (h.providerId) {
-          const numStr = String(h.providerId).replace(/[^\d]/g, '');
-          if (numStr) {
-            resolvedProviderId = Number(numStr);
+          let resolvedProviderId: number | null = extractNumericId(h.providerId);
+          if (!resolvedProviderId && h.provider) {
+            try {
+              const user = await User.findOne({ where: { name: String(h.provider).trim() } });
+              if (user) {
+                resolvedProviderId = user.id;
+              }
+            } catch (e) {
+              // ignore user lookup error
+            }
           }
-        }
-        if (!resolvedProviderId && h.provider) {
-          const user = await User.findOne({ where: { name: h.provider } });
-          if (user) {
-            resolvedProviderId = user.id;
+
+          const body: any = {
+            name: String(h.name).trim(),
+            type: h.type || h.category || 'قاعة أفراح',
+            description: h.description || '',
+            contractTerms: h.contractTerms || '',
+            capacity: toSafeNumber(h.capacity, 100),
+            hourlyRate: toSafeNumber(h.hourlyRate || h.price, 0),
+            status: h.status || 'approved',
+            activationStatus: h.activationStatus || 'مفعل',
+            city: h.city || 'الرياض',
+            category: h.category || 'قاعة أفراح',
+            price: toSafeNumber(h.price || h.fullDayPrice, 0),
+            rating: toSafeNumber(h.rating, 4.5),
+            image: h.image || '',
+            images: toSafeJsonString(h.images),
+            location: h.location || '',
+            provider: h.provider || '',
+            features: toSafeJsonString(h.features),
+            rules: toSafeJsonString(h.rules),
+            extraServicesList: toSafeJsonString(h.extraServicesList),
+            featured: Boolean(h.featured),
+            nightPrice: toSafeNumber(h.nightPrice, 0),
+            morningPrice: toSafeNumber(h.morningPrice, 0),
+            fullDayPrice: toSafeNumber(h.fullDayPrice || h.price, 0),
+            phone: h.phone || '',
+            email: h.email || '',
+            region: h.region || '',
+            nationalAddress: h.nationalAddress || '',
+            extraAddress: h.extraAddress || '',
+            providerType: h.providerType || 'منشأة تجارية',
+            crNumber: h.crNumber || '',
+            crExpiryDate: h.crExpiryDate || '',
+            taxNumber: h.taxNumber || '',
+            bookingStatus: h.bookingStatus || 'متاحة',
+            facilities: typeof h.facilities === 'string' ? h.facilities : toSafeJsonString(h.facilities, ''),
+            cancellationPeriod: toSafeInt(h.cancellationPeriod, null),
+            providerId: resolvedProviderId,
+            taxExempt: Boolean(h.taxExempt),
+            paymentMethod: toSafeJsonString(h.paymentMethods || h.paymentMethod),
+            pledgeAccepted: Boolean(h.pledgeAccepted),
+            crImage: h.crImage || '',
+            ibanImage: h.ibanImage || '',
+            taxCertificateImage: h.taxCertificateImage || '',
+            zakatCertificateImage: h.zakatCertificateImage || '',
+            tourismLicenseImage: h.tourismLicenseImage || '',
+            bookingType: h.bookingType || 'alacarte',
+            packagesList: toSafeJsonString(h.packagesList)
+          };
+
+          let savedHall;
+          if (hall) {
+            delete body.status;
+            delete body.activationStatus;
+            await hall.update(body);
+            savedHall = hall;
+            updatedHalls++;
+          } else {
+            savedHall = await Hall.create(body);
+            insertedHalls++;
           }
-        }
 
-        const body: any = {
-          name: h.name,
-          type: h.type || h.category || 'قاعة أفراح',
-          description: h.description || '',
-          contractTerms: h.contractTerms || '',
-          capacity: Number(h.capacity || 100),
-          hourlyRate: Number(h.hourlyRate || h.price || 0),
-          status: h.status || 'approved',
-          activationStatus: h.activationStatus || 'مفعل',
-          city: h.city || 'الرياض',
-          category: h.category || 'قاعة أفراح',
-          price: Number(h.price || h.fullDayPrice || 0),
-          rating: Number(h.rating || 4.5),
-          image: h.image || '',
-          images: Array.isArray(h.images) ? JSON.stringify(h.images) : String(h.images || '[]'),
-          location: h.location || '',
-          provider: h.provider || '',
-          features: Array.isArray(h.features) ? JSON.stringify(h.features) : String(h.features || '[]'),
-          rules: Array.isArray(h.rules) ? JSON.stringify(h.rules) : String(h.rules || '[]'),
-          extraServicesList: Array.isArray(h.extraServicesList) ? JSON.stringify(h.extraServicesList) : String(h.extraServicesList || '[]'),
-          featured: !!h.featured,
-          nightPrice: Number(h.nightPrice || 0),
-          morningPrice: Number(h.morningPrice || 0),
-          fullDayPrice: Number(h.fullDayPrice || h.price || 0),
-          phone: h.phone || '',
-          email: h.email || '',
-          region: h.region || '',
-          nationalAddress: h.nationalAddress || '',
-          extraAddress: h.extraAddress || '',
-          providerType: h.providerType || 'منشأة تجارية',
-          crNumber: h.crNumber || '',
-          crExpiryDate: h.crExpiryDate || '',
-          taxNumber: h.taxNumber || '',
-          bookingStatus: h.bookingStatus || 'متاحة',
-          facilities: h.facilities || '',
-          cancellationPeriod: h.cancellationPeriod ? Number(h.cancellationPeriod) : null,
-          providerId: resolvedProviderId,
-          taxExempt: !!h.taxExempt,
-          paymentMethod: Array.isArray(h.paymentMethods) ? JSON.stringify(h.paymentMethods) : String(h.paymentMethod || '[]'),
-          pledgeAccepted: !!h.pledgeAccepted,
-          crImage: h.crImage || '',
-          ibanImage: h.ibanImage || '',
-          taxCertificateImage: h.taxCertificateImage || '',
-          zakatCertificateImage: h.zakatCertificateImage || '',
-          tourismLicenseImage: h.tourismLicenseImage || '',
-          bookingType: h.bookingType || 'alacarte',
-          packagesList: Array.isArray(h.packagesList) ? JSON.stringify(h.packagesList) : String(h.packagesList || '[]')
-        };
-
-        let savedHall;
-        if (hall) {
-          delete body.status;
-          delete body.activationStatus;
-          await hall.update(body);
-          savedHall = hall;
-          updatedHalls++;
-        } else {
-          savedHall = await Hall.create(body);
-          insertedHalls++;
+          if (savedHall && savedHall.id) {
+            let extraServices: any[] = [];
+            if (h.extraServicesList) {
+              try {
+                extraServices = typeof h.extraServicesList === 'string' ? JSON.parse(h.extraServicesList) : h.extraServicesList;
+              } catch (e) {
+                extraServices = [];
+              }
+            }
+            try {
+              await syncHallExtraServicesTable(savedHall.id, extraServices, savedHall.providerId);
+            } catch (errSync) {
+              console.warn(`Warning syncing extra services for hall ${savedHall.id}:`, errSync);
+            }
+          }
+        } catch (hallErr) {
+          console.error(`Error migrating hall '${h.name}':`, hallErr);
         }
-
-        let extraServices = [];
-        if (h.extraServicesList) {
-          try {
-            extraServices = typeof h.extraServicesList === 'string' ? JSON.parse(h.extraServicesList) : h.extraServicesList;
-          } catch (e) {}
-        }
-        await syncHallExtraServicesTable(savedHall.id, extraServices, savedHall.providerId);
       }
       logs.push(`✅ تم ترحيل/تحديث ${insertedHalls + updatedHalls} من القاعات المحلية (${insertedHalls} جديد، ${updatedHalls} تحديث) بنجاح.`);
     }
@@ -117,59 +196,60 @@ export class SyncMigrationUseCase {
       let insertedServices = 0;
       let updatedServices = 0;
       for (const s of clientServices) {
-        if (!s.name) continue;
+        if (!s || !s.name) continue;
+        try {
+          let service = await Service.findOne({ where: { name: String(s.name).trim() } });
 
-        let service = await Service.findOne({ where: { name: s.name } });
-
-        let resolvedProviderId: number | null = null;
-        if (s.providerId) {
-          const numStr = String(s.providerId).replace(/[^\d]/g, '');
-          if (numStr) {
-            resolvedProviderId = Number(numStr);
+          let resolvedProviderId: number | null = extractNumericId(s.providerId);
+          if (!resolvedProviderId && s.provider) {
+            try {
+              const user = await User.findOne({ where: { name: String(s.provider).trim() } });
+              if (user) {
+                resolvedProviderId = user.id;
+              }
+            } catch (e) {
+              // ignore user lookup error
+            }
           }
-        }
-        if (!resolvedProviderId && s.provider) {
-          const user = await User.findOne({ where: { name: s.provider } });
-          if (user) {
-            resolvedProviderId = user.id;
+
+          const body: any = {
+            name: String(s.name).trim(),
+            description: s.description || '',
+            quantity: toSafeInt(s.quantity !== undefined ? s.quantity : s.quantityLimit, null),
+            price: toSafeNumber(s.price, 0),
+            provider: s.provider || '',
+            providerId: resolvedProviderId,
+            showProviderToCustomers: Boolean(s.showProviderToCustomers),
+            regions: s.regions || '',
+            cities: s.cities || '',
+            terms: s.terms || '',
+            serviceStatus: s.serviceStatus || 'متاحة',
+            adminStatus: s.adminStatus || 'فعالة',
+            status: s.status || 'approved',
+            activationStatus: s.activationStatus || 'مفعل',
+            cancellationPeriod: toSafeInt(s.cancellationPeriod, null),
+            images: toSafeJsonString(s.images || (s.image ? [s.image] : [])),
+            hostName: s.hostName || s.provider || '',
+            unit: s.unit || 'مرة واحدة',
+            unitPrice: toSafeNumber(s.unitPrice || s.price, 0),
+            taxonomyType: s.taxonomyType || 'rental',
+            packages: toSafeJsonString(s.packages),
+            addons: toSafeJsonString(s.addons),
+            classification: s.classification || s.category || null
+          };
+
+          if (service) {
+            delete body.status;
+            delete body.activationStatus;
+            delete body.adminStatus;
+            await service.update(body);
+            updatedServices++;
+          } else {
+            await Service.create(body);
+            insertedServices++;
           }
-        }
-
-        const body: any = {
-          name: s.name,
-          description: s.description || '',
-          quantity: s.quantity === '' ? null : Number(s.quantity || s.quantityLimit || null),
-          price: Number(s.price || 0),
-          provider: s.provider || '',
-          providerId: resolvedProviderId,
-          showProviderToCustomers: !!s.showProviderToCustomers,
-          regions: s.regions || '',
-          cities: s.cities || '',
-          terms: s.terms || '',
-          serviceStatus: s.serviceStatus || 'متاحة',
-          adminStatus: s.adminStatus || 'فعالة',
-          status: s.status || 'approved',
-          activationStatus: s.activationStatus || 'مفعل',
-          cancellationPeriod: s.cancellationPeriod ? Number(s.cancellationPeriod) : null,
-          images: Array.isArray(s.images) ? JSON.stringify(s.images) : (typeof s.images === 'string' ? s.images : (s.image ? JSON.stringify([s.image]) : '[]')),
-          hostName: s.hostName || s.provider || '',
-          unit: s.unit || 'مرة واحدة',
-          unitPrice: Number(s.unitPrice || s.price || 0),
-          taxonomyType: s.taxonomyType || 'rental',
-          packages: Array.isArray(s.packages) ? JSON.stringify(s.packages) : String(s.packages || '[]'),
-          addons: Array.isArray(s.addons) ? JSON.stringify(s.addons) : String(s.addons || '[]'),
-          classification: s.classification || s.category || null
-        };
-
-        if (service) {
-          delete body.status;
-          delete body.activationStatus;
-          delete body.adminStatus;
-          await service.update(body);
-          updatedServices++;
-        } else {
-          await Service.create(body);
-          insertedServices++;
+        } catch (serviceErr) {
+          console.error(`Error migrating service '${s.name}':`, serviceErr);
         }
       }
       logs.push(`✅ تم ترحيل/تحديث ${insertedServices + updatedServices} من الخدمات المساندة المحلية (${insertedServices} جديد، ${updatedServices} تحديث) بنجاح.`);
@@ -179,51 +259,70 @@ export class SyncMigrationUseCase {
     if (Array.isArray(clientBookings) && clientBookings.length > 0) {
       let insertedBookings = 0;
       for (const b of clientBookings) {
+        if (!b) continue;
         const cName = b.customer || b.customerName || '';
-        const cPhone = b.phone || b.customerPhone || '';
-        if (!cName && !cPhone) continue;
+        const cPhone = b.phone || b.customerPhone || '0500000000';
+        if (!cName && !b.id) continue;
 
-        const existing = await Booking.findOne({
-          where: {
-            customerName: cName,
-            customerPhone: cPhone
-          }
-        });
-
-        if (!existing) {
-          let hallId = 1;
-          if (b.hall) {
-            const matchedHall = await Hall.findOne({ where: { name: b.hall } });
-            if (matchedHall) hallId = matchedHall.id;
-          }
-
-          let mappedStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed' = 'pending';
-          if (b.status === 'مؤكد' || b.status === 'confirmed') mappedStatus = 'confirmed';
-          else if (b.status === 'ملغي' || b.status === 'cancelled') mappedStatus = 'cancelled';
-          else if (b.status === 'مكتمل' || b.status === 'completed') mappedStatus = 'completed';
-
-          await Booking.create({
-            customerName: cName,
-            customerPhone: cPhone,
-            hallId,
-            startTime: b.date || b.startTime ? new Date(b.date || b.startTime) : new Date(),
-            endTime: b.endTime ? new Date(b.endTime) : new Date(Date.now() + 86400000),
-            guests: Number(b.guests || 100),
-            totalAmount: Number(b.totalAmount || b.amount || 0),
-            status: mappedStatus,
-            userId: b.userId || null,
-            customerEmail: b.email || b.customerEmail || null,
-            bookingType: b.bookingType || 'alacarte',
-            packageName: b.packageName || null,
-            selectedAddons: typeof b.selectedAddons === 'string' ? b.selectedAddons : JSON.stringify(b.selectedAddons || []),
-            externalServices: typeof b.externalServices === 'string' ? b.externalServices : JSON.stringify(b.externalServices || []),
-            subTotal: Number(b.subTotal || b.amount || 0),
-            taxAmount: Number(b.taxAmount || 0),
-            depositAmount: Number(b.depositAmount || 0),
-            paymentMethod: b.paymentMethod || 'online',
-            paymentStatus: b.paymentStatus || 'pending'
+        try {
+          const existing = await Booking.findOne({
+            where: {
+              customerName: cName,
+              customerPhone: cPhone
+            }
           });
-          insertedBookings++;
+
+          if (!existing) {
+            let hallId = 1;
+            if (b.hall) {
+              try {
+                const matchedHall = await Hall.findOne({ where: { name: String(b.hall).trim() } });
+                if (matchedHall) {
+                  hallId = matchedHall.id;
+                }
+              } catch (e) {}
+            } else if (b.hallId && extractNumericId(b.hallId)) {
+              hallId = extractNumericId(b.hallId)!;
+            } else {
+              try {
+                const anyHall = await Hall.findOne();
+                if (anyHall) hallId = anyHall.id;
+              } catch (e) {}
+            }
+
+            let mappedStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed' = 'pending';
+            if (b.status === 'مؤكد' || b.status === 'confirmed') mappedStatus = 'confirmed';
+            else if (b.status === 'ملغي' || b.status === 'cancelled') mappedStatus = 'cancelled';
+            else if (b.status === 'مكتمل' || b.status === 'completed') mappedStatus = 'completed';
+
+            const startDate = toSafeDate(b.date || b.startTime, new Date());
+            const endDate = toSafeDate(b.endTime, new Date(startDate.getTime() + 86400000));
+
+            await Booking.create({
+              customerName: cName || 'عميل تجريبي',
+              customerPhone: cPhone,
+              hallId,
+              startTime: startDate,
+              endTime: endDate,
+              guests: toSafeNumber(b.guests, 100),
+              totalAmount: toSafeNumber(b.totalAmount || b.amount, 0),
+              status: mappedStatus,
+              userId: extractNumericId(b.userId),
+              customerEmail: b.email || b.customerEmail || null,
+              bookingType: b.bookingType || 'alacarte',
+              packageName: b.packageName || null,
+              selectedAddons: toSafeJsonString(b.selectedAddons),
+              externalServices: toSafeJsonString(b.externalServices),
+              subTotal: toSafeNumber(b.subTotal || b.amount, 0),
+              taxAmount: toSafeNumber(b.taxAmount, 0),
+              depositAmount: toSafeNumber(b.depositAmount, 0),
+              paymentMethod: b.paymentMethod || 'online',
+              paymentStatus: b.paymentStatus || 'pending'
+            });
+            insertedBookings++;
+          }
+        } catch (bookingErr) {
+          console.error(`Error migrating booking for '${cName}':`, bookingErr);
         }
       }
       if (insertedBookings > 0) {
@@ -235,27 +334,31 @@ export class SyncMigrationUseCase {
     if (Array.isArray(clientSupportRequests) && clientSupportRequests.length > 0) {
       let insertedReqs = 0;
       for (const r of clientSupportRequests) {
-        if (!r.serviceName) continue;
-        const existing = await SupportServiceRequest.findOne({
-          where: {
-            serviceName: r.serviceName,
-            customerName: r.customerName || ''
-          }
-        });
-        if (!existing) {
-          await SupportServiceRequest.create({
-            bookingId: r.bookingId || null,
-            customerName: r.customerName || '',
-            providerName: r.providerName || '',
-            serviceName: r.serviceName || '',
-            price: Number(r.price || 0),
-            date: r.date || new Date().toISOString().split('T')[0],
-            status: r.status || 'قيد الانتظار',
-            customerId: r.customerId || null,
-            providerId: r.providerId || null,
-            serviceId: r.serviceId || null
+        if (!r || !r.serviceName) continue;
+        try {
+          const existing = await SupportServiceRequest.findOne({
+            where: {
+              serviceName: String(r.serviceName).trim(),
+              customerName: r.customerName || ''
+            }
           });
-          insertedReqs++;
+          if (!existing) {
+            await SupportServiceRequest.create({
+              bookingId: extractNumericId(r.bookingId),
+              customerName: r.customerName || '',
+              providerName: r.providerName || '',
+              serviceName: String(r.serviceName).trim(),
+              price: toSafeNumber(r.price, 0),
+              date: r.date || new Date().toISOString().split('T')[0],
+              status: r.status || 'قيد الانتظار',
+              customerId: extractNumericId(r.customerId),
+              providerId: extractNumericId(r.providerId),
+              serviceId: extractNumericId(r.serviceId)
+            });
+            insertedReqs++;
+          }
+        } catch (reqErr) {
+          console.error(`Error migrating support request '${r.serviceName}':`, reqErr);
         }
       }
       if (insertedReqs > 0) {
@@ -273,24 +376,31 @@ export class SyncMigrationUseCase {
       }
 
       for (const t of clientSupportTickets) {
-        if (!t.title) continue;
+        if (!t || !t.title) continue;
         try {
-          const existing = await Ticket.findOne({ where: { title: t.title } });
+          const existing = await Ticket.findOne({ where: { title: String(t.title).trim() } });
           if (!existing) {
+            // Validate ENUMs
+            const validStatuses = ['مفتوحة', 'قيد المعالجة', 'بانتظار العميل', 'مغلقة', 'مخالفة الأولوية'];
+            const mappedStatus = validStatuses.includes(t.status) ? t.status : 'مفتوحة';
+
+            const validPriorities = ['عالية جدا', 'عالية', 'متوسطة', 'منخفضة'];
+            const mappedPriority = validPriorities.includes(t.priority) ? t.priority : 'متوسطة';
+
+            const customerId = extractNumericId(t.customerId) || 1;
+            const assignedAgentId = extractNumericId(t.assignedAgentId);
+            const slaDeadline = toSafeDate(t.slaDeadline, new Date(Date.now() + 86400000));
+
             const ticketData: any = {
-              title: t.title,
-              description: t.description || t.title,
-              status: t.status === 'مفتوحة' ? 'مفتوحة' : 'مغلقة',
-              priority: t.priority === 'عالية جدا' ? 'عالية جدا' : (t.priority === 'عالية' ? 'عالية' : 'متوسطة'),
+              title: String(t.title).trim(),
+              description: t.description || t.title || 'طلب مساعدة ودعم فني',
+              status: mappedStatus,
+              priority: mappedPriority,
               department: t.department || 'عام',
-              customerId: t.customerId || 1,
-              assignedAgentId: t.assignedAgentId || null,
-              slaDeadline: t.slaDeadline ? new Date(t.slaDeadline) : new Date(Date.now() + 86400000)
+              customerId,
+              assignedAgentId,
+              slaDeadline
             };
-            
-            if (typeof t.id === 'number' && !isNaN(t.id) && t.id > 0) {
-              ticketData.id = t.id;
-            }
 
             await Ticket.create(ticketData);
             insertedTickets++;
@@ -306,38 +416,41 @@ export class SyncMigrationUseCase {
 
     // 6. Migrate Regions and Cities to PlatformConfig
     if (Array.isArray(clientRegions) && clientRegions.length > 0) {
-      const existingRegionsConfig = await PlatformConfig.findOne({ where: { key: 'SYSTEM_REGIONS' } });
-      if (existingRegionsConfig) {
-        await existingRegionsConfig.update({ value: JSON.stringify(clientRegions) });
-      } else {
-        await PlatformConfig.create({
-          key: 'SYSTEM_REGIONS',
-          value: JSON.stringify(clientRegions)
-        });
+      try {
+        const existingRegionsConfig = await PlatformConfig.findOne({ where: { key: 'SYSTEM_REGIONS' } });
+        if (existingRegionsConfig) {
+          await existingRegionsConfig.update({ value: JSON.stringify(clientRegions) });
+        } else {
+          await PlatformConfig.create({
+            key: 'SYSTEM_REGIONS',
+            value: JSON.stringify(clientRegions)
+          });
+        }
+
+        const regionNames = clientRegions.map((r: any) => r?.name).filter(Boolean);
+        const allCities = clientRegions.flatMap((r: any) => r?.cities || []).filter(Boolean);
+        const uniqueCities = Array.from(new Set(allCities));
+
+        const existingRegNames = await PlatformConfig.findOne({ where: { key: 'SYSTEM_DATastore_regions' } });
+        if (existingRegNames) {
+          await existingRegNames.update({ value: JSON.stringify(regionNames) });
+        } else {
+          await PlatformConfig.create({ key: 'SYSTEM_DATastore_regions', value: JSON.stringify(regionNames) });
+        }
+
+        const existingCities = await PlatformConfig.findOne({ where: { key: 'SYSTEM_DATastore_cities' } });
+        if (existingCities) {
+          await existingCities.update({ value: JSON.stringify(uniqueCities) });
+        } else {
+          await PlatformConfig.create({ key: 'SYSTEM_DATastore_cities', value: JSON.stringify(uniqueCities) });
+        }
+
+        logs.push(`✅ تم حفظ وترحيل المناطق والمدن الجغرافية إلى قاعدة البيانات السحابية بنجاح.`);
+      } catch (regionsErr) {
+        console.error("Error migrating regions to PlatformConfig:", regionsErr);
       }
-
-      const regionNames = clientRegions.map((r: any) => r.name);
-      const allCities = clientRegions.flatMap((r: any) => r.cities || []);
-      const uniqueCities = Array.from(new Set(allCities));
-
-      const existingRegNames = await PlatformConfig.findOne({ where: { key: 'SYSTEM_DATastore_regions' } });
-      if (existingRegNames) {
-        await existingRegNames.update({ value: JSON.stringify(regionNames) });
-      } else {
-        await PlatformConfig.create({ key: 'SYSTEM_DATastore_regions', value: JSON.stringify(regionNames) });
-      }
-
-      const existingCities = await PlatformConfig.findOne({ where: { key: 'SYSTEM_DATastore_cities' } });
-      if (existingCities) {
-        await existingCities.update({ value: JSON.stringify(uniqueCities) });
-      } else {
-        await PlatformConfig.create({ key: 'SYSTEM_DATastore_cities', value: JSON.stringify(uniqueCities) });
-      }
-
-      logs.push(`✅ تم حفظ وترحيل المناطق والمدن الجغرافية إلى قاعدة البيانات السحابية بنجاح.`);
     }
 
     return { success: true, logs };
   }
 }
-

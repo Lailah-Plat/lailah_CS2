@@ -5,12 +5,183 @@
  */
 
 /**
- * باقات الاشتراكات الافتراضية لمنصة "ليلة" مع توضيح نسبة العمولة المقتطعة لكل باقة
+ * @file subscriptions.ts
+ * @description وحدة إدارة باقات اشتراكات المزودين والنسب المقتطعة لمنصة "ليلة".
+ * توفر إعدادات الباقات القياسية (الأساسية، الأعمال، الاحترافية)، حدود القاعات، الميزات المتاحة (19 ميزة)، ونسب العمولات الديناميكية.
+ */
+
+/**
+ * باقات الاشتراكات الافتراضية لمنصة "ليلة" مع توضيح نسبة العمولة المقتطعة وكافة الميزات الـ 27 المعتمدة
  */
 export const DEFAULT_SUBSCRIPTIONS = [
-  { id: 'basic', name: 'الباقة الأساسية', revenue: 5000, priceMonthly: 99, priceYearly: 950, features: 'نظام حجوزات مبسط\nدعم فني عبر التذاكر فقط\nتقارير شهرية', status: 'مفعل', isPopular: false, discount: 0, usersCount: 45, commissionRate: 15, includesInventory: false, includesSuppliers: false, includesMiniProductsStore: false, includesWhatsAppCampaignAlerts: false, hallsLimit: '1', servicesLimit: '5', canExportFinancials: false, hasSupport: false, staffSeatsLimit: '0', includesGrowthCharts: false, includesFinancialForecast: false, includesPartialPayment: false, includesAdvancedStats: false, includesFullManagement: false, includesAdvancedProviderDashboard: false, includesLogisticsPortal: false },
-  { id: 'business', name: 'باقة الأعمال', revenue: 20000, priceMonthly: 199, priceYearly: 1910, features: 'نظام حجوزات متقدم\nدعم فني مباشر VIP (محادثة فورية)\nتقارير متقدمة\nالربط ببوابات الدفع\nميزة لوحة الإحصائيات المتقدمة\nميزة الإدارة الشاملة للحجوزات والخدمات\nتفعيل ميزة لوحة مزود الخدمة المتقدمة\nتفعيل إشعارات رسائل واتس أب في الحملات التسويقية', status: 'مفعل', isPopular: true, discount: 15, usersCount: 120, commissionRate: 10, includesInventory: true, includesSuppliers: true, includesMiniProductsStore: false, includesWhatsAppCampaignAlerts: true, hallsLimit: '3', servicesLimit: '15', canExportFinancials: true, hasSupport: true, staffSeatsLimit: '5', includesGrowthCharts: false, includesFinancialForecast: false, includesPartialPayment: false, includesAdvancedStats: true, includesFullManagement: true, includesAdvancedProviderDashboard: true, includesLogisticsPortal: false },
-  { id: 'pro', name: 'الباقة الاحترافية', revenue: 12000, priceMonthly: 399, priceYearly: 3830, features: 'نظام إدارة متكامل\nدعم فني مباشر VIP (محادثة فورية)\nوصول لبيانات العملاء\nأولوية في الظهور\nميزة متجر المنتجات والمستلزمات المصغر\nميزة لوحة الإحصائيات المتقدمة\nميزة الإدارة الشاملة للحجوزات والخدمات\nتفعيل ميزة لوحة مزود الخدمة المتقدمة\nبوابة الطلبات اللوجستية وإدارة السيولة المتقدمة\nتفعيل إشعارات رسائل واتس أب في الحملات التسويقية', status: 'مفعل', isPopular: false, discount: 20, usersCount: 30, commissionRate: 5, includesInventory: true, includesSuppliers: true, includesMiniProductsStore: true, includesWhatsAppCampaignAlerts: true, hallsLimit: '', servicesLimit: '', canExportFinancials: true, hasSupport: true, staffSeatsLimit: '', includesGrowthCharts: true, includesFinancialForecast: true, includesPartialPayment: true, includesAdvancedStats: true, includesFullManagement: true, includesAdvancedProviderDashboard: true, includesLogisticsPortal: true }
+  {
+    id: 'basic',
+    name: 'الباقة الأساسية',
+    revenue: 5000,
+    priceMonthly: 99,
+    priceYearly: 950,
+    features: 'نظام حجوزات مبسط وتسوية سريعة\nدعم فني عبر التذاكر فقط\nتقارير شهرية',
+    status: 'مفعل',
+    isPopular: false,
+    planBadgeText: '',
+    discount: 0,
+    usersCount: 45,
+    // 🔢 الحقول الرقمية وحدود السعة الأربعة
+    commissionRate: 15,
+    hallsLimit: '1',
+    servicesLimit: '5',
+    staffSeatsLimit: '0',
+    // ☑️ مربعات الاختيار لميزات الباقة (21 ميزة معتمدة ومسلسلة)
+    // 1️⃣ المالية والتسعير
+    includesWeekendPricing: false,
+    includesDynamicSurgePricing: false,
+    includesPartialPayment: false,
+    canExportFinancials: false,
+    includesAdvancedExport: false,
+    includesGrowthCharts: false,
+    includesInteractiveCharts: false,
+    includesFinancialForecast: false,
+    includesCashflowForecasting: false,
+    closedBundlesOnly: true,
+    includesHybridHallMarketplace: false,
+    openMarketplaceServices: false,
+    includesVendorNetworkIntegration: false,
+    // 2️⃣ العمليات واللوجستيات
+    includesFullManagement: false,
+    includesFloorPlan360: false,
+    includesSixStages: false,
+    includesLogisticsPortal: false,
+    includesInventory: false,
+    includesSuppliers: false,
+    includesCalendarSync: false,
+    // 3️⃣ CRM والدعم والشركاء
+    includesDedicatedCRM: false,
+    includesClientMessagingHub: true,
+    hasLiveChatVIP: false,
+    includesLiveChatSupport: false,
+    hasDedicatedAccountManager: false,
+    includesDedicatedAccountManager: false,
+    // 4️⃣ التسويق والمتاجر
+    includesMarketingAgency: false,
+    includesMiniProductsStore: false,
+    // سمات إضافية وتوافقية
+    hasSupport: false,
+    includesAdvancedStats: false,
+    includesWhatsAppCampaignAlerts: false,
+    isHidden: false,
+  },
+  {
+    id: 'business',
+    name: 'باقة الأعمال',
+    revenue: 20000,
+    priceMonthly: 199,
+    priceYearly: 1910,
+    features: 'نظام حجوزات متقدم\nميزة نظام دورات الحياة المتقدمة (المراحل الست)\nدعم فني مباشر VIP (محادثة فورية)\nتقارير متقدمة\nالربط ببوابات الدفع\nميزة الإدارة الشاملة للحجوزات والخدمات\nميزة تسعير عطلة نهاية الأسبوع (الويكند)\nمزامنة التقويم السحابي (Google / Apple)\nسجل إدارة علاقات العملاء والولاء\nمخطط القاعة 360°',
+    status: 'مفعل',
+    isPopular: true,
+    planBadgeText: 'الأكثر طلباً ⭐',
+    discount: 15,
+    usersCount: 120,
+    // 🔢 الحقول الرقمية وحدود السعة الأربعة
+    commissionRate: 10,
+    hallsLimit: '3',
+    servicesLimit: '15',
+    staffSeatsLimit: '5',
+    // ☑️ مربعات الاختيار لميزات الباقة (21 ميزة معتمدة ومسلسلة)
+    // 1️⃣ المالية والتسعير
+    includesWeekendPricing: true,
+    includesDynamicSurgePricing: false,
+    includesPartialPayment: false,
+    canExportFinancials: true,
+    includesAdvancedExport: true,
+    includesGrowthCharts: false,
+    includesInteractiveCharts: false,
+    includesFinancialForecast: false,
+    includesCashflowForecasting: false,
+    closedBundlesOnly: false,
+    includesHybridHallMarketplace: true,
+    openMarketplaceServices: true,
+    includesVendorNetworkIntegration: true,
+    // 2️⃣ العمليات واللوجستيات
+    includesFullManagement: true,
+    includesFloorPlan360: true,
+    includesSixStages: true,
+    includesLogisticsPortal: false,
+    includesInventory: true,
+    includesSuppliers: true,
+    includesCalendarSync: true,
+    // 3️⃣ CRM والدعم والشركاء
+    includesDedicatedCRM: true,
+    includesClientMessagingHub: true,
+    hasLiveChatVIP: true,
+    includesLiveChatSupport: true,
+    hasDedicatedAccountManager: false,
+    includesDedicatedAccountManager: false,
+    // 4️⃣ التسويق والمتاجر
+    includesMarketingAgency: false,
+    includesMiniProductsStore: false,
+    // سمات إضافية وتوافقية
+    hasSupport: true,
+    includesAdvancedStats: true,
+    includesWhatsAppCampaignAlerts: true,
+    isHidden: false,
+  },
+  {
+    id: 'pro',
+    name: 'الباقة الاحترافية',
+    revenue: 12000,
+    priceMonthly: 399,
+    priceYearly: 3830,
+    features: 'نظام إدارة متكامل شامل كافة الصلاحيات\nنظام دورات الحياة المتقدمة (المراحل الست)\nدعم فني مباشر VIP (محادثة فورية)\nتعيين مدير حساب وإدارة الشريك المخصص\nمحرك التسعير الديناميكي وزيادة الذروة الذكي\nبوابة العمليات اللوجستية الميدانية\nمزامنة التقويم السحابي وسجل CRM المتطور\nوكالة التسويق والحملات الترويجية المدارة\nالرسومات البيانية التفاعلية وميزانية التوقعات المالية\nحزمة مخطط القاعة والميدان 360°',
+    status: 'مفعل',
+    isPopular: false,
+    planBadgeText: 'الخيار الأفضل للمؤسسات 💎',
+    discount: 20,
+    usersCount: 30,
+    // 🔢 الحقول الرقمية وحدود السعة الأربعة
+    commissionRate: 5,
+    hallsLimit: '',
+    servicesLimit: '',
+    staffSeatsLimit: '',
+    // ☑️ مربعات الاختيار لميزات الباقة (21 ميزة معتمدة ومسلسلة)
+    // 1️⃣ المالية والتسعير
+    includesWeekendPricing: true,
+    includesDynamicSurgePricing: true,
+    includesPartialPayment: true,
+    canExportFinancials: true,
+    includesAdvancedExport: true,
+    includesGrowthCharts: true,
+    includesInteractiveCharts: true,
+    includesFinancialForecast: true,
+    includesCashflowForecasting: true,
+    closedBundlesOnly: false,
+    includesHybridHallMarketplace: true,
+    openMarketplaceServices: true,
+    includesVendorNetworkIntegration: true,
+    // 2️⃣ العمليات واللوجستيات
+    includesFullManagement: true,
+    includesFloorPlan360: true,
+    includesSixStages: true,
+    includesLogisticsPortal: true,
+    includesInventory: true,
+    includesSuppliers: true,
+    includesCalendarSync: true,
+    // 3️⃣ CRM والدعم والشركاء
+    includesDedicatedCRM: true,
+    includesClientMessagingHub: true,
+    hasLiveChatVIP: true,
+    includesLiveChatSupport: true,
+    hasDedicatedAccountManager: true,
+    includesDedicatedAccountManager: true,
+    // 4️⃣ التسويق والمتاجر
+    includesMarketingAgency: true,
+    includesMiniProductsStore: true,
+    // سمات إضافية وتوافقية
+    hasSupport: true,
+    includesAdvancedStats: true,
+    includesWhatsAppCampaignAlerts: true,
+    isHidden: false,
+  }
 ];
 
 /**
@@ -22,31 +193,13 @@ export function getSubscriptions() {
   if (data) {
     try {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         const uniqueMap = new Map();
         parsed.forEach((item: any) => {
           if (item && item.name) {
             const key = item.name.trim();
             const existing = uniqueMap.get(key);
             
-            // ضمان ضبط خاصية متجر المنتجات والمستلزمات إذا لم تكن محددة
-            if (item.includesMiniProductsStore === undefined) {
-              if (item.id === 'pro' || (item.name && item.name.includes('الاحترافية')) || (item.features && item.features.includes('متجر'))) {
-                item.includesMiniProductsStore = true;
-              } else {
-                item.includesMiniProductsStore = false;
-              }
-            }
-
-            // ضمان ضبط خاصية إشعارات رسائل واتساب في الحملات التسويقية
-            if (item.includesWhatsAppCampaignAlerts === undefined) {
-              if (item.id === 'pro' || item.id === 'business' || (item.name && (item.name.includes('الاحترافية') || item.name.includes('الأعمال'))) || (item.features && item.features.includes('واتس'))) {
-                item.includesWhatsAppCampaignAlerts = true;
-              } else {
-                item.includesWhatsAppCampaignAlerts = false;
-              }
-            }
-
             // إعطاء الأولوية للخطط المتزامنة مع قاعدة البيانات
             if (!existing || (!isNaN(Number(item.id)) && isNaN(Number(existing.id)))) {
               uniqueMap.set(key, item);
@@ -55,7 +208,6 @@ export function getSubscriptions() {
         });
         return Array.from(uniqueMap.values());
       }
-      return parsed;
     } catch (e) {
       console.error("خطأ في قراءة باقات الاشتراكات من التخزين:", e);
     }

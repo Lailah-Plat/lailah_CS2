@@ -6,7 +6,7 @@ import {
   ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, MoveRight, MoveLeft,
   Sparkles, ExternalLink, Copy, Check, BarChart2, TrendingUp, Layers, 
   Filter, Clock, Globe, Sliders, Download, RefreshCw, Smartphone, Monitor,
-  SlidersHorizontal, CheckSquare, Printer, Wand2, Wifi, Zap
+  SlidersHorizontal, CheckSquare, Printer, Wand2, Wifi, Zap, Scale, Settings
 } from 'lucide-react';
 import { getLPASPages } from '../data/lpasData';
 import { AdRequestProviderWizard, AdRequestsTable } from './AdRequestProviderWizard';
@@ -14,6 +14,13 @@ import { AdPlatformsApiSyncView } from './growth/AdPlatformsApiSyncView';
 import { CampaignNotificationManager } from './growth/CampaignNotificationManager';
 import { AiCopywritingStudioModal } from './growth/AiCopywritingStudioModal';
 import { ExecutiveReportModal } from './growth/ExecutiveReportModal';
+import { 
+  getFinancialComplianceRules, 
+  saveFinancialComplianceRules, 
+  resetFinancialComplianceRules, 
+  FinancialPromoComplianceRule, 
+  evaluatePromoFinancialCompliance 
+} from '../utils/discounts';
 export { AdRequestProviderWizard, AdRequestsTable };
 
 const formatCurrency = (amount: number) => {
@@ -1834,6 +1841,23 @@ export const PromotionsManagement = ({
   const [editingPromotion, setEditingPromotion] = useState<any>(null);
   const [viewingPromotion, setViewingPromotion] = useState<any>(null);
 
+  // Sovereign Financial Rules Modal State (Admin Only)
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [adminComplianceRules, setAdminComplianceRules] = useState<FinancialPromoComplianceRule>(() => getFinancialComplianceRules());
+
+  const handleSaveComplianceRules = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveFinancialComplianceRules(adminComplianceRules);
+    showNotification('success', 'تم حفظ وتحديث السقوف والضوابط الرقابية السيادية بنجاح وتطبيقها فورياً على جميع العروض.');
+    setIsRulesModalOpen(false);
+  };
+
+  const handleResetComplianceRules = () => {
+    const defaults = resetFinancialComplianceRules();
+    setAdminComplianceRules(defaults);
+    showNotification('info', 'تمت استعادة الإعدادات والضوابط الرقابية القياسية الافتراضية للمنصة.');
+  };
+
   const [retargetingPromotion, setRetargetingPromotion] = useState<any>(null);
   const [selectedRetargetHallId, setSelectedRetargetHallId] = useState<string>('');
   const [favoritesCount, setFavoritesCount] = useState<number | null>(null);
@@ -2185,12 +2209,27 @@ export const PromotionsManagement = ({
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-8 flex-row-reverse text-right">
-        <button 
-          onClick={openCreateModal}
-          className="bg-slate-900 text-white font-bold px-8 py-4 rounded-2xl flex items-center gap-2 shadow-xl shadow-slate-900/25 hover:scale-105 hover:bg-slate-800 transition-all font-sans cursor-pointer self-stretch md:self-auto justify-center"
-        >
-          <Plus className="w-5 h-5 text-amber-500" /> إنشاء عرض جديد
-        </button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setAdminComplianceRules(getFinancialComplianceRules());
+                setIsRulesModalOpen(true);
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-6 py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 hover:scale-105 transition-all font-sans cursor-pointer flex-1 md:flex-none text-xs"
+            >
+              <Scale className="w-4 h-4 text-slate-950" />
+              الرقابة السيادية وسقوف الخصومات ⚖️
+            </button>
+          )}
+          <button 
+            onClick={openCreateModal}
+            className="bg-slate-900 text-white font-bold px-8 py-4 rounded-2xl flex items-center gap-2 shadow-xl shadow-slate-900/25 hover:scale-105 hover:bg-slate-800 transition-all font-sans cursor-pointer flex-1 md:flex-none justify-center"
+          >
+            <Plus className="w-5 h-5 text-amber-500" /> إنشاء عرض جديد
+          </button>
+        </div>
         <div>
           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 justify-end">
              🎟️ طلبات العروض والخصومات الذكية
@@ -2987,6 +3026,156 @@ export const PromotionsManagement = ({
                 {isSendingRetarget ? 'جاري إطلاق الحملة...' : 'إطلاق حملة الاستهداف الفوري 🚀'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SOVEREIGN FINANCIAL RULES MODAL (ADMIN ONLY) */}
+      {isRulesModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" dir="rtl">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200 font-sans text-right animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-slate-900 p-6 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center font-bold shadow-md">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-white">الرقابة السيادية على سقوف وسياسات الخصومات</h3>
+                  <p className="text-xs text-slate-400">تحديد المعايير المحاسبية الملزمة لمنع الخسائر على المنصة والشركاء</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRulesModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveComplianceRules} className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  هذه الضوابط تسري فورياً على جميع المزودين ومسؤولي التسويق. أي عرض يتجاوز هذه السقوف يتم حظره برمجياً في مركز النمو والتسويق مع إبراز سبب عدم التوافق المالي.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                {/* Max Discount Percentage */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-700 block">السقف الأعلى لنسبة الخصم (%)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="90"
+                    value={adminComplianceRules.maxDiscountPercentage}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, maxDiscountPercentage: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold block">الحد الأقصى للخصومات المئوية (افتراضي: 50%)</span>
+                </div>
+
+                {/* Max Fixed Discount SAR */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-700 block">السقف المالي المطلق للخصم الثابت (ر.س)</label>
+                  <input
+                    type="number"
+                    min="100"
+                    step="100"
+                    value={adminComplianceRules.maxFixedDiscountAmount}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, maxFixedDiscountAmount: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold block">الحد الأقصى المطلق لمبلغ الخصم (افتراضي: 5,000 ر.س)</span>
+                </div>
+
+                {/* Max Proportional Ratio for Fixed */}
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-indigo-950 block">السقف النسبي المزدوج للخصومات الثابتة (%)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="80"
+                    value={adminComplianceRules.maxFixedDiscountRatio || 50}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, maxFixedDiscountRatio: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <span className="text-[10px] text-indigo-700 font-bold block">يمنع الخصم الثابت من تجاوز هذه النسبة من سعر الحجز</span>
+                </div>
+
+                {/* Min Net Price Margin */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-700 block">الحد الأدنى لصافي الربح بعد الخصم (%)</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="90"
+                    value={adminComplianceRules.minNetPriceMarginPercentage}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, minNetPriceMarginPercentage: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold block">هامش الأمان الأدنى للمزود (افتراضي: 40%)</span>
+                </div>
+
+                {/* Min Early Bird Days */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-700 block">الحد الأدنى لأيام الحجز المبكر (أيام)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={adminComplianceRules.minEarlyBirdDays}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, minEarlyBirdDays: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold block">أقل فترة زمنية مقبولة للحجز المبكر (افتراضي: 7 أيام)</span>
+                </div>
+
+                {/* Max Active Promos Per Provider */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5">
+                  <label className="text-[11px] font-black text-slate-700 block">الحد الأقصى للعروض المتزامنة للمزود</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={adminComplianceRules.maxActivePromosPerProvider}
+                    onChange={(e) => setAdminComplianceRules(prev => ({ ...prev, maxActivePromosPerProvider: Number(e.target.value) }))}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold block">لمنع إغراق السوق وتداخل الخصومات (افتراضي: 5 عروض)</span>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleResetComplianceRules}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  استعادة القيم الافتراضية 🔄
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRulesModalOpen(false)}
+                    className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-black shadow-md hover:scale-105 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Check className="w-4 h-4" />
+                    حفظ واعتماد التعديلات السيادية
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
