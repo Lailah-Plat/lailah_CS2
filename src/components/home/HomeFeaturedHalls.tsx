@@ -331,9 +331,10 @@ export const HomeFeaturedHalls: React.FC<HomeFeaturedHallsProps> = ({
                   <button
                     onClick={(e) => openProviderChat(e, h[0].provider || '', h[0].name)}
                     className="text-xs sm:text-sm text-slate-500 hover:text-amber-600 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    title="تواصل مع مزود القاعة / الخدمة"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>تواصل</span>
+                    <span>تواصل مع مزود القاعة / الخدمة</span>
                   </button>
                   <Link
                     to={`/hall/${h[0].id}`}
@@ -407,9 +408,10 @@ export const HomeFeaturedHalls: React.FC<HomeFeaturedHallsProps> = ({
                   <button
                     onClick={(e) => openProviderChat(e, h[1].provider || '', h[1].name)}
                     className="text-xs sm:text-sm text-slate-500 hover:text-amber-600 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    title="تواصل مع مزود القاعة / الخدمة"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>تواصل مع المنشأة</span>
+                    <span>تواصل مع مزود القاعة / الخدمة</span>
                   </button>
                   <Link
                     to={`/hall/${h[1].id}`}
@@ -806,9 +808,10 @@ export const HomeFeaturedHalls: React.FC<HomeFeaturedHallsProps> = ({
                   <button
                     onClick={(e) => openProviderChat(e, h[7].provider || '', h[7].name)}
                     className="text-xs text-slate-500 hover:text-amber-600 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    title="تواصل مع مزود القاعة / الخدمة"
                   >
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span>تواصل</span>
+                    <span>تواصل مع مزود القاعة / الخدمة</span>
                   </button>
                   <Link
                     to={`/hall/${h[7].id}`}

@@ -483,7 +483,7 @@ export default function App() {
       );
     }
     return TABS.filter(tab => 
-      ['overview', 'cockpit', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'marketing', 'support', 'reviews', 'provider_profile'].includes(tab.id)
+      ['overview', 'cockpit', 'bookings', 'halls', 'services', 'inventory', 'suppliers', 'subscriptions', 'finance', 'marketing', 'support', 'reviews', 'provider_profile', 'provider_staff'].includes(tab.id)
     );
   }, [userRole]);
 
@@ -492,7 +492,7 @@ export default function App() {
     const anyState = state as any;
 
     // Strict Access Control: Redirect non-admins trying to access forbidden admin tabs
-    if (userRole !== 'admin' && (activeTab === 'financial_settings' || activeTab === 'unified_invoice' || activeTab === 'diagnostics' || activeTab === 'technical_diagnostics' || activeTab === 'system_health' || activeTab === 'settings' || activeTab === 'users' || activeTab === 'staff' || activeTab === 'subscriptions' || activeTab === 'roadmap_phases')) {
+    if (userRole !== 'admin' && (activeTab === 'financial_settings' || activeTab === 'unified_invoice' || activeTab === 'diagnostics' || activeTab === 'technical_diagnostics' || activeTab === 'system_health' || activeTab === 'settings' || activeTab === 'users' || activeTab === 'staff' || activeTab === 'roadmap_phases')) {
       setTimeout(() => {
         setActiveTab('overview');
       }, 0);

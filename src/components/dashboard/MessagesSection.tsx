@@ -115,7 +115,7 @@ export const MessagesSection = (props: any) => {
           <div>
             <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
               <span>💬</span>
-              <span>مركز الاتصال والمحادثات والرسائل اللحظية والبريد الإلكتروني وطوابير الدعم والتصعيد</span>
+              <span>{userRole === 'admin' ? 'مركز المراسلة والبريد الرئيسي' : 'مركز المراسلة والبريد'}</span>
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               إدارة قنوات التواصل المباشر، إشعارات المنظومة، وتنسيق المحادثات بين العملاء والشركاء
@@ -314,6 +314,47 @@ export const MessagesSection = (props: any) => {
                       <button onClick={() => setServiceViolationWarning(null)} className="text-slate-400 hover:text-amber-850 text-xs font-bold bg-white px-2 py-0.5 rounded border border-amber-100 cursor-pointer">إغلاق</button>
                     </div>
                   )}
+
+                  {/* Context Mini-Card (بطاقة سياق المحادثة الذكية للقاعة / الخدمة / الحجز) */}
+                  {(() => {
+                    const currentChatObj = serviceChats.find(c => c.id === activeServiceChat);
+                    const hallContext = halls?.find((h: any) => h.id === currentChatObj?.hallId || h.name === currentChatObj?.hallName);
+                    const serviceContext = services?.find((s: any) => s.id === currentChatObj?.serviceId || s.name === currentChatObj?.serviceName);
+                    const targetName = currentChatObj?.hallName || hallContext?.name || currentChatObj?.serviceName || serviceContext?.name;
+                    const bookingNum = currentChatObj?.bookingNumber || (currentChatObj?.hallId ? `BKG-26-000000000${currentChatObj.hallId}` : null);
+
+                    if (!targetName && !bookingNum) return null;
+
+                    return (
+                      <div className="bg-gradient-to-r from-amber-50/90 via-indigo-50/70 to-purple-50/80 border-b border-indigo-100/80 p-3 px-4 flex items-center justify-between gap-3 shrink-0">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-white rounded-xl shadow-2xs border border-indigo-100 text-indigo-600">
+                            <Info className="w-4 h-4" />
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-black text-slate-800">
+                                📌 بخصوص: {targetName || 'طلب حجز / استفسار عام'}
+                              </span>
+                              {bookingNum && (
+                                <span className="bg-indigo-100 text-indigo-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                                  {bookingNum}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {userRole === 'provider' 
+                                ? 'استفسار سياقي مباشر من العميل حول القاعة/الخدمة أعلاه' 
+                                : 'محادثة مرتبطة بسياق حجز أو استفسار محدد'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-white/90 text-indigo-700 font-bold px-2.5 py-1 rounded-lg border border-indigo-100/80 shadow-2xs">
+                          بطاقة السياق المباشر
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Messages list */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Crown, 
   TrendingUp, 
@@ -39,6 +39,7 @@ interface ProviderSubscriptionTabbedProps {
   currentProviderName: string;
   providerStaffList: any[];
   adminActiveGateway: string;
+  initialSubTab?: 'current' | 'upgrade' | 'addons';
 }
 
 export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProps> = ({
@@ -51,9 +52,48 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
   showNotification,
   currentProviderName,
   providerStaffList,
-  adminActiveGateway
+  adminActiveGateway,
+  initialSubTab
 }) => {
-  const [providerSubTab, setProviderSubTab] = useState<'current' | 'upgrade' | 'addons'>('current');
+  const [providerSubTab, setProviderSubTab] = useState<'current' | 'upgrade' | 'addons'>(() => {
+    if (initialSubTab) return initialSubTab;
+    try {
+      const stored = localStorage.getItem('PROVIDER_SUBSCRIPTION_ACTIVE_SUBTAB');
+      if (stored === 'upgrade' || stored === 'addons' || stored === 'current') {
+        localStorage.removeItem('PROVIDER_SUBSCRIPTION_ACTIVE_SUBTAB');
+        return stored;
+      }
+    } catch (e) {}
+    return 'current';
+  });
+
+  useEffect(() => {
+    const handleSubTabChange = (e: any) => {
+      const target = e.detail;
+      if (target === 'current' || target === 'upgrade' || target === 'addons') {
+        setProviderSubTab(target);
+      }
+    };
+    window.addEventListener('changeProviderSubTab', handleSubTabChange);
+    return () => {
+      window.removeEventListener('changeProviderSubTab', handleSubTabChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const highlight = localStorage.getItem('PROVIDER_SUBSCRIPTION_HIGHLIGHT_ADDON');
+      if (highlight === 'provider_staff') {
+        localStorage.removeItem('PROVIDER_SUBSCRIPTION_HIGHLIGHT_ADDON');
+        setProviderSubTab('addons');
+        setProviderSelectedStaffSlots(prev => (prev === 0 ? 1 : prev));
+      } else if (highlight === 'logistics_operations') {
+        localStorage.removeItem('PROVIDER_SUBSCRIPTION_HIGHLIGHT_ADDON');
+        setProviderSubTab('addons');
+      }
+    } catch (e) {}
+  }, []);
+
   const [addonViewFormat, setAddonViewFormat] = useState<'grid' | 'list' | 'table'>('grid');
   
   // Selection states for add-on quantities / toggles
@@ -61,17 +101,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
   const [providerSelectedServices, setProviderSelectedServices] = useState(0);
   const [providerSelectedStaffSlots, setProviderSelectedStaffSlots] = useState(0);
   const [providerSelectedHallBundles, setProviderSelectedHallBundles] = useState(0);
-  const [providerSelectedInventory, setProviderSelectedInventory] = useState(false);
-  const [providerSelectedSuppliers, setProviderSelectedSuppliers] = useState(false);
-  const [providerSelectedInvoiceExport, setProviderSelectedInvoiceExport] = useState(false);
-  const [providerSelectedSupport, setProviderSelectedSupport] = useState(false);
-  const [providerSelectedWeekendPricing, setProviderSelectedWeekendPricing] = useState(false);
-  const [providerSelectedDynamicSurgePricing, setProviderSelectedDynamicSurgePricing] = useState(false);
-  const [providerSelectedFinancialForecast, setProviderSelectedFinancialForecast] = useState(false);
-  const [providerSelectedPartialPayment, setProviderSelectedPartialPayment] = useState(false);
-  const [providerSelectedMiniStore, setProviderSelectedMiniStore] = useState(false);
-  const [providerSelectedWhatsAppAlerts, setProviderSelectedWhatsAppAlerts] = useState(false);
-  const [providerSelectedSixStages, setProviderSelectedSixStages] = useState(false);
+  const [selectedAddonFeatureIds, setSelectedAddonFeatureIds] = useState<string[]>([]);
 
   const [providerAddonCycles, setProviderAddonCycles] = useState<Record<string, 'monthly' | 'yearly'>>({});
   const [isAddonCheckoutOpen, setIsAddonCheckoutOpen] = useState(false);
@@ -170,32 +200,13 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
   };
 
   const isFeatSelected = (id: string): boolean => {
-    if (id === 'inventory') return providerSelectedInventory;
-    if (id === 'suppliers') return providerSelectedSuppliers;
-    if (id === 'invoice_export') return providerSelectedInvoiceExport;
-    if (id === 'support') return providerSelectedSupport;
-    if (id === 'weekend_pricing') return providerSelectedWeekendPricing;
-    if (id === 'dynamic_surge_pricing') return providerSelectedDynamicSurgePricing;
-    if (id === 'financial_forecast') return providerSelectedFinancialForecast;
-    if (id === 'partial_payment') return providerSelectedPartialPayment;
-    if (id === 'mini_products_store') return providerSelectedMiniStore;
-    if (id === 'whatsapp_campaign_alerts') return providerSelectedWhatsAppAlerts;
-    if (id === 'six_stages_lifecycle') return providerSelectedSixStages;
-    return false;
+    return selectedAddonFeatureIds.includes(id);
   };
 
   const toggleFeatSelection = (id: string) => {
-    if (id === 'inventory') setProviderSelectedInventory(prev => !prev);
-    if (id === 'suppliers') setProviderSelectedSuppliers(prev => !prev);
-    if (id === 'invoice_export') setProviderSelectedInvoiceExport(prev => !prev);
-    if (id === 'support') setProviderSelectedSupport(prev => !prev);
-    if (id === 'weekend_pricing') setProviderSelectedWeekendPricing(prev => !prev);
-    if (id === 'dynamic_surge_pricing') setProviderSelectedDynamicSurgePricing(prev => !prev);
-    if (id === 'financial_forecast') setProviderSelectedFinancialForecast(prev => !prev);
-    if (id === 'partial_payment') setProviderSelectedPartialPayment(prev => !prev);
-    if (id === 'mini_products_store') setProviderSelectedMiniStore(prev => !prev);
-    if (id === 'whatsapp_campaign_alerts') setProviderSelectedWhatsAppAlerts(prev => !prev);
-    if (id === 'six_stages_lifecycle') setProviderSelectedSixStages(prev => !prev);
+    setSelectedAddonFeatureIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
   };
 
   const getAddonCost = (id: string) => {
@@ -293,28 +304,12 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       totalDiscount += cost * (discPercent / 100);
     }
     
-    const checkableIds = [
-      'inventory',
-      'suppliers',
-      'invoice_export',
-      'support',
-      'weekend_pricing',
-      'dynamic_surge_pricing',
-      'financial_forecast',
-      'partial_payment',
-      'mini_products_store',
-      'whatsapp_campaign_alerts',
-      'six_stages_lifecycle'
-    ];
-
-    checkableIds.forEach((id) => {
-      if (isFeatSelected(id)) {
-        const cost = getAddonCost(id);
-        const feat = additionalFeatures.find(f => f.id === id);
-        const discPercent = feat ? feat.discount || 0 : 0;
-        baseTotal += cost;
-        totalDiscount += cost * (discPercent / 100);
-      }
+    selectedAddonFeatureIds.forEach((id) => {
+      const cost = getAddonCost(id);
+      const feat = additionalFeatures.find(f => f.id === id);
+      const discPercent = feat ? feat.discount || 0 : 0;
+      baseTotal += cost;
+      totalDiscount += cost * (discPercent / 100);
     });
 
     const vatAmount = (baseTotal - totalDiscount) * 0.15;
@@ -326,17 +321,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
     providerSelectedServices, 
     providerSelectedStaffSlots,
     providerSelectedHallBundles,
-    providerSelectedInventory,
-    providerSelectedSuppliers,
-    providerSelectedInvoiceExport,
-    providerSelectedSupport,
-    providerSelectedWeekendPricing,
-    providerSelectedDynamicSurgePricing,
-    providerSelectedFinancialForecast,
-    providerSelectedPartialPayment,
-    providerSelectedMiniStore,
-    providerSelectedWhatsAppAlerts,
-    providerSelectedSixStages,
+    selectedAddonFeatureIds,
     providerAddonCycles,
     additionalFeatures
   ]);
@@ -353,49 +338,24 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       
       const newAddons = [...(providerSubscription.addons || [])];
       
-      if (providerSelectedInventory && !newAddons.includes('inventory')) {
-        newAddons.push('inventory');
-      }
-      if (providerSelectedSuppliers && !newAddons.includes('suppliers')) {
-        newAddons.push('suppliers');
-      }
-      if (providerSelectedInvoiceExport && !newAddons.includes('invoice_export')) {
-        newAddons.push('invoice_export');
-      }
-      if (providerSelectedSupport && !newAddons.includes('support')) {
-        newAddons.push('support');
-      }
-      if (providerSelectedWeekendPricing && !newAddons.includes('weekend_pricing')) {
-        newAddons.push('weekend_pricing');
-      }
-      if (providerSelectedDynamicSurgePricing && !newAddons.includes('dynamic_surge_pricing')) {
-        newAddons.push('dynamic_surge_pricing');
-      }
-      if (providerSelectedFinancialForecast && !newAddons.includes('financial_forecast')) {
-        newAddons.push('financial_forecast');
-      }
-      if (providerSelectedPartialPayment && !newAddons.includes('partial_payment')) {
-        newAddons.push('partial_payment');
-      }
-      if (providerSelectedWhatsAppAlerts && !newAddons.includes('whatsapp_campaign_alerts')) {
-        newAddons.push('whatsapp_campaign_alerts');
-      }
-      if (providerSelectedSixStages && !newAddons.includes('six_stages_lifecycle')) {
-        newAddons.push('six_stages_lifecycle');
-      }
-      if (providerSelectedMiniStore && !newAddons.includes('mini_products_store')) {
-        newAddons.push('mini_products_store');
-        const miniStoreCycle = getAddonBillingCycle('mini_products_store');
-        entitlementService.activateAddon(
-          currentProviderName || 'unknown',
-          'mini_products_store',
-          {
-            cycle: miniStoreCycle,
-            source: 'checkout',
-            note: `تفعيل ميزة متجر المنتجات والمستلزمات المصغر عبر بوابة الدفع (${miniStoreCycle === 'yearly' ? 'سنوي' : 'شهري'})`
-          }
-        );
-      }
+      selectedAddonFeatureIds.forEach(id => {
+        if (!newAddons.includes(id)) {
+          newAddons.push(id);
+        }
+        if (id === 'mini_products_store') {
+          const miniStoreCycle = getAddonBillingCycle('mini_products_store');
+          entitlementService.activateAddon(
+            currentProviderName || 'unknown',
+            'mini_products_store',
+            {
+              cycle: miniStoreCycle,
+              source: 'checkout',
+              note: `تفعيل ميزة متجر المنتجات والمستلزمات المصغر عبر بوابة الدفع (${miniStoreCycle === 'yearly' ? 'سنوي' : 'شهري'})`
+            }
+          );
+        }
+      });
+
       if (providerSelectedStaffSlots > 0 && !newAddons.includes('provider_staff')) {
         newAddons.push('provider_staff');
       }
@@ -414,17 +374,17 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
         additionalServices: finalServices,
         purchasedStaffSlots: finalStaffSlots,
         additionalHallBundles: finalHallBundles,
-        includesInventory: providerSubscription.includesInventory || providerSelectedInventory,
-        includesSuppliers: providerSubscription.includesSuppliers || providerSelectedSuppliers,
-        canExportFinancials: providerSubscription.canExportFinancials || providerSelectedInvoiceExport,
-        hasSupport: providerSubscription.hasSupport || providerSelectedSupport,
-        includesWeekendPricing: providerSubscription.includesWeekendPricing || providerSelectedWeekendPricing,
-        includesDynamicSurgePricing: providerSubscription.includesDynamicSurgePricing || providerSelectedDynamicSurgePricing,
-        includesFinancialForecast: providerSubscription.includesFinancialForecast || providerSelectedFinancialForecast,
-        includesPartialPayment: providerSubscription.includesPartialPayment || providerSelectedPartialPayment,
-        includesMiniStore: providerSubscription.includesMiniStore || providerSelectedMiniStore,
-        includesWhatsAppCampaignAlerts: providerSubscription.includesWhatsAppCampaignAlerts || providerSelectedWhatsAppAlerts,
-        includesSixStages: providerSubscription.includesSixStages || providerSelectedSixStages,
+        includesInventory: providerSubscription.includesInventory || selectedAddonFeatureIds.includes('inventory'),
+        includesSuppliers: providerSubscription.includesSuppliers || selectedAddonFeatureIds.includes('suppliers'),
+        canExportFinancials: providerSubscription.canExportFinancials || selectedAddonFeatureIds.includes('invoice_export'),
+        hasSupport: providerSubscription.hasSupport || selectedAddonFeatureIds.includes('support'),
+        includesWeekendPricing: providerSubscription.includesWeekendPricing || selectedAddonFeatureIds.includes('weekend_pricing'),
+        includesDynamicSurgePricing: providerSubscription.includesDynamicSurgePricing || selectedAddonFeatureIds.includes('dynamic_surge_pricing'),
+        includesFinancialForecast: providerSubscription.includesFinancialForecast || selectedAddonFeatureIds.includes('financial_forecast'),
+        includesPartialPayment: providerSubscription.includesPartialPayment || selectedAddonFeatureIds.includes('partial_payment'),
+        includesMiniStore: providerSubscription.includesMiniStore || selectedAddonFeatureIds.includes('mini_products_store'),
+        includesWhatsAppCampaignAlerts: providerSubscription.includesWhatsAppCampaignAlerts || selectedAddonFeatureIds.includes('whatsapp_campaign_alerts'),
+        includesSixStages: providerSubscription.includesSixStages || selectedAddonFeatureIds.includes('six_stages_lifecycle'),
         addons: newAddons
       };
       
@@ -439,17 +399,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
       setProviderSelectedServices(0);
       setProviderSelectedStaffSlots(0);
       setProviderSelectedHallBundles(0);
-      setProviderSelectedInventory(false);
-      setProviderSelectedSuppliers(false);
-      setProviderSelectedInvoiceExport(false);
-      setProviderSelectedSupport(false);
-      setProviderSelectedWeekendPricing(false);
-      setProviderSelectedDynamicSurgePricing(false);
-      setProviderSelectedFinancialForecast(false);
-      setProviderSelectedPartialPayment(false);
-      setProviderSelectedMiniStore(false);
-      setProviderSelectedWhatsAppAlerts(false);
-      setProviderSelectedSixStages(false);
+      setSelectedAddonFeatureIds([]);
       
       showNotification('success', 'تهانينا! تم تفعيل وتوثيق الميزات التنافسية الإضافية بنجاح في نظام الشريك المباشر.');
       
@@ -1227,17 +1177,7 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                   providerSelectedServices === 0 &&
                   providerSelectedStaffSlots === 0 &&
                   providerSelectedHallBundles === 0 &&
-                  !providerSelectedInventory &&
-                  !providerSelectedSuppliers &&
-                  !providerSelectedInvoiceExport &&
-                  !providerSelectedSupport &&
-                  !providerSelectedWeekendPricing &&
-                  !providerSelectedDynamicSurgePricing &&
-                  !providerSelectedFinancialForecast &&
-                  !providerSelectedPartialPayment &&
-                  !providerSelectedMiniStore &&
-                  !providerSelectedWhatsAppAlerts &&
-                  !providerSelectedSixStages ? (
+                  selectedAddonFeatureIds.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center text-slate-500 h-[120px] border border-dashed border-slate-800 bg-slate-950/20 rounded-2xl p-4">
                       <PackageSearch className="w-7 h-7 text-slate-600 mb-1" />
                       <p className="text-[11px] text-slate-400">لم تدرج ميزات للفوترة بعد.</p>
@@ -1269,78 +1209,24 @@ export const ProviderSubscriptionTabbed: React.FC<ProviderSubscriptionTabbedProp
                           <span className="font-mono text-violet-400 font-bold font-sans">{(getAddonCost('hall_bundles') * providerSelectedHallBundles).toFixed(2)} ر.س</span>
                         </div>
                       )}
-                      {providerSelectedInventory && (
-                        <div className="flex justify-between items-center pt-2">
-                          <span>نظام تتبع المخزون والمستودعات الفوري <span className="text-[9px] text-slate-505">({getAddonBillingCycle('inventory') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-white">{(getAddonCost('inventory')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedSuppliers && (
-                        <div className="flex justify-between items-center pt-2">
-                          <span>نظام وقنوات طلب الموردين <span className="text-[9px] text-slate-505">({getAddonBillingCycle('suppliers') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-white">{(getAddonCost('suppliers')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedInvoiceExport && (
-                        <div className="flex justify-between items-center pt-2">
-                          <span>نظام تصدير وتدقيق الفواتير المعتمدة <span className="text-[9px] text-slate-505">({getAddonBillingCycle('invoice_export') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-white">{(getAddonCost('invoice_export')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedSupport && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-teal-400">
-                          <span>شات الدعم المباشر وشات الطوارئ للشركاء <span className="text-[9px] text-slate-505">({getAddonBillingCycle('support') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-teal-400 font-bold font-sans">{(getAddonCost('support')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedWeekendPricing && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-amber-400">
-                          <span>تسعير عطلة نهاية الأسبوع (الويكند) <span className="text-[9px] text-slate-550">({getAddonBillingCycle('weekend_pricing') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-amber-400 font-bold font-sans">{(getAddonCost('weekend_pricing')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedDynamicSurgePricing && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-purple-400">
-                          <span>محرك التسعير الديناميكي وزيادة الذروة الذكي <span className="text-[9px] text-slate-550">({getAddonBillingCycle('dynamic_surge_pricing') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-purple-400 font-bold font-sans">{(getAddonCost('dynamic_surge_pricing')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedFinancialForecast && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-amber-500">
-                          <span>ميزانية التوقعات المالية الذكية <span className="text-[9px] text-slate-550">({getAddonBillingCycle('financial_forecast') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-amber-500 font-bold font-sans">{(getAddonCost('financial_forecast')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedPartialPayment && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-cyan-400">
-                          <span>نظام الدفع الجزئي والعربون المرن <span className="text-[9px] text-slate-550">({getAddonBillingCycle('partial_payment') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-cyan-400 font-bold font-sans">{(getAddonCost('partial_payment')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedMiniStore && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-emerald-400">
-                          <span>متجر مستلزمات ومنتجات المكان المصغر <span className="text-[9px] text-slate-550">({getAddonBillingCycle('mini_products_store') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-emerald-400 font-bold font-sans">{(getAddonCost('mini_products_store')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedWhatsAppAlerts && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-green-400">
-                          <span>تنبيهات وحملات الواتساب التلقائية <span className="text-[9px] text-slate-550">({getAddonBillingCycle('whatsapp_campaign_alerts') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-green-400 font-bold font-sans">{(getAddonCost('whatsapp_campaign_alerts')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
-                      {providerSelectedSixStages && (
-                        <div className="flex justify-between items-center pt-2 font-bold text-blue-400">
-                          <span>نظام دورات حياة الحجوزات التشغيلية (المراحل الست) <span className="text-[9px] text-slate-550">({getAddonBillingCycle('six_stages_lifecycle') === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
-                          <span className="font-mono text-blue-400 font-bold font-sans">{(getAddonCost('six_stages_lifecycle')).toFixed(2)} ر.س</span>
-                        </div>
-                      )}
+                      {selectedAddonFeatureIds.map((featId) => {
+                        const feat = additionalFeatures.find((f: any) => f.id === featId);
+                        if (!feat) return null;
+                        const cycle = getAddonBillingCycle(featId);
+                        const cost = getAddonCost(featId);
+                        return (
+                          <div key={featId} className="flex justify-between items-center pt-2 font-bold text-amber-400">
+                            <span>{feat.name} <span className="text-[9px] text-slate-400">({cycle === 'yearly' ? 'سنوياً' : 'شهرياً'})</span></span>
+                            <span className="font-mono text-amber-400 font-bold font-sans">{cost.toFixed(2)} ر.س</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 {/* Subtotal calculation */}
-                {(providerSelectedHalls > 0 || providerSelectedServices > 0 || providerSelectedStaffSlots > 0 || providerSelectedHallBundles > 0 || providerSelectedInventory || providerSelectedSuppliers || providerSelectedInvoiceExport || providerSelectedSupport || providerSelectedWeekendPricing || providerSelectedDynamicSurgePricing || providerSelectedFinancialForecast || providerSelectedPartialPayment || providerSelectedMiniStore || providerSelectedWhatsAppAlerts || providerSelectedSixStages) && (
+                {(providerSelectedHalls > 0 || providerSelectedServices > 0 || providerSelectedStaffSlots > 0 || providerSelectedHallBundles > 0 || selectedAddonFeatureIds.length > 0) && (
                   <div className="space-y-2 pt-3 border-t border-slate-800 text-xs font-bold leading-normal">
                     <div className="flex justify-between text-slate-400">
                       <span>إجمالي رسوم الميزات:</span>

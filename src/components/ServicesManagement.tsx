@@ -2,10 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Building2, Sparkles, Search, Table, List, LayoutGrid, Eye, 
   Plus, Power, Trash2, Layers, Star, Edit, ShieldCheck, ShieldAlert, 
-  X, CheckCircle2, Ban, AlertTriangle, Lock, Archive, RotateCcw
+  X, CheckCircle2, Ban, AlertTriangle, Lock, Archive, RotateCcw,
+  Truck, Package, Crown
 } from 'lucide-react';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { ItemQrCodeButton } from './common/ItemQrCodeModal';
+import { LogisticsOperationsCenter } from './logistics/LogisticsOperationsCenter';
+import { getActiveProviderCapabilities } from '../utils/capabilityEngine';
 
 interface ServicesManagementProps {
   userRole: string;
@@ -29,6 +32,13 @@ interface ServicesManagementProps {
   formatCurrency: (val: number) => string;
   hideHeader?: boolean;
   handleRestoreService?: (id: any) => void;
+  supportServiceRequests?: any[];
+  setSupportServiceRequests?: React.Dispatch<React.SetStateAction<any[]>>;
+  providerStaffList?: any[];
+  setProviderStaffList?: React.Dispatch<React.SetStateAction<any[]>>;
+  bookings?: any[];
+  setActiveTab?: (tab: string) => void;
+  handleBuyStaffSlot?: (count: number) => void;
 }
 
 export default function ServicesManagement({
@@ -52,8 +62,26 @@ export default function ServicesManagement({
   setDeleteData,
   formatCurrency,
   hideHeader = false,
-  handleRestoreService
+  handleRestoreService,
+  supportServiceRequests = [],
+  setSupportServiceRequests,
+  providerStaffList = [],
+  setProviderStaffList,
+  bookings = [],
+  setActiveTab,
+  handleBuyStaffSlot
 }: ServicesManagementProps) {
+  // Domain subtabs: services catalog vs logistics center
+  const [activeServicesSubTab, setActiveServicesSubTab] = useState<'catalog' | 'logistics'>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('subtab') === 'logistics' || urlParams.get('tab') === 'logistics') {
+        return 'logistics';
+      }
+    } catch (e) {}
+    return 'catalog';
+  });
+
   // Services Filters (Migrated to be fully encapsulated inside ServicesManagement)
   const [servicesSearchQuery, setServicesSearchQuery] = useState('');
   const [servicesFilterRegion, setServicesFilterRegion] = useState('');
@@ -66,6 +94,9 @@ export default function ServicesManagement({
   // Modal State for External Blocking & Capacity
   const [isExternalBlockModalOpen, setIsExternalBlockModalOpen] = useState(false);
   const [selectedBlockTargetId, setSelectedBlockTargetId] = useState<string | number | undefined>(undefined);
+
+  const capabilities = useMemo(() => getActiveProviderCapabilities(), [providerSubscription]);
+  const hasOperationsCapability = userRole === 'admin' || capabilities.hasOperationsDashboard;
 
   const baseServices = useMemo(() => {
     if (userRole === 'provider') {
@@ -189,7 +220,150 @@ export default function ServicesManagement({
         </div>
       </div>
 
-      {/* Stats dashboard */}
+      {/* Sub-Navigation: Services Catalog vs Logistics Center */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+        <button
+          type="button"
+          onClick={() => setActiveServicesSubTab('catalog')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+            activeServicesSubTab === 'catalog'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Package className="w-4 h-4 text-purple-600" />
+          <span>دليل وباقات الخدمات المساندة</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveServicesSubTab('logistics')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+            activeServicesSubTab === 'logistics'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Truck className="w-4 h-4" />
+          <span>مركز العمليات اللوجستية 🚚</span>
+          {!hasOperationsCapability ? (
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+              <Lock className="w-3 h-3 text-amber-600" />
+              <span>مغلق</span>
+            </span>
+          ) : (
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+              activeServicesSubTab === 'logistics' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'
+            }`}>
+              جديد
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeServicesSubTab === 'logistics' ? (
+        !hasOperationsCapability ? (
+          <div className="bg-white rounded-3xl p-8 lg:p-12 border border-slate-200 shadow-xl text-center max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-400">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-purple-900 via-indigo-800 to-slate-900 flex items-center justify-center text-amber-400 shadow-2xl shadow-purple-900/30 ring-8 ring-purple-100">
+                <Lock className="w-12 h-12" />
+              </div>
+              <span className="absolute -top-2 -right-2 px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs rounded-full shadow-md flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" />
+                ميزة متقدمة
+              </span>
+            </div>
+
+            <div className="space-y-3 max-w-2xl mx-auto">
+              <h2 className="text-2xl lg:text-3xl font-black text-slate-900">
+                ميزة "مركز العمليات اللوجستية الميدانية للخدمات" مقفلة 🔒
+              </h2>
+              <p className="text-slate-600 text-xs lg:text-sm leading-relaxed">
+                هذه الميزة غير مفعلة في باقتك الحالية. يوفر مركز اللوجستيات نظاماً متكاملاً لإدارة الحركة الميدانية لخدماتك، ومتابعة المراحل الست، وجدولة الفرق الميدانية، ومحاضر تسليم العُهد الإلكترونية.
+              </p>
+            </div>
+
+            {/* Feature capabilities preview */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-right">
+              <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                <div className="flex items-center gap-2 text-purple-700 font-black text-xs">
+                  <Layers className="w-4 h-4" />
+                  <span>مسار المراحل الست الحي</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  متابعة فورية للمهام من التجهيز، الانطلاق، فحص الموقع، اكتمال الجاهزية، وحتى التشغيل والإخلاء.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+                <div className="flex items-center gap-2 text-indigo-700 font-black text-xs">
+                  <Building2 className="w-4 h-4" />
+                  <span>مناوبات الكوادر والتوزيع الميداني</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  توزيع المشرفين والفنيين والصبابين على الفعاليات ومتابعة الحضور الميداني بالرمز والبطاقات الذكية.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-amber-50/50 border border-amber-100 space-y-2">
+                <div className="flex items-center gap-2 text-amber-700 font-black text-xs">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>محاضر العُهد وتوثيق التالف</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  محاضر استلام وتسليم المعدات رقمياً وتوثيق التلفيات والتكاليف والجهة المسؤولة بضمان وشفافية.
+                </p>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('PROVIDER_SUBSCRIPTION_ACTIVE_SUBTAB', 'addons');
+                  localStorage.setItem('PROVIDER_SUBSCRIPTION_HIGHLIGHT_ADDON', 'logistics_operations');
+                  window.dispatchEvent(new CustomEvent('changeProviderSubTab', { detail: 'addons' }));
+                  if (setActiveTab) {
+                    setActiveTab('subscriptions');
+                  }
+                }}
+                className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs shadow-xl shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-slate-950" />
+                <span>ترقية الباقة أو شراء ميزة العمليات اللوجستية</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveServicesSubTab('catalog')}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <span>العودة إلى دليل الخدمات</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <LogisticsOperationsCenter
+            userRole={userRole}
+            currentProviderName={currentProviderName}
+            currentProviderId={currentProviderId}
+            currentUserName={currentUserName}
+            providerSubscription={providerSubscription}
+            supportServiceRequests={supportServiceRequests}
+            setSupportServiceRequests={setSupportServiceRequests}
+            providerStaffList={providerStaffList}
+            setProviderStaffList={setProviderStaffList}
+            bookings={bookings}
+            showNotification={showNotification}
+            formatCurrency={formatCurrency}
+            setActiveTab={setActiveTab}
+            handleBuyStaffSlot={handleBuyStaffSlot}
+          />
+        )
+      ) : (
+        <>
+          {/* Stats dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
           <div className="space-y-1">
@@ -796,6 +970,8 @@ export default function ServicesManagement({
             </div>
           )}
         </>
+      )}
+      </>
       )}
 
       {/* External Blocking and Capacity Manager Modal */}

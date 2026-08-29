@@ -88,6 +88,8 @@ export const SubscriptionsSection = (props: any) => {
     formatCurrency
   } = props;
 
+  const [adminAddonViewFormat, setAdminAddonViewFormat] = useState<'grid' | 'list' | 'table'>('grid');
+
   // The original renderSubscriptions inner function body converted to a component
   if (userRole === "provider") {
       return (
@@ -1482,92 +1484,317 @@ export const SubscriptionsSection = (props: any) => {
         ) : adminSubscriptionsTab === 'addons' ? (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Overview / Banner */}
-            <div className="bg-gradient-to-r from-amber-500/5 to-transparent p-6 rounded-2xl border border-amber-500/10">
-              <h3 className="text-base font-bold text-amber-900">إدارة وتسعير الميزات المخصصة للشركاء</h3>
-              <p className="text-slate-600 text-xs mt-2 leading-relaxed">
-                تسمح هذه الواجهة للإدارة بتعديل الرسوم الفردية والخصومات الممنوحة على الخدمات والحدود الإضافية المستقلة عن الاشتراكات والخصائص المجتمعة المدمجة مع الباقات مجانًا.
-                يستطيع الشركاء شراء وتنشيط هذه الصلاحيات فورياً من خلال كبائن الاشتراك لديهم.
-              </p>
+            <div className="bg-gradient-to-r from-amber-500/5 to-transparent p-6 rounded-2xl border border-amber-500/10 flex flex-col md:flex-row justify-between md:items-center gap-4">
+              <div>
+                <h3 className="text-base font-bold text-amber-900">إدارة وتسعير الميزات المخصصة للشركاء</h3>
+                <p className="text-slate-600 text-xs mt-2 leading-relaxed">
+                  تسمح هذه الواجهة للإدارة بتعديل الرسوم الفردية والخصومات الممنوحة على الخدمات والحدود الإضافية المستقلة عن الاشتراكات والخصائص المجتمعة المدمجة مع الباقات مجانًا.
+                  يستطيع الشركاء شراء وتنشيط هذه الصلاحيات فورياً من خلال كبائن الاشتراك لديهم.
+                </p>
+              </div>
+
+              {/* View Format Selector */}
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur p-1.5 rounded-xl border border-amber-500/20 self-start md:self-auto shrink-0 shadow-sm">
+                <span className="text-slate-500 text-xs font-bold font-sans">العرض:</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setAdminAddonViewFormat('grid')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      adminAddonViewFormat === 'grid'
+                        ? 'bg-amber-500 text-slate-900 shadow-sm font-black'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" /> شبكي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminAddonViewFormat('list')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      adminAddonViewFormat === 'list'
+                        ? 'bg-amber-500 text-slate-900 shadow-sm font-black'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    <List className="w-3.5 h-3.5" /> قائمة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminAddonViewFormat('table')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                      adminAddonViewFormat === 'table'
+                        ? 'bg-amber-500 text-slate-900 shadow-sm font-black'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    <Table className="w-3.5 h-3.5" /> جدولي
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Add-ons List Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {additionalFeatures.map((feat) => (
-                <div key={feat.id} className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:border-amber-500/65 hover:shadow-md bg-white">
-                  {feat.discount > 0 && (
-                    <span className="absolute top-0 left-0 bg-red-400 text-white font-bold text-[10px] px-3 py-1 rounded-br-2xl select-none">
-                      خصم {feat.discount}%
-                    </span>
-                  )}
-                  <div className="mt-2">
-                    <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                      {feat.name}
-                    </h4>
-                    <p className="text-slate-500 text-xs mt-1 leading-relaxed min-h-[36px]">{feat.description}</p>
-                  </div>
-
-                  <div className="mt-6 border-t border-slate-100 pt-4 flex flex-col gap-2">
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>السعر شهرياً:</span>
-                      <span className="font-bold text-slate-800 font-mono">{feat.priceMonthly.toFixed(2)} ر.س</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-slate-500">
-                      <span>السعر سنوياً:</span>
-                      <span className="font-bold text-slate-800 font-mono">{feat.priceYearly.toFixed(2)} ر.س</span>
-                    </div>
-                    {feat.unit && (
-                      <div className="flex justify-between text-xs text-slate-500">
-                        <span>وحدة القياس الممنوحة:</span>
-                        <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">{feat.unit} إضافية</span>
-                      </div>
+            {/* View Renderings */}
+            {adminAddonViewFormat === 'grid' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {additionalFeatures.map((feat) => (
+                  <div key={feat.id} className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm relative overflow-hidden transition-all hover:border-amber-500/65 hover:shadow-md">
+                    {feat.discount > 0 && (
+                      <span className="absolute top-0 left-0 bg-red-400 text-white font-bold text-[10px] px-3 py-1 rounded-br-2xl select-none">
+                        خصم {feat.discount}%
+                      </span>
                     )}
-                  </div>
+                    <div className="mt-2">
+                      <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        {feat.name}
+                      </h4>
+                      <p className="text-slate-500 text-xs mt-1 leading-relaxed min-h-[36px]">{feat.description}</p>
+                    </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-500">الحالة للمزودين:</span>
+                    <div className="mt-6 border-t border-slate-100 pt-4 flex flex-col gap-2">
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>السعر شهرياً:</span>
+                        <span className="font-bold text-slate-800 font-mono">{feat.priceMonthly.toFixed(2)} ر.س</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>السعر سنوياً:</span>
+                        <span className="font-bold text-slate-800 font-mono">{feat.priceYearly.toFixed(2)} ر.س</span>
+                      </div>
+                      {feat.unit && (
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>وحدة القياس الممنوحة:</span>
+                          <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">{feat.unit} إضافية</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500">الحالة للمزودين:</span>
+                        <button
+                          onClick={() => {
+                            const updated = additionalFeatures.map(f => 
+                              f.id === feat.id 
+                                ? { ...f, isVisible: f.isVisible === false ? true : false } 
+                                : f
+                            );
+                            setAdditionalFeatures(updated);
+                            showNotification('success', `تم ${feat.isVisible === false ? 'إظهار' : 'إخفاء'} ميزة "${feat.name}" للمزودين بنجاح!`);
+                          }}
+                          className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${feat.isVisible !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                        >
+                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${feat.isVisible !== false ? 'translate-x-[20px]' : 'translate-x-0'}`} />
+                        </button>
+                        <span className={`text-[10px] sm:text-xs font-bold ${feat.isVisible !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                          {feat.isVisible !== false ? 'معروضة' : 'مخفية'}
+                        </span>
+                      </div>
+
                       <button
                         onClick={() => {
-                          const updated = additionalFeatures.map(f => 
-                            f.id === feat.id 
-                              ? { ...f, isVisible: f.isVisible === false ? true : false } 
-                              : f
-                          );
-                          setAdditionalFeatures(updated);
-                          showNotification('success', `تم ${feat.isVisible === false ? 'إظهار' : 'إخفاء'} ميزة "${feat.name}" للمزودين بنجاح!`);
+                          setEditingAddon(feat);
+                          setAddonForm({
+                            id: feat.id,
+                            name: feat.name,
+                            description: feat.description,
+                            priceMonthly: feat.priceMonthly,
+                            priceYearly: feat.priceYearly,
+                            discount: feat.discount || 0,
+                            isVisible: feat.isVisible !== false
+                          });
+                          setIsAddonModalOpen(true);
                         }}
-                        className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${feat.isVisible !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                        className="bg-slate-50 hover:bg-amber-400 hover:text-slate-900 text-slate-600 font-bold text-xs px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border border-slate-100"
                       >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${feat.isVisible !== false ? 'translate-x-[20px]' : 'translate-x-0'}`} />
+                        <Pencil className="w-3 h-3" /> تعديل الرسوم
                       </button>
-                      <span className={`text-[10px] sm:text-xs font-bold ${feat.isVisible !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {feat.isVisible !== false ? 'معروضة' : 'مخفية'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {adminAddonViewFormat === 'list' && (
+              <div className="space-y-3">
+                {additionalFeatures.map((feat) => (
+                  <div key={feat.id} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 flex flex-col md:flex-row justify-between md:items-center gap-4 shadow-sm hover:border-amber-500/65 hover:shadow-md transition-all relative overflow-hidden">
+                    {feat.discount > 0 && (
+                      <span className="absolute top-0 left-0 bg-red-400 text-white font-bold text-[10px] px-2.5 py-0.5 rounded-br-xl select-none">
+                        خصم {feat.discount}%
                       </span>
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <h4 className="font-bold text-slate-900 text-sm">{feat.name}</h4>
+                        {feat.unit && (
+                          <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-md font-sans">
+                            {feat.unit} إضافية
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-500 text-xs leading-relaxed max-w-3xl">{feat.description}</p>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        setEditingAddon(feat);
-                        setAddonForm({
-                          id: feat.id,
-                          name: feat.name,
-                          description: feat.description,
-                          priceMonthly: feat.priceMonthly,
-                          priceYearly: feat.priceYearly,
-                          discount: feat.discount || 0,
-                          isVisible: feat.isVisible !== false
-                        });
-                        setIsAddonModalOpen(true);
-                      }}
-                      className="bg-slate-50 hover:bg-amber-400 hover:text-slate-900 text-slate-600 font-bold text-xs px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border border-slate-100"
-                    >
-                      <Pencil className="w-3 h-3" /> تعديل الرسوم
-                    </button>
+                    <div className="flex flex-wrap items-center justify-between md:justify-end gap-4 border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
+                      <div className="flex items-center gap-4 text-xs">
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-sans">الشهري:</span>
+                          <span className="font-bold text-slate-800 font-mono">{feat.priceMonthly.toFixed(2)} ر.س</span>
+                        </div>
+                        <div className="text-right border-r border-slate-200 pr-4">
+                          <span className="text-[10px] text-slate-400 block font-sans">السنوي:</span>
+                          <span className="font-bold text-slate-800 font-mono">{feat.priceYearly.toFixed(2)} ر.س</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const updated = additionalFeatures.map(f => 
+                                f.id === feat.id 
+                                  ? { ...f, isVisible: f.isVisible === false ? true : false } 
+                                  : f
+                              );
+                              setAdditionalFeatures(updated);
+                              showNotification('success', `تم ${feat.isVisible === false ? 'إظهار' : 'إخفاء'} ميزة "${feat.name}" للمزودين بنجاح!`);
+                            }}
+                            className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${feat.isVisible !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                          >
+                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${feat.isVisible !== false ? 'translate-x-[20px]' : 'translate-x-0'}`} />
+                          </button>
+                          <span className={`text-[10px] font-bold ${feat.isVisible !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {feat.isVisible !== false ? 'معروضة' : 'مخفية'}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setEditingAddon(feat);
+                            setAddonForm({
+                              id: feat.id,
+                              name: feat.name,
+                              description: feat.description,
+                              priceMonthly: feat.priceMonthly,
+                              priceYearly: feat.priceYearly,
+                              discount: feat.discount || 0,
+                              isVisible: feat.isVisible !== false
+                            });
+                            setIsAddonModalOpen(true);
+                          }}
+                          className="bg-slate-50 hover:bg-amber-400 hover:text-slate-900 text-slate-600 font-bold text-xs px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border border-slate-200 shadow-sm"
+                        >
+                          <Pencil className="w-3 h-3" /> تعديل
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {adminAddonViewFormat === 'table' && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                        <th className="py-3.5 px-4">اسم الميزة / القدرة</th>
+                        <th className="py-3.5 px-4">الوصف والشرح التشغيلي</th>
+                        <th className="py-3.5 px-4 text-center">السعر شهرياً</th>
+                        <th className="py-3.5 px-4 text-center">السعر سنوياً</th>
+                        <th className="py-3.5 px-4 text-center">الخصم</th>
+                        <th className="py-3.5 px-4 text-center">الوحدة</th>
+                        <th className="py-3.5 px-4 text-center">حالة العرض</th>
+                        <th className="py-3.5 px-4 text-center">الإجراءات</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {additionalFeatures.map((feat) => (
+                        <tr key={feat.id} className="hover:bg-amber-50/20 transition-colors">
+                          <td className="py-3.5 px-4 font-extrabold text-slate-900 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                              <span>{feat.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 max-w-xs md:max-w-md leading-relaxed">
+                            {feat.description}
+                          </td>
+                          <td className="py-3.5 px-4 text-center font-bold text-slate-800 font-mono whitespace-nowrap">
+                            {feat.priceMonthly.toFixed(2)} ر.س
+                          </td>
+                          <td className="py-3.5 px-4 text-center font-bold text-slate-800 font-mono whitespace-nowrap">
+                            {feat.priceYearly.toFixed(2)} ر.س
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            {feat.discount > 0 ? (
+                              <span className="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                {feat.discount}%
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[10px]">لا يوجد</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            {feat.unit ? (
+                              <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">
+                                {feat.unit}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[10px]">—</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  const updated = additionalFeatures.map(f => 
+                                    f.id === feat.id 
+                                      ? { ...f, isVisible: f.isVisible === false ? true : false } 
+                                      : f
+                                  );
+                                  setAdditionalFeatures(updated);
+                                  showNotification('success', `تم ${feat.isVisible === false ? 'إظهار' : 'إخفاء'} ميزة "${feat.name}" للمزودين بنجاح!`);
+                                }}
+                                className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${feat.isVisible !== false ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                              >
+                                <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${feat.isVisible !== false ? 'translate-x-[16px]' : 'translate-x-0'}`} />
+                              </button>
+                              <span className={`text-[10px] font-bold ${feat.isVisible !== false ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {feat.isVisible !== false ? 'معروضة' : 'مخفية'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setEditingAddon(feat);
+                                setAddonForm({
+                                  id: feat.id,
+                                  name: feat.name,
+                                  description: feat.description,
+                                  priceMonthly: feat.priceMonthly,
+                                  priceYearly: feat.priceYearly,
+                                  discount: feat.discount || 0,
+                                  isVisible: feat.isVisible !== false
+                                });
+                                setIsAddonModalOpen(true);
+                              }}
+                              className="bg-slate-50 hover:bg-amber-400 hover:text-slate-900 text-slate-700 font-bold text-xs px-2.5 py-1 rounded-lg transition-all inline-flex items-center gap-1 border border-slate-200 shadow-sm"
+                            >
+                              <Pencil className="w-3 h-3" /> تعديل
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <DiscountsManagement

@@ -76,7 +76,9 @@ import {
   Image as ImageIcon,
   Loader2,
   MessageSquare,
-  Smartphone
+  Smartphone,
+  Bot,
+  Cpu
 } from 'lucide-react';
 import { apiService } from '../services/apiService.js';
 import { SecuritySecretTab } from './SecuritySecretTab';
@@ -745,8 +747,36 @@ export const SettingsManagement = ({
   });
 
   // Support SubTab state & Zoho Developer Guide toggle
-  const [supportSubTab, setSupportSubTab] = useState<'general' | 'zoho'>('zoho');
+  const [supportSubTab, setSupportSubTab] = useState<'labayh' | 'zoho' | 'general'>('labayh');
   const [showZohoDeveloperGuide, setShowZohoDeveloperGuide] = useState(true);
+
+  // Labayh AI Assistant States (إعدادات محرك الذكاء الاصطناعي والمساعد الفوري لبيه)
+  const [labayhAiEnabled, setLabayhAiEnabled] = useState(() => {
+    return localStorage.getItem('SETTINGS_LABAYH_AI_ENABLED') === 'true';
+  });
+  const [labayhAiApiUrl, setLabayhAiApiUrl] = useState(() => {
+    return localStorage.getItem('SETTINGS_LABAYH_AI_API_URL') || 'https://api.labayh.ai/v1/chat';
+  });
+  const [labayhAiToken, setLabayhAiToken] = useState(() => {
+    return localStorage.getItem('SETTINGS_LABAYH_AI_TOKEN') || '';
+  });
+  const [labayhAiStatus, setLabayhAiStatus] = useState<'in_development' | 'connected' | 'disabled'>(() => {
+    return (localStorage.getItem('SETTINGS_LABAYH_AI_STATUS') as any) || 'in_development';
+  });
+  const [labayhAiConfidenceThreshold, setLabayhAiConfidenceThreshold] = useState(() => {
+    return Number(localStorage.getItem('SETTINGS_LABAYH_AI_CONFIDENCE') || '85');
+  });
+  const [labayhAiCustomerConciergeEnabled, setLabayhAiCustomerConciergeEnabled] = useState(() => {
+    return localStorage.getItem('SETTINGS_LABAYH_AI_CUSTOMER_CONCIERGE') !== 'false';
+  });
+  const [labayhAiKnowledgeSyncPolicies, setLabayhAiKnowledgeSyncPolicies] = useState(() => {
+    return localStorage.getItem('SETTINGS_LABAYH_AI_KNOWLEDGE_SYNC') !== 'false';
+  });
+  const [testingLabayhConnection, setTestingLabayhConnection] = useState(false);
+  const [syncingLabayhKnowledge, setSyncingLabayhKnowledge] = useState(false);
+  const [labayhSimulationMessage, setLabayhSimulationMessage] = useState('كم نسبة ضريبة القيمة المضافة في المنصة وهل الأسعار شاملة؟');
+  const [labayhSimulationReply, setLabayhSimulationReply] = useState<string | null>(null);
+  const [isSimulatingLabayhChat, setIsSimulatingLabayhChat] = useState(false);
 
   // Interactive Region Image Upload States
   const [isUploadingRegionImage, setIsUploadingRegionImage] = useState<boolean>(false);
@@ -3638,7 +3668,21 @@ export const SettingsManagement = ({
                 </div>
 
                 {/* Sub-tabs Selector */}
-                <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 gap-1 w-fit">
+                <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 gap-1 w-fit flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setSupportSubTab('labayh')}
+                    className={`py-2.5 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+                      supportSubTab === 'labayh'
+                        ? 'bg-slate-900 text-white shadow-md border border-slate-800'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <Bot className={`w-4 h-4 ${supportSubTab === 'labayh' ? 'text-amber-400' : 'text-slate-500'}`} />
+                    <span>المساعد الذكي «لبيه» (Labayh AI)</span>
+                    <span className="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">First Responder</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setSupportSubTab('zoho')}
@@ -3667,6 +3711,323 @@ export const SettingsManagement = ({
                   </button>
                 </div>
               </div>
+
+              {/* TAB 0: Labayh AI Configuration & Knowledge Base Sync */}
+              {supportSubTab === 'labayh' && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  
+                  {/* Labayh AI Engine Card */}
+                  <div className="bg-slate-900 border border-slate-800 text-slate-100 p-6 rounded-2xl shadow-xl space-y-6 text-right" dir="rtl">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-800">
+                      <div>
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <Bot className="w-5 h-5 text-amber-400" />
+                          <span>إعدادات وتكامل محرك الذكاء الاصطناعي والمساعد الفوري «لبيه» (Labayh AI)</span>
+                          <span className="bg-amber-500/20 text-amber-400 text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/30">
+                            {labayhAiStatus === 'connected' ? '🟢 متصل ونشط' : (labayhAiEnabled ? '🟡 قيد التحضين والتدريب' : '🔴 معطل')}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          «لبيه» هو المستجيب الذكي الأول (First Responder) لخدمة العملاء والشركاء، مدرب على الإجابة من قاعدة معرفة شروط وسياسات منصة "ليلة" مع التصعيد التلقائي لتذاكر الدعم عند الحالات المعقدة.
+                        </p>
+                      </div>
+                      
+                      {/* Master Toggle Switch */}
+                      <div className="flex items-center gap-3 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 shrink-0">
+                        <span className="text-xs font-bold text-slate-300">
+                          {labayhAiEnabled ? 'تفعيل محرك لبيه: مفعّل 🟢' : 'تفعيل محرك لبيه: معطّل 🔴'}
+                        </span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={labayhAiEnabled} 
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setLabayhAiEnabled(checked);
+                              localStorage.setItem('SETTINGS_LABAYH_AI_ENABLED', String(checked));
+                              saveConfigToServer('SETTINGS_LABAYH_AI_ENABLED', checked);
+                              showNotification('success', checked ? 'تم تفعيل تكامل محرك لبيه للذكاء الاصطناعي بنجاح' : 'تم تعطيل تكامل محرك لبيه');
+                            }} 
+                            className="sr-only peer" 
+                          />
+                          <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* API Connection Parameters */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
+                      <div className="space-y-1">
+                        <label className="text-slate-300 block font-bold">رابط نقطة نهاية المحرك (Labayh AI API URL)</label>
+                        <input 
+                          type="text" 
+                          value={labayhAiApiUrl} 
+                          placeholder="https://api.labayh.ai/v1/chat"
+                          onChange={e => {
+                            const val = e.target.value;
+                            setLabayhAiApiUrl(val);
+                            localStorage.setItem('SETTINGS_LABAYH_AI_API_URL', val);
+                            saveConfigToServer('SETTINGS_LABAYH_AI_API_URL', val);
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono text-left" 
+                          dir="ltr"
+                        />
+                        <span className="text-[10px] text-slate-500 block">نقطة النهاية المعتمدة لمعالجة وتوجيه المحادثات عبر REST API.</span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-slate-300 block font-bold">مفتاح الوصول المصادق (Access Key Token)</label>
+                        <input 
+                          type="password" 
+                          value={labayhAiToken} 
+                          placeholder="••••••••••••••••••••••••••••••••"
+                          onChange={e => {
+                            const val = e.target.value;
+                            setLabayhAiToken(val);
+                            localStorage.setItem('SETTINGS_LABAYH_AI_TOKEN', val);
+                            saveConfigToServer('SETTINGS_LABAYH_AI_TOKEN', val);
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-200 focus:outline-none focus:border-amber-500 font-mono text-left" 
+                          dir="ltr"
+                        />
+                        <span className="text-[10px] text-slate-500 block">يُحفظ بأمان لتأمين المصادقة الثنائية مع خوادم لبيه.</span>
+                      </div>
+                    </div>
+
+                    {/* Operational Tuning & Knowledge Sync Switches */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-200">عتبة الثقة والتصعيد لتذاكر الدعم (Confidence Threshold)</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">عند انخفاض ثقة الرد عن هذه النسبة، يعرض النظام زر فتح تذكرة دعم فني (Zoho Desk) فورياً.</p>
+                          </div>
+                          <span className="text-sm font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
+                            {labayhAiConfidenceThreshold}%
+                          </span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="50" 
+                          max="98" 
+                          value={labayhAiConfidenceThreshold} 
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setLabayhAiConfidenceThreshold(val);
+                            localStorage.setItem('SETTINGS_LABAYH_AI_CONFIDENCE', String(val));
+                            saveConfigToServer('SETTINGS_LABAYH_AI_CONFIDENCE', val);
+                          }}
+                          className="w-full accent-amber-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-200">مزامنة قاعدة المعرفة بالشروط والسياسات المعتمدة</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">تحديث «لبيه» بسياسات الضريبة 15%، الإلغاء، وأوقات العمل دورياً.</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={labayhAiKnowledgeSyncPolicies} 
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setLabayhAiKnowledgeSyncPolicies(checked);
+                                localStorage.setItem('SETTINGS_LABAYH_AI_KNOWLEDGE_SYNC', String(checked));
+                                saveConfigToServer('SETTINGS_LABAYH_AI_KNOWLEDGE_SYNC', checked);
+                              }} 
+                              className="sr-only peer" 
+                            />
+                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                          </label>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-slate-900">
+                          <span>اللوائح المشمولة: ضريبة 15%، وثيقة الشروط، سياسات الإلغاء</span>
+                          <span className="text-emerald-400 font-bold">محدثة ومطابقة</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Sandbox & Testing Area */}
+                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                          <Cpu className="w-4 h-4 text-amber-400" />
+                          <span>بيئة اختبار ومحاكاة استجابة المساعد الذكي «لبيه» (Interactive Testing Sandbox):</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400">محاكاة فورية مع تطبيق قواعد المنصة</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={labayhSimulationMessage} 
+                          onChange={e => setLabayhSimulationMessage(e.target.value)}
+                          placeholder="اكتب استفساراً تجريبياً هنا..."
+                          className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 text-right" 
+                          dir="rtl"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSimulatingLabayhChat}
+                          onClick={async () => {
+                            if (!labayhSimulationMessage.trim()) return;
+                            setIsSimulatingLabayhChat(true);
+                            try {
+                              const res = await fetch('/api/ai/labayh/chat', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  message: labayhSimulationMessage,
+                                  customerName: 'فهد الحربي (تجريبي)',
+                                  role: 'client'
+                                })
+                              });
+                              const data = await res.json();
+                              if (data.success && data.data) {
+                                setLabayhSimulationReply(data.data.reply + (data.data.shouldEscalateToTicket ? '\n\n🎫 [توصية النظام]: تم تفعيل زر اقتراح فتح تذكرة دعم فني في Zoho Desk.' : ''));
+                                showNotification('success', '🤖 تم استلام استجابة المساعد الذكي لبيه بنجاح!');
+                              } else {
+                                showNotification('error', 'تعذر استلام رد من المحرك، تحقق من الإعدادات.');
+                              }
+                            } catch(e: any) {
+                              showNotification('error', `خطأ في الاتصال: ${e.message}`);
+                            } finally {
+                              setIsSimulatingLabayhChat(false);
+                            }
+                          }}
+                          className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                        >
+                          {isSimulatingLabayhChat ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>جاري المعالجة...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-3.5 h-3.5" />
+                              <span>تجربة الاستجابة 🚀</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {labayhSimulationReply && (
+                        <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-xs text-amber-200/90 whitespace-pre-wrap leading-relaxed animate-in fade-in duration-200">
+                          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[11px] mb-1">
+                            <Bot className="w-3.5 h-3.5" />
+                            <span>استجابة «لبيه» التجريبية:</span>
+                          </div>
+                          {labayhSimulationReply}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions & Diagnostics Bar */}
+                    <div className="pt-4 border-t border-slate-800 flex flex-wrap justify-between items-center gap-4 text-xs">
+                      <div className="text-slate-400 text-[11px] flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span>قاعدة المعرفة: <strong className="text-slate-200">5 وثائق تنظيمية</strong> • الربط الخارجي: <strong className="text-slate-200">Zoho Desk Integration</strong></span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={async () => {
+                            setSyncingLabayhKnowledge(true);
+                            try {
+                              const res = await fetch('/api/ai/labayh/sync-knowledge', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ apiUrl: labayhAiApiUrl, token: labayhAiToken })
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                showNotification('success', `📚 ${data.message}`);
+                              } else {
+                                showNotification('error', 'فشلت المزامنة، يرجى المحاولة لاحقاً');
+                              }
+                            } catch(e: any) {
+                              showNotification('error', `فشل الاتصال: ${e.message}`);
+                            } finally {
+                              setSyncingLabayhKnowledge(false);
+                            }
+                          }}
+                          disabled={syncingLabayhKnowledge}
+                          className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2.5 rounded-xl border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          {syncingLabayhKnowledge ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                              <span>جاري مزامنة اللوائح...</span>
+                            </>
+                          ) : (
+                            <>
+                              <BookOpen className="w-4 h-4 text-amber-400" />
+                              <span>مزامنة قاعدة المعرفة بالسياسات 📚</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button 
+                          onClick={async () => {
+                            setTestingLabayhConnection(true);
+                            try {
+                              const res = await fetch('/api/ai/labayh/test-connection', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ apiUrl: labayhAiApiUrl, token: labayhAiToken })
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                setLabayhAiStatus('connected');
+                                localStorage.setItem('SETTINGS_LABAYH_AI_STATUS', 'connected');
+                                showNotification('success', `🟢 ${data.message} (زمن الاستجابة: ${data.latencyMs}ms)`);
+                              } else {
+                                showNotification('error', 'فشل التحقق من الاتصال بمحرك لبيه');
+                              }
+                            } catch(e: any) {
+                              showNotification('error', `فشل الاتصال: ${e.message}`);
+                            } finally {
+                              setTestingLabayhConnection(false);
+                            }
+                          }}
+                          disabled={testingLabayhConnection}
+                          className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                          {testingLabayhConnection ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                              <span>جاري فحص الاتصال...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4 text-slate-950" />
+                              <span>اختبار الاتصال بمحرك «لبيه» 🤖</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operational Isolation Architecture Card */}
+                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-5 shadow-xs text-right font-sans" dir="rtl">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-700 shrink-0">
+                        <Shield className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-amber-900">مبدأ العزل المعماري وضمان استقرار العمليات التشغيلية (Architectural Isolation)</h4>
+                        <p className="text-xs text-amber-800/90 leading-relaxed">
+                          تبقى هذه الإعدادات التقنية ومفاتيح التكامل محصورة كلياً داخل لوحة الإدارة المركزية. في الواجهات التشغيلية اليومية للعملاء والمزودين، يتولى المساعد الذكي «لبيه» استقبال الاستفسارات تلقائياً بدون تعريض أي من إعدادات الربط أو بنيته التحتية للواجهات المباشرة، مع استمرار المحادثات المباشرة بين المزود والعميل وشات الطوارئ بسلاسة واستقلالية تامة.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              )}
 
               {/* TAB 1: General SLA & External Helpdesk */}
               {supportSubTab === 'general' && (
@@ -3726,6 +4087,29 @@ export const SettingsManagement = ({
                           saveConfigToServer('SETTINGS_TICKETS_FEEDBACK_SURVEY', checked);
                         }}
                       />
+
+                      {/* 24-Hour Emergency Live Chat Exception Setting */}
+                      <div className="md:col-span-2 p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80">
+                        <SettingToggle 
+                          label="استثناء طوارئ الحجوزات القائمة (خلال 24 ساعة)" 
+                          description="السماح للمزود بفتح شات الطوارئ والدعم المباشر مع الإدارة مجاناً وبدون اشتراك في ميزة Live Chat Support إذا كان لديه حجز قائم أو مناسبة خلال الـ 24 ساعة القادمة لمعالجة الحالات الحرجة فورياً." 
+                          checked={(() => {
+                            try {
+                              const val = localStorage.getItem('SETTINGS_ALLOW_24H_EMERGENCY_CHAT');
+                              return val !== null ? val === 'true' : true;
+                            } catch {
+                              return true;
+                            }
+                          })()}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            localStorage.setItem('SETTINGS_ALLOW_24H_EMERGENCY_CHAT', String(checked));
+                            saveConfigToServer('SETTINGS_ALLOW_24H_EMERGENCY_CHAT', checked);
+                            window.dispatchEvent(new Event('chat-settings-updated'));
+                            showNotification('success', checked ? 'تم تفعيل استثناء شات الطوارئ للحجوزات خلال 24 ساعة' : 'تم تعطيل استثناء شات الطوارئ للحجوزات');
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
 

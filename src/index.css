@@ -46,8 +46,8 @@ body {
 }
 
 .dark .bg-slate-100,
-.dark .bg-slate-200/50,
-.dark .bg-slate-250/60,
+.dark .bg-slate-200\/50,
+.dark .bg-slate-250\/60,
 .dark .bg-slate-200 {
   background-color: #0c1e4a !important;
 }
@@ -113,7 +113,7 @@ body {
   color: #0B0F19 !important;
 }
 
-.dark .bg-amber-50/5 {
+.dark .bg-amber-50\/5 {
   background-color: rgba(226, 184, 87, 0.05) !important;
 }
 
