@@ -155,6 +155,15 @@ export const BookingAndHallModals: React.FC<BookingAndHallModalsProps> = ({
         booking={viewingBooking}
         onClose={() => setIsBookingViewModalOpen(false)}
         onPrintInvoice={(booking) => setInvoiceBookingToPrint(booking)}
+        onStatusChange={(bookingId, newStatus) => {
+          setBookings((prev: any[]) => prev.map((b: any) => b.id === bookingId ? { ...b, status: newStatus } : b));
+          if (viewingBooking && viewingBooking.id === bookingId) {
+            setViewingBooking({ ...viewingBooking, status: newStatus });
+          }
+          showNotification('success', `تم تحديث حالة الحجز إلى: ${newStatus}`);
+        }}
+        userRole={userRole}
+        hasSettlementVoucherCapability={true}
       />
 
       {/* Dynamic Force Majeure Submit Modal */}

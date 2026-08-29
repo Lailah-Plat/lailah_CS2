@@ -753,7 +753,7 @@ export default function App() {
 
   return (
     <AppProvider value={state}>
-      <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden" dir="rtl">
+      <div className={`flex h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden ${userRole === 'admin' ? 'admin-workspace' : ''}`} dir="rtl">
         {/* Mobile menu backdrop */}
         <AnimatePresence>
           {isMobileMenuOpen && (

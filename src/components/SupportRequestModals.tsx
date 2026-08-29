@@ -1,6 +1,11 @@
-import React from 'react';
-import { X, PackageSearch } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, PackageSearch, MessageSquare, FileCheck } from 'lucide-react';
 import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
+import { OrderLifecycleStepper, OrderLifecycleStatus } from './bookings/OrderLifecycleStepper';
+import { OrderActionBar } from './bookings/OrderActionBar';
+import { OrderChatModal } from './bookings/OrderChatModal';
+import { SettlementVoucherModal } from './bookings/SettlementVoucherModal';
+import { calculateOrderFinancials } from './bookings/GenericOrderDetailsCard';
 
 interface SupportRequestForm {
   bookingId: string | number;
@@ -48,8 +53,22 @@ export function SupportRequestModals({
   showNotification,
   formatCurrency
 }: SupportRequestModalsProps) {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isVoucherOpen, setIsVoucherOpen] = useState(false);
 
   if (!isSupportRequestModalOpen && !isSupportRequestViewModalOpen) return null;
+
+  const totalAmount = Number(viewingSupportRequest?.price) || 0;
+  const commissionRate = viewingSupportRequest?.commissionRate || 10;
+  const financials = calculateOrderFinancials(totalAmount, commissionRate);
+  const orderNum = viewingSupportRequest ? formatServiceRequestId(viewingSupportRequest.id) : '';
+
+  const handleSupportRequestStatusChange = (nextStatus: OrderLifecycleStatus) => {
+    if (!viewingSupportRequest) return;
+    const updated = { ...viewingSupportRequest, status: nextStatus };
+    setSupportServiceRequests(supportServiceRequests.map(r => r.id === viewingSupportRequest.id ? updated : r));
+    showNotification('success', `تم تحديث حالة طلب الخدمة إلى: ${nextStatus}`);
+  };
 
   return (
     <>
@@ -216,20 +235,24 @@ export function SupportRequestModals({
       {/* Support Service Request View Modal */}
       {isSupportRequestViewModalOpen && viewingSupportRequest && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200" dir="rtl">
-          <div className="bg-white rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden relative">
-            <div className="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden relative flex flex-col max-h-[92vh]">
+            <div className="bg-slate-50 p-5 sm:p-6 border-b border-slate-100 flex justify-between items-center shrink-0">
               <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <span className="w-2 h-6 bg-indigo-500 rounded-full"></span>
-                تفاصيل طلب الخدمة <span className="font-mono">{formatServiceRequestId(viewingSupportRequest.id)}</span>
+                <span className="w-2.5 h-6 bg-indigo-500 rounded-full"></span>
+                تفاصيل طلب الخدمة <span className="font-mono text-indigo-600">{orderNum}</span>
               </h3>
-              <button onClick={() => setIsSupportRequestViewModalOpen(false)} className="absolute top-4 xl:top-6 left-4 xl:left-6 z-[60] bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 shadow-sm p-2 rounded-full transition-all duration-200">
+              <button onClick={() => setIsSupportRequestViewModalOpen(false)} className="bg-white text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 shadow-sm p-2 rounded-full transition-all duration-200 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">رقم الحجز</span>
+
+            <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+              {/* Stepper */}
+              <OrderLifecycleStepper status={viewingSupportRequest.status || 'قيد الانتظار'} />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-xs text-slate-400 block font-bold">رقم الحجز المرتبط</span>
                   {viewingSupportRequest.bookingId && viewingSupportRequest.bookingId !== '-' && String(viewingSupportRequest.bookingId) !== '0' ? (
                     <span className="text-blue-600 font-mono font-bold hover:underline cursor-pointer" onClick={() => {
                         const associatedBooking = bookings.find(b => b.id === viewingSupportRequest.bookingId);
@@ -244,60 +267,115 @@ export function SupportRequestModals({
                         }
                     }}>{formatBookingId(viewingSupportRequest.bookingId)}</span>
                   ) : (
-                    <span className="text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded-md text-sm block w-max mt-1">خدمة مستقلة</span>
+                    <span className="text-slate-500 font-bold bg-white px-2 py-0.5 rounded text-xs block w-max mt-0.5">خدمة مساندة مستقلة</span>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">الحالة</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block ${
-                    viewingSupportRequest.status === 'مكتمل' ? 'bg-green-50 text-green-700 border-green-100' :
-                    viewingSupportRequest.status === 'جاري التنفيذ' || viewingSupportRequest.status === 'قيد التنفيذ' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                    viewingSupportRequest.status === 'تم القبول' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                    viewingSupportRequest.status === 'ملغي' ? 'bg-red-50 text-red-700 border-red-100' :
-                    'bg-amber-50 text-amber-700 border-amber-100'
-                  }`}>
-                    {viewingSupportRequest.status}
-                  </span>
+
+                <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-xs text-slate-400 block font-bold">تاريخ الطلب</span>
+                  <span className="text-slate-700 font-bold font-mono text-sm">{viewingSupportRequest.date}</span>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">العميل</span>
-                  <span className="text-slate-700 font-bold">{viewingSupportRequest.customerName}</span>
+
+                <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-xs text-slate-400 block font-bold">العميل صاحب الطلب</span>
+                  <span className="text-slate-800 font-bold text-sm">{viewingSupportRequest.customerName}</span>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">المزود</span>
-                  <span className="text-slate-700 font-bold">{viewingSupportRequest.providerName}</span>
+
+                <div className="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-xs text-slate-400 block font-bold">مزود الخدمة</span>
+                  <span className="text-slate-800 font-bold text-sm">{viewingSupportRequest.providerName}</span>
                 </div>
-                <div className="col-span-2 space-y-1 pt-2 border-t border-slate-50">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">الخدمة</span>
-                  <span className="text-slate-900 font-bold text-lg">{viewingSupportRequest.serviceName}</span>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">المبلغ</span>
-                  <span className="text-emerald-600 font-bold text-xl">{formatCurrency(viewingSupportRequest.price)}</span>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-400 block font-bold uppercase tracking-wider">التاريخ</span>
-                  <span className="text-slate-600 font-medium">{viewingSupportRequest.date}</span>
+
+                <div className="col-span-2 space-y-1 bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
+                  <span className="text-xs text-indigo-500 block font-bold">الخدمة المطلوبة</span>
+                  <span className="text-slate-900 font-bold text-base">{viewingSupportRequest.serviceName}</span>
                 </div>
               </div>
-              
-              <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex items-start gap-4">
-                <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-200">
-                  <PackageSearch className="w-5 h-5 text-indigo-500" />
+
+              {/* Transparent Financial Snapshot */}
+              <div className="bg-gradient-to-br from-indigo-50/60 to-slate-50 p-4 rounded-2xl border border-indigo-100 space-y-3">
+                <div className="flex justify-between items-center border-b border-indigo-100 pb-2">
+                  <span className="text-xs font-black text-indigo-900">اللقطة المالية للطلب (15% VAT)</span>
+                  <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">عمولة المنصة: {financials.commissionRate}%</span>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold text-indigo-900 mb-1">ملاحظة النظام</h4>
-                  <p className="text-xs text-indigo-700 leading-relaxed">
-                    هذا الطلب مرتبط بالحجز {formatBookingId(viewingSupportRequest.bookingId)}. سيتم احتساب التكاليف بشكل منفصل ضمن تقارير الخدمات المساندة.
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 block">الإجمالي الشامل</span>
+                    <span className="text-xs font-black text-slate-800">{formatCurrency(financials.grossAmount)}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 block">المبلغ الخاضع للضريبة</span>
+                    <span className="text-xs font-bold text-slate-700">{formatCurrency(financials.taxableAmount)}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 block">ضريبة 15% VAT</span>
+                    <span className="text-xs font-bold text-slate-700">{formatCurrency(financials.vatAmount)}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-emerald-600 block font-bold">صافي المزود</span>
+                    <span className="text-xs font-black text-emerald-600">{formatCurrency(financials.providerNetAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {viewingSupportRequest.bookingId && viewingSupportRequest.bookingId !== '-' && (
+                <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex items-start gap-3">
+                  <PackageSearch className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                    هذا الطلب ملحق بالحجز رقم {formatBookingId(viewingSupportRequest.bookingId)}. يتم احتساب التسويات تلقائياً في دورة التحصيل.
                   </p>
                 </div>
-              </div>
+              )}
             </div>
-            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-center">
-              <button onClick={() => setIsSupportRequestViewModalOpen(false)} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-slate-200">إغلاق النافذة</button>
+
+            {/* Action Bar */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0">
+              <div className="w-full">
+                <OrderActionBar
+                  status={viewingSupportRequest.status || 'قيد الانتظار'}
+                  orderNumber={orderNum}
+                  orderType="service"
+                  onStatusChange={handleSupportRequestStatusChange}
+                  onOpenChat={() => setIsChatOpen(true)}
+                  onPrintVoucher={() => setIsVoucherOpen(true)}
+                  hasSettlementVoucherCapability={true}
+                />
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Real-time Order Chat Modal */}
+      {isChatOpen && viewingSupportRequest && (
+        <OrderChatModal
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          orderNumber={orderNum}
+          orderType="service"
+          itemTitle={viewingSupportRequest.serviceName}
+          customerName={viewingSupportRequest.customerName}
+          bookingDate={viewingSupportRequest.date}
+          totalAmount={totalAmount}
+          status={viewingSupportRequest.status || 'قيد الانتظار'}
+        />
+      )}
+
+      {/* Financial Settlement Voucher Modal */}
+      {isVoucherOpen && viewingSupportRequest && (
+        <SettlementVoucherModal
+          isOpen={isVoucherOpen}
+          onClose={() => setIsVoucherOpen(false)}
+          orderNumber={orderNum}
+          orderType="service"
+          itemTitle={viewingSupportRequest.serviceName}
+          providerName={viewingSupportRequest.providerName}
+          customerName={viewingSupportRequest.customerName}
+          bookingDate={viewingSupportRequest.date}
+          totalAmount={totalAmount}
+          commissionRate={commissionRate}
+          status={viewingSupportRequest.status}
+        />
       )}
     </>
   );

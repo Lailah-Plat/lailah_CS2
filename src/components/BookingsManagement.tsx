@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Plus, Search, Filter, Lock, Download, FileSpreadsheet, FileDown, 
   Printer, Eye, Pencil, Trash2, FilterX, FileText, CheckCircle2, XCircle, Clock,
-  Table, LayoutGrid, Activity, Layers, ShieldCheck, Sparkles, RefreshCw
+  Table, LayoutGrid, Activity, Layers, ShieldCheck, Sparkles, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { AdminCalendar } from './AdminCalendar';
 import { BookingOperationsManager } from './BookingOperationsManager';
@@ -10,6 +10,8 @@ import { CurrentBlockedDatesTab } from './bookings/CurrentBlockedDatesTab';
 import { CalendarSyncTab } from './bookings/CalendarSyncTab';
 import { MasterAvailabilityMatrixTab } from './bookings/MasterAvailabilityMatrixTab';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
+import { OrderCountdownTimer } from './bookings/OrderCountdownTimer';
+import { normalizeOrderStatus, getOrderStatusInfo, OrderLifecycleStatus } from './bookings/OrderLifecycleStepper';
 import { formatSmartDate, getFullDateInfo } from '../utils/dateUtils';
 import { convertDigits } from '../utils/digitConverter';
 import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
@@ -68,38 +70,37 @@ const renderPriceWithTax = (amount: number, isVatEnabled: boolean, className: st
 };
 
 const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'مؤكد': case 'مدفوع': case 'نشط': case 'مفعل': return 'bg-green-100 text-green-700 border-green-200';
-    case 'انتظار': case 'جزئي': return 'bg-amber-100 text-amber-700 border-amber-200';
-    case 'ملغي': case 'غير مدفوع': case 'متوقف': case 'موقوف': return 'bg-red-100 text-red-700 border-red-200';
-    default: return 'bg-blue-100 text-blue-700 border-blue-200';
+  const norm = normalizeOrderStatus(status);
+  switch (norm) {
+    case 'completed': return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300';
+    case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300';
+    case 'preparing': return 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300';
+    case 'confirmed': return 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950/40 dark:text-teal-300';
+    case 'approved': return 'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-950/40 dark:text-sky-300';
+    case 'pending': return 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300';
+    case 'rejected': case 'cancelled': return 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300';
+    default: return 'bg-slate-100 text-slate-700 border-slate-200';
   }
 };
 
 const renderBookingStatusBadge = (b: any) => {
-  let label = '';
-  let colorClass = '';
-  let IconComponent = Clock;
-
-  if (b.status === 'مؤكد') {
-    label = 'مؤكد';
-    colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50';
-    IconComponent = CheckCircle2;
-  } else if (b.status === 'ملغي' || b.paymentStatus === 'مسترجع') {
-    label = 'ملغي';
-    colorClass = 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-800/50';
-    IconComponent = XCircle;
-  } else {
-    label = 'بانتظار الدفع';
-    colorClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/50';
-    IconComponent = Clock;
-  }
+  const info = getOrderStatusInfo(b.status);
+  const IconComponent = info.icon;
+  const isPending = normalizeOrderStatus(b.status) === 'pending';
 
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black border leading-none shrink-0 select-none align-middle transform hover:scale-105 transition-all duration-200 shadow-sm bg-opacity-70 dark:bg-opacity-20 border-opacity-50 text-right" dir="rtl" style={{ contentVisibility: 'auto' }}>
-      <IconComponent className="w-3 h-3 shrink-0" />
-      <span>{label}</span>
-    </span>
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border leading-none shrink-0 select-none align-middle shadow-xs ${info.bg} ${info.color} ${info.border}`} dir="rtl">
+        <IconComponent className="w-3 h-3 shrink-0" />
+        <span>{info.badgeLabel}</span>
+      </span>
+      {isPending && (
+        <OrderCountdownTimer 
+          createdAt={b.createdAt || b.date}
+          deadlineHours={24}
+        />
+      )}
+    </div>
   );
 };
 
@@ -467,7 +468,9 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
       if (!myItemNames.includes(b.hall)) return false;
     }
     const matchSearch = (b.customer || '').includes(bookingSearchQuery) || (b.hall || '').includes(bookingSearchQuery);
-    const matchStatus = bookingFilterStatus ? b.status === bookingFilterStatus : true;
+    const matchStatus = bookingFilterStatus 
+      ? normalizeOrderStatus(b.status) === normalizeOrderStatus(bookingFilterStatus) 
+      : true;
     const matchPaymentStatus = bookingFilterPaymentStatus ? b.paymentStatus === bookingFilterPaymentStatus : true;
     const matchDateFrom = bookingFilterDateFrom ? new Date(b.date) >= new Date(bookingFilterDateFrom) : true;
     const matchDateTo = bookingFilterDateTo ? new Date(b.date) <= new Date(bookingFilterDateTo) : true;
@@ -1071,11 +1074,16 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input type="text" placeholder="بحث بالعميل أو القاعة..." className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-200 focus:border-amber-500 outline-none" value={bookingSearchQuery} onChange={e => setBookingSearchQuery(e.target.value)} />
             </div>
-            <select className="p-3 rounded-xl border border-slate-200 bg-white outline-none min-w-[150px]" value={bookingFilterStatus || ''} onChange={e => setBookingFilterStatus(e.target.value)}>
-              <option value="">حالة الحجز</option>
-              <option value="مؤكد">مؤكد</option>
-              <option value="انتظار">انتظار</option>
-              <option value="ملغي">ملغي</option>
+            <select className="p-3 rounded-xl border border-slate-200 bg-white outline-none min-w-[150px] font-bold text-xs" value={bookingFilterStatus || ''} onChange={e => setBookingFilterStatus(e.target.value)}>
+              <option value="">كل حالات الحجوزات</option>
+              <option value="pending">جديد (بانتظار الموافقة)</option>
+              <option value="approved">معتمد (بانتظار الدفع)</option>
+              <option value="confirmed">مؤكد ومدفوع</option>
+              <option value="preparing">جاري التجهيز</option>
+              <option value="in_progress">جاري التنفيذ</option>
+              <option value="completed">مكتمل ومنجز</option>
+              <option value="cancelled">ملغي</option>
+              <option value="rejected">مرفوض</option>
             </select>
             <select className="p-3 rounded-xl border border-slate-200 bg-white outline-none min-w-[150px]" value={bookingFilterPaymentStatus || ''} onChange={e => setBookingFilterPaymentStatus(e.target.value)}>
               <option value="">حالة الدفع</option>
