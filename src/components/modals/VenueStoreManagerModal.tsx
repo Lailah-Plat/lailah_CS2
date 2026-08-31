@@ -9,12 +9,21 @@ import {
   Clock, Lock
 } from 'lucide-react';
 import { entitlementService, EntitlementResolution } from '../../services/entitlementService';
+import {
+  DynamicStoreCategory,
+  getStoredCategories,
+  POST_BOOKING_DEADLINE_OPTIONS,
+  getSovereignPostBookingConfig,
+  getProviderVenuePostBookingSettings,
+  saveProviderVenuePostBookingSetting,
+  ProviderVenuePostBookingSetting
+} from '../../data/storeCategoriesConfig';
 
 export interface StoreProductItem {
   id: string;
   hallId?: string | number;
   name: string;
-  category: 'beverages' | 'hospitality' | 'furniture' | 'logistics' | 'perfumes' | 'general';
+  category: string;
   unit: string;
   price: number; // شامل الضريبة 15%
   costPrice?: number;
@@ -263,6 +272,56 @@ export function VenueStoreManagerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Dynamic Store Categories
+  const [dynamicCategories, setDynamicCategories] = useState<DynamicStoreCategory[]>(() => {
+    return getStoredCategories();
+  });
+
+  // Post-Booking Venue Settings & Sovereign Status
+  const [sovereignConfig, setSovereignConfig] = useState(() => getSovereignPostBookingConfig());
+  const [venuePostBookingSetting, setVenuePostBookingSetting] = useState<ProviderVenuePostBookingSetting>(() => {
+    const venueIdStr = String(hall?.id || 'default');
+    const all = getProviderVenuePostBookingSettings();
+    return all[venueIdStr] || {
+      venueId: venueIdStr,
+      enabled: true,
+      deadlineDays: 3,
+      autoCloseOnDeadline: true,
+      proofRequiredForPerishableRefund: true
+    };
+  });
+
+  const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
+
+  useEffect(() => {
+    const handleCategorySync = () => {
+      setDynamicCategories(getStoredCategories());
+      setSovereignConfig(getSovereignPostBookingConfig());
+      const venueIdStr = String(hall?.id || 'default');
+      const all = getProviderVenuePostBookingSettings();
+      if (all[venueIdStr]) {
+        setVenuePostBookingSetting(all[venueIdStr]);
+      }
+    };
+    window.addEventListener('storeCategoriesUpdated', handleCategorySync);
+    window.addEventListener('postBookingConfigUpdated', handleCategorySync);
+    window.addEventListener('storage', handleCategorySync);
+    return () => {
+      window.removeEventListener('storeCategoriesUpdated', handleCategorySync);
+      window.removeEventListener('postBookingConfigUpdated', handleCategorySync);
+      window.removeEventListener('storage', handleCategorySync);
+    };
+  }, [hall?.id]);
+
+  const handleUpdateVenuePostBooking = (updates: Partial<ProviderVenuePostBookingSetting>) => {
+    const updated = { ...venuePostBookingSetting, ...updates };
+    setVenuePostBookingSetting(updated);
+    saveProviderVenuePostBookingSetting(updated);
+    if (showNotification) {
+      showNotification('success', 'تم حفظ إعدادات ومهلة الطلبات اللاحقة لهذا المكان بنجاح');
+    }
+  };
 
   // Add / Edit Product Modal state
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
@@ -576,12 +635,31 @@ export function VenueStoreManagerModal({
             </div>
           </div>
 
-          {/* Card 3: Applied Tax Notice */}
-          <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
-            <span className="text-xs font-bold text-slate-500">الضريبة المطبقة</span>
-            <div className="flex items-center gap-1.5 mt-1 text-amber-900 font-extrabold text-xs sm:text-sm">
-              <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>🛡️ شامل الضريبة 15%</span>
+          {/* Card 3: Post-Booking Deadline Settings Card */}
+          <div 
+            onClick={() => setShowSettingsDrawer(true)}
+            className="bg-white p-3.5 sm:p-4 rounded-2xl border border-amber-200/90 hover:border-amber-400 shadow-2xs flex flex-col justify-between cursor-pointer group transition-all"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>الطلبات اللاحقة والمهلة</span>
+              </span>
+              <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded group-hover:bg-amber-100 transition-colors">
+                تعديل ⚙️
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-sm sm:text-base font-black text-amber-900">
+                {venuePostBookingSetting.enabled ? `${venuePostBookingSetting.deadlineDays} أيام قبل الحفل` : 'موقوفة'}
+              </span>
+              <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                venuePostBookingSetting.enabled && sovereignConfig.enabled 
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {sovereignConfig.enabled ? (venuePostBookingSetting.enabled ? 'مفعل' : 'مغلق') : 'معطل سيادياً'}
+              </span>
             </div>
           </div>
 
@@ -656,28 +734,33 @@ export function VenueStoreManagerModal({
 
           {/* Categories Tab Bar */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold select-none">
-            {[
-              { id: 'all', label: 'كافة الأصناف', icon: Layers },
-              { id: 'beverages', label: 'المشروبات والمياه', icon: Wine },
-              { id: 'hospitality', label: 'الإعاشة والضيافة', icon: Utensils },
-              { id: 'furniture', label: 'الأثاث والديكور الإضافي', icon: Armchair },
-              { id: 'logistics', label: 'الخدمات اللوجستية والعمالة', icon: Users },
-              { id: 'perfumes', label: 'عطور ومستلزمات عامة', icon: Sparkles }
-            ].map(cat => {
-              const Icon = cat.icon;
-              const isSelected = selectedCategory === cat.id;
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+                selectedCategory === 'all'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
+              }`}
+            >
+              <Layers className={`w-3.5 h-3.5 ${selectedCategory === 'all' ? 'text-slate-950' : 'text-slate-500'}`} />
+              <span>كافة الأصناف</span>
+            </button>
+
+            {dynamicCategories.map(cat => {
+              const isSelected = selectedCategory === cat.key;
               return (
                 <button
-                  key={cat.id}
+                  key={cat.key}
                   type="button"
-                  onClick={() => setSelectedCategory(cat.id)}
+                  onClick={() => setSelectedCategory(cat.key)}
                   className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
                     isSelected
                       ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                       : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-500'}`} />
+                  <Tag className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-500'}`} />
                   <span>{cat.label}</span>
                 </button>
               );
@@ -943,16 +1026,15 @@ export function VenueStoreManagerModal({
                     <div>
                       <label className="block mb-1 text-slate-800">التصنيف <span className="text-rose-500">*</span></label>
                       <select
-                        value={formData.category || 'hospitality'}
-                        onChange={e => setFormData({ ...formData, category: e.target.value as any })}
+                        value={formData.category || (dynamicCategories[0]?.key ?? 'hospitality')}
+                        onChange={e => setFormData({ ...formData, category: e.target.value })}
                         className="w-full p-2.5 rounded-xl border border-slate-200 focus:border-amber-500 outline-none bg-white cursor-pointer"
                       >
-                        <option value="hospitality">الإعاشة والضيافة</option>
-                        <option value="beverages">المشروبات والمياه</option>
-                        <option value="furniture">الأثاث والديكور الإضافي</option>
-                        <option value="logistics">الخدمات اللوجستية والعمالة</option>
-                        <option value="perfumes">عطور ومستلزمات عامة</option>
-                        <option value="general">أصناف عامة</option>
+                        {dynamicCategories.map(cat => (
+                          <option key={cat.key} value={cat.key}>
+                            {cat.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1135,6 +1217,126 @@ export function VenueStoreManagerModal({
                     </button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Post-Booking Settings Modal */}
+        <AnimatePresence>
+          {showSettingsDrawer && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[99999]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col"
+              >
+                {/* Header */}
+                <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-sm sm:text-base">إعدادات الطلبات اللاحقة والمهل الذكية</h3>
+                      <p className="text-[11px] text-slate-300">تحديد المهلة القصوى المسموحة للعميل لطلب مستلزمات إضافية قبل المناسبة</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsDrawer(false)}
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-5 space-y-5">
+                  {/* Sovereign Alert if disabled globally */}
+                  {!sovereignConfig.enabled && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block">ملاحظة سيادية هامة:</span>
+                        <span className="text-[11px]">تم تعطيل الطلبات اللاحقة لمتجر المستلزمات سيادياً من قِبل إدارة المنصة لجميع القاعات حالياً.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Toggle Enable for this hall */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">تفعيل الطلبات اللاحقة لهذا المكان</span>
+                      <span className="text-[11px] text-slate-500">تمكين العميل من إضافة أصناف من المتجر بعد إتمام الحجز</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={venuePostBookingSetting.enabled}
+                        onChange={(e) => handleUpdateVenuePostBooking({ enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  {/* Deadline Dropdown */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-800">
+                      المهلة القصوى للطلب قبل موعد المناسبة:
+                    </label>
+                    <select
+                      value={venuePostBookingSetting.deadlineDays}
+                      disabled={!venuePostBookingSetting.enabled}
+                      onChange={(e) => handleUpdateVenuePostBooking({ deadlineDays: parseInt(e.target.value) || 3 })}
+                      className="w-full p-3 rounded-xl border border-slate-200 focus:border-amber-500 outline-none text-xs font-bold text-slate-800 bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <optgroup label="المدى القريب (استراحات / شاليهات / مناسبات سريعة)">
+                        {POST_BOOKING_DEADLINE_OPTIONS.filter(o => o.category === 'short').map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="المدى المتوسط (قاعات متوسطة / مناسبات مجدولة)">
+                        {POST_BOOKING_DEADLINE_OPTIONS.filter(o => o.category === 'medium').map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="المدى البعيد (قصور أفراح كبرى / تجهيزات ضخمة)">
+                        {POST_BOOKING_DEADLINE_OPTIONS.filter(o => o.category === 'long').map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      * يغلق النظام تلقائياً إمكانية الطلب للعميل عند الوصول إلى هذه المهلة لتفادي الإرباك اللوجستي.
+                    </p>
+                  </div>
+
+                  {/* Refund & Proof Policy Notice */}
+                  <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2 text-amber-950">
+                    <div className="flex items-center gap-2 font-bold text-xs text-amber-900">
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      <span>ضوابط استرداد المستلزمات عند إلغاء الحجز:</span>
+                    </div>
+                    <ul className="text-[11px] text-amber-800 space-y-1 list-disc pr-4 leading-relaxed">
+                      <li><strong>الأصناف العامة والقابلة لإعادة الاستخدام:</strong> تسترد كاملة للعميل وفق سياسة الإلغاء المعتمدة.</li>
+                      <li><strong>المنتجات الاستهلاكية والتجهيزية المخصصة (بوفيهات، ذبائح، زهور):</strong> لا تخصم قيمتها إلا بشرط تقديم المزود لإثبات بدء التجهيز الفعلي لحماية حقوق الطرفين.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsDrawer(false)}
+                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs"
+                  >
+                    حفظ وإغلاق
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}

@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, Store, ShoppingBag, Plus, Minus, Check, Sparkles, 
   Tag, ShieldCheck, ChevronLeft, ArrowRight, Utensils,
-  Wine, Armchair, Coffee, Package, Info, Calculator
+  Wine, Armchair, Coffee, Package, Info, Calculator, Layers
 } from 'lucide-react';
+import {
+  DynamicStoreCategory,
+  getStoredCategories,
+  checkBookingPostOrderEligibility
+} from '../data/storeCategoriesConfig';
 
 export interface VenueProductItem {
   id: string;
   name: string;
-  category: 'dinner' | 'beverages' | 'furniture' | 'hospitality' | 'supplies';
+  category: string;
   unit: string;
   price: number; // VAT-Inclusive (شامل الضريبة)
   minQuantity: number;
@@ -34,6 +39,9 @@ export interface VenueProductsStoreModalProps {
   isOpen: boolean;
   onClose: () => void;
   venueName: string;
+  venueId?: string | number;
+  eventDate?: string;
+  isPostBooking?: boolean;
   hallBasePrice: number;
   periodName?: string;
   servicesList: VenueServiceItem[];
@@ -148,6 +156,9 @@ export function VenueProductsStoreModal({
   isOpen,
   onClose,
   venueName,
+  venueId,
+  eventDate,
+  isPostBooking,
   hallBasePrice = 15000,
   periodName = 'فترة مسائي',
   servicesList = [],
@@ -160,8 +171,6 @@ export function VenueProductsStoreModal({
 }: VenueProductsStoreModalProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'services' | 'financial'>('products');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  if (!isOpen) return null;
 
   // Financial Calculations (15% VAT-Inclusive)
   const productsPrice = productsList.reduce((acc, item) => {
@@ -180,6 +189,32 @@ export function VenueProductsStoreModal({
   const totalSelectedProductsCount = Object.values(selectedProducts).reduce((a, b) => a + b, 0);
   const totalStoreOnlyPrice = productsPrice + servicesPrice;
 
+  // Post-Booking Check & Deadlines
+  const postBookingEligibility = useMemo(() => {
+    if (!eventDate) {
+      return { isAllowed: true, daysRemaining: 30, deadlineDays: 3, isPerishableProofRequired: true, formattedDeadlineDate: '' };
+    }
+    return checkBookingPostOrderEligibility(eventDate, venueId ? String(venueId) : undefined);
+  }, [eventDate, venueId]);
+
+  if (!isOpen) return null;
+
+  const [dynamicCategories, setDynamicCategories] = useState<DynamicStoreCategory[]>(() => {
+    return getStoredCategories();
+  });
+
+  useEffect(() => {
+    const handleCategorySync = () => {
+      setDynamicCategories(getStoredCategories());
+    };
+    window.addEventListener('storeCategoriesUpdated', handleCategorySync);
+    window.addEventListener('storage', handleCategorySync);
+    return () => {
+      window.removeEventListener('storeCategoriesUpdated', handleCategorySync);
+      window.removeEventListener('storage', handleCategorySync);
+    };
+  }, []);
+
   // Filter products by category
   const filteredProducts = productsList.filter(p => {
     if (selectedCategory === 'all') return true;
@@ -188,11 +223,11 @@ export function VenueProductsStoreModal({
 
   const categories = [
     { id: 'all', label: 'كافة المنتجات', icon: Package },
-    { id: 'dinner', label: 'العشاء والأطعمة', icon: Utensils },
-    { id: 'beverages', label: 'المياه والمشروبات', icon: Wine },
-    { id: 'furniture', label: 'طاولات ومقاعد VIP', icon: Armchair },
-    { id: 'hospitality', label: 'القهوة والضيافة', icon: Coffee },
-    { id: 'supplies', label: 'مستلزمات الحفل', icon: Sparkles }
+    ...dynamicCategories.map(c => ({
+      id: c.key,
+      label: c.label,
+      icon: Tag
+    }))
   ];
 
   const handleSaveAndClose = () => {
@@ -310,6 +345,29 @@ export function VenueProductsStoreModal({
             </span>
           </div>
         </div>
+
+        {/* Post-Booking Status / Deadline Banner */}
+        {eventDate && (
+          <div className={`px-4 sm:px-6 py-2 border-b text-xs flex items-center justify-between gap-2 shrink-0 ${
+            postBookingEligibility.isAllowed
+              ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+              : 'bg-rose-50/90 border-rose-200 text-rose-950'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className="text-base">{postBookingEligibility.isAllowed ? '🗓️' : '🔒'}</span>
+              <span className="font-bold">
+                {postBookingEligibility.isAllowed
+                  ? `مستلزمات المتجر متاحة للطلب: يمكنك إضافة أو تعديل مستلزمات حتى ${postBookingEligibility.deadlineDays} أيام قبل موعد المناسبة.`
+                  : postBookingEligibility.reason}
+              </span>
+            </div>
+            {postBookingEligibility.isAllowed && postBookingEligibility.formattedDeadlineDate && (
+              <span className="hidden md:inline-block font-mono font-black text-emerald-800 bg-emerald-100/70 border border-emerald-300 px-2 py-0.5 rounded-md text-[11px]">
+                آخر موعد للطلب: {postBookingEligibility.formattedDeadlineDate}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* 3. DEDICATED CATEGORY FILTER BAR (FIXED OUTSIDE PRODUCTS SCROLL CONTAINER) */}
         {activeTab === 'products' && (

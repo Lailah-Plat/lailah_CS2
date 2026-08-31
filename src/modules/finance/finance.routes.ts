@@ -49,6 +49,7 @@ router.post('/settle-claim', controller.settleClaim);
 router.post('/release-funds', controller.releaseFunds);
 router.post('/trigger-cron', controller.triggerCron);
 router.post('/process-payout', controller.processPayout);
+router.post('/payout-webhook', controller.handlePayoutWebhook);
 
 // Unified ledger and settlements
 router.get('/settlements', controller.getSettlements);

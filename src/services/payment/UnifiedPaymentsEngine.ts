@@ -15,6 +15,8 @@ import {
 } from '../../models/Database.js';
 import { FinancialEngine, FinancialSnapshotData } from '../finance/FinancialEngine.js';
 import { generateRevenueNumber, generateExpenseNumber, generateInvoiceNumber, getYearSuffix } from '../../modules/finance/usecases/GenerateId.js';
+
+export { generateExpenseNumber };
 import { Logger } from '../logger.service.js';
 import { Op } from 'sequelize';
 
@@ -119,7 +121,7 @@ export class UnifiedPaymentsEngine {
       description: `تحصيل مبلغ حجز #${bookingId} وتثبيت اللقطة المالية`,
       entries: [
         { walletType: 'gateway_fee', type: 'debit', amount: grossAmountHalalas, description: 'تحصيل إجمالي عبر بوابة الدفع' },
-        { walletType: 'provider', providerId, type: 'credit', amount: providerShareHalalas, description: 'حصة المزود المعلقة' },
+        { walletType: 'provider', providerId, type: 'credit', amount: providerShareHalalas, description: 'حصة المزود المعلقة (الضمان المحجوز)', targetBalance: 'pending', status: 'pending' },
         { walletType: 'platform_revenue', type: 'credit', amount: commissionBaseHalalas, description: 'صافي عمولة المنصة المكتسبة' },
         { walletType: 'platform_vat', type: 'credit', amount: commissionVatHalalas, description: 'ضريبة القيمة المضافة المحصلة' },
         { walletType: 'gateway_fee', type: 'credit', amount: gatewayFeeHalalas, description: 'مصروفات اقتطاع البوابة' }
@@ -190,6 +192,8 @@ export class UnifiedPaymentsEngine {
       type: 'debit' | 'credit';
       amount: number; // In Halalas
       description: string;
+      targetBalance?: 'available' | 'pending';
+      status?: 'pending' | 'completed' | 'failed';
     }>;
   }, options?: any) {
     const transaction = options?.transaction;
@@ -221,7 +225,9 @@ export class UnifiedPaymentsEngine {
         referenceType: data.referenceType,
         type: entryData.type,
         amount: entryData.amount / 100, // Convert to SAR for compatibility ledger table
-        description: entryData.description
+        description: entryData.description,
+        targetBalance: entryData.targetBalance,
+        status: entryData.status || 'completed'
       }, { transaction });
     }
 
@@ -284,37 +290,60 @@ export class UnifiedPaymentsEngine {
 
   /**
    * 4. Decoupled Refund Calculator & Allocation Engine (ADR-005 & Section 6)
+   * Single Source of Truth for all refund calculations and executions.
    */
   static async calculateAndAllocateRefund(input: RefundQuoteInput, options?: any) {
     const transaction = options?.transaction;
-    const { paymentId, refundAmountHalalas, reason, cancelledBy, cancellationFeeHalalas = 0 } = input;
+    const { paymentId, refundAmountHalalas, reason, cancelledBy } = input;
+    let cancellationFeeHalalas = input.cancellationFeeHalalas || 0;
 
-    const splits = await SplitTransaction.findAll({ where: { paymentId }, transaction });
+    let splits = await SplitTransaction.findAll({ where: { paymentId }, transaction });
+    if (splits.length === 0 && !isNaN(Number(paymentId))) {
+      splits = await SplitTransaction.findAll({ where: { bookingId: Number(paymentId) }, transaction });
+    }
+
     const providerSplit = splits.find(s => s.role === 'provider');
     const platformSplit = splits.find(s => s.role === 'platform');
 
-    const settlement = await SettlementInstruction.findOne({ where: { paymentId }, transaction });
+    const settlement = await SettlementInstruction.findOne({ 
+      where: { [Op.or]: [{ paymentId }, { splitTransactionId: providerSplit?.id || 0 }] }, 
+      transaction 
+    });
 
     const isPostPayout = settlement?.status === 'paid';
+    const isSplitHeld = providerSplit?.status === 'held';
 
     let customerRefundHalalas = Math.max(0, refundAmountHalalas - cancellationFeeHalalas);
     let providerDeductionHalalas = 0;
     let platformReversalHalalas = 0;
+    let platformVatReversalHalalas = 0;
+    let platformRevenueReversalHalalas = 0;
+
+    const commRate = platformSplit?.percentage || 0.10;
 
     if (cancelledBy === 'provider') {
-      // Provider fault: Provider bears full refund + platform fee
+      // 1. Provider fault: Provider bears full gross refund to customer. Platform retains commission.
       providerDeductionHalalas = refundAmountHalalas;
       customerRefundHalalas = refundAmountHalalas;
-      platformReversalHalalas = 0; // Platform retains commission
+      cancellationFeeHalalas = 0;
+      platformReversalHalalas = 0;
+      platformRevenueReversalHalalas = 0;
+      platformVatReversalHalalas = 0;
     } else if (cancelledBy === 'customer') {
-      // Customer cancellation: Deduct cancellation fee
-      providerDeductionHalalas = customerRefundHalalas;
-      platformReversalHalalas = Math.round(customerRefundHalalas * 0.10);
+      // 2. Customer cancellation: Deduct cancellation fee if applicable.
+      // Platform reverses commission proportionally on the gross refunded amount.
+      platformReversalHalalas = Math.round(refundAmountHalalas * commRate);
+      platformVatReversalHalalas = Math.round(platformReversalHalalas * (15 / 115));
+      platformRevenueReversalHalalas = platformReversalHalalas - platformVatReversalHalalas;
+      providerDeductionHalalas = refundAmountHalalas - platformReversalHalalas;
     } else {
-      // Force Majeure or Admin: Full refund
+      // 3. Force Majeure or Admin cancellation: Full unpenalized refund.
       customerRefundHalalas = refundAmountHalalas;
-      providerDeductionHalalas = providerSplit ? Math.min(refundAmountHalalas, providerSplit.amount) : 0;
-      platformReversalHalalas = platformSplit ? Math.min(refundAmountHalalas, platformSplit.amount) : 0;
+      cancellationFeeHalalas = 0;
+      platformReversalHalalas = Math.round(refundAmountHalalas * commRate);
+      platformVatReversalHalalas = Math.round(platformReversalHalalas * (15 / 115));
+      platformRevenueReversalHalalas = platformReversalHalalas - platformVatReversalHalalas;
+      providerDeductionHalalas = refundAmountHalalas - platformReversalHalalas;
     }
 
     const currentYear = new Date().getFullYear();
@@ -350,19 +379,84 @@ export class UnifiedPaymentsEngine {
       await settlement.save({ transaction });
     }
 
-    // Post Ledger Reversal Journal
+    // Prepare strictly balanced Double-Entry Journal Entries (Total Debits === Total Credits)
+    const journalEntries: Array<{
+      walletType: 'provider' | 'platform_revenue' | 'platform_vat' | 'gateway_fee';
+      providerId?: number | null;
+      type: 'debit' | 'credit';
+      amount: number; // In Halalas
+      description: string;
+      targetBalance?: 'available' | 'pending';
+      status?: 'pending' | 'completed' | 'failed';
+    }> = [];
+
+    // DEBITS:
+    // 1. Provider Share Reversal (Debit from provider's pending or available balance)
+    if (providerDeductionHalalas > 0) {
+      journalEntries.push({
+        walletType: 'provider',
+        providerId: providerSplit?.providerId || undefined,
+        type: 'debit',
+        amount: providerDeductionHalalas,
+        description: isSplitHeld ? 'خصم حصة المزود من الرصيد المعلق المحجوز (الضمان)' : 'خصم حصة المزود المستردة (التزام مالي/ذمم)',
+        targetBalance: isSplitHeld ? 'pending' : 'available'
+      });
+    }
+
+    // 2. Platform Net Revenue Reversal (Debit to reduce earned revenue)
+    if (platformRevenueReversalHalalas > 0) {
+      journalEntries.push({
+        walletType: 'platform_revenue',
+        type: 'debit',
+        amount: platformRevenueReversalHalalas,
+        description: 'عكس صافي عمولة المنصة الخاضعة للضريبة'
+      });
+    }
+
+    // 3. Platform VAT Reversal (Debit to reduce VAT liability)
+    if (platformVatReversalHalalas > 0) {
+      journalEntries.push({
+        walletType: 'platform_vat',
+        type: 'debit',
+        amount: platformVatReversalHalalas,
+        description: 'عكس ضريبة القيمة المضافة المحصلة'
+      });
+    }
+
+    // CREDITS:
+    // 1. Bank / Gateway Clearing Cash Outflow (Credit to gateway clearing / bank account for customer remittance)
+    if (customerRefundHalalas > 0) {
+      journalEntries.push({
+        walletType: 'gateway_fee',
+        type: 'credit',
+        amount: customerRefundHalalas,
+        description: 'صرف مبلغ الاسترداد الفعلي للعميل عبر البوابة / الحساب البنكي'
+      });
+    }
+
+    // 2. Cancellation Fee Retained by Platform (Credit to platform revenue if customer cancellation fee applied)
+    if (cancellationFeeHalalas > 0) {
+      journalEntries.push({
+        walletType: 'platform_revenue',
+        type: 'credit',
+        amount: cancellationFeeHalalas,
+        description: 'إيراد رسوم إلغاء مستقطعة من مبلغ الاسترداد'
+      });
+    }
+
+    // Post Double-Entry Reversal Journal with strict balance verification
     await this.postDoubleEntryJournal({
       journalNo: await generateExpenseNumber(),
       referenceId: refundId,
       referenceType: 'refund_execution',
-      description: `استرداد حجز #${splits[0]?.bookingId} (${reason})`,
-      entries: [
-        { walletType: 'gateway_fee', type: 'debit', amount: customerRefundHalalas, description: 'مبلغ الاسترداد الموجه للعميل' },
-        { walletType: 'provider', providerId: providerSplit?.providerId || undefined, type: 'debit', amount: providerDeductionHalalas, description: 'خصم حصة المزود المردودة' },
-        { walletType: 'platform_revenue', type: 'debit', amount: platformReversalHalalas, description: 'عكس جزء من عمولة المنصة' },
-        { walletType: 'gateway_fee', type: 'credit', amount: customerRefundHalalas, description: 'إعادة تخصيص المقاصة البنكية' }
-      ]
+      description: `قيد استرداد حجز #${splits[0]?.bookingId || paymentId} (${reason})`,
+      entries: journalEntries
     }, { transaction });
+
+    if (providerSplit) {
+      providerSplit.status = isSplitHeld ? 'reversed' : 'refunded';
+      await providerSplit.save({ transaction });
+    }
 
     allocation.status = 'posted';
     await allocation.save({ transaction });
@@ -370,7 +464,85 @@ export class UnifiedPaymentsEngine {
     return {
       refundId,
       allocation,
-      isPostPayout
+      isPostPayout,
+      customerRefundSar: customerRefundHalalas / 100,
+      providerDeductionSar: providerDeductionHalalas / 100
+    };
+  }
+
+  /**
+   * 5. Release Held Provider Escrow Funds after Event Completion
+   */
+  static async releaseHeldProviderFunds(bookingId: number, options?: any) {
+    const transaction = options?.transaction;
+
+    const splits = await SplitTransaction.findAll({
+      where: { bookingId, role: 'provider', status: 'held' },
+      transaction
+    });
+
+    if (splits.length === 0) {
+      return { releasedCount: 0, message: 'لا توجد مستحقات معلقة محجوزة لهذا الحجز.' };
+    }
+
+    let totalReleasedHalalas = 0;
+
+    for (const split of splits) {
+      if (!split.providerId) continue;
+
+      const providerId = split.providerId;
+      const amountHalalas = split.amount;
+      const amountSar = amountHalalas / 100;
+
+      // 1. Move from pendingBalance to available balance in provider wallet
+      const [wallet] = await Wallet.findOrCreate({
+        where: { providerId },
+        defaults: { balance: 0, pendingBalance: 0 },
+        transaction
+      });
+
+      wallet.pendingBalance = (wallet.pendingBalance || 0) - amountSar;
+      wallet.balance = (wallet.balance || 0) + amountSar;
+      await wallet.save({ transaction });
+
+      // 2. Update Split Transaction status
+      split.status = 'available';
+      await split.save({ transaction });
+
+      // 3. Update corresponding Settlement Instruction
+      const settlement = await SettlementInstruction.findOne({
+        where: { splitTransactionId: split.id },
+        transaction
+      });
+      if (settlement && settlement.status === 'pending_eligibility') {
+        settlement.status = 'scheduled';
+        await settlement.save({ transaction });
+      }
+
+      // 4. Record Double-Entry Journal for Escrow Release
+      await this.postDoubleEntryJournal({
+        journalNo: await generateRevenueNumber(),
+        referenceId: `REL-BKG-${bookingId}`,
+        referenceType: 'escrow_release',
+        description: `تحرير الضمان المحجوز لحساب حجز مكتمل رقم #${bookingId}`,
+        entries: [
+          { walletType: 'provider', providerId, type: 'debit', amount: amountHalalas, description: 'خصم من الرصيد المعلق بعد اكتمال المناسبة', targetBalance: 'pending' },
+          { walletType: 'provider', providerId, type: 'credit', amount: amountHalalas, description: 'إضافة للرصيد المتاح للسحب بعد اكتمال المناسبة', targetBalance: 'available' }
+        ]
+      }, { transaction });
+
+      totalReleasedHalalas += amountHalalas;
+    }
+
+    Logger.financial(`Released held escrow for booking #${bookingId}`, { 
+      bookingId, 
+      amount: totalReleasedHalalas / 100, 
+      currency: 'SAR' 
+    });
+
+    return {
+      releasedCount: splits.length,
+      totalReleasedSar: totalReleasedHalalas / 100
     };
   }
 

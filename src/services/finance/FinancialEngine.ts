@@ -166,7 +166,7 @@ export class FinancialEngine {
   static async postLedgerEntry(
     data: {
       walletType: "provider" | "platform_revenue" | "platform_vat" | "gateway_fee";
-      providerId: number | null;
+      providerId?: number | null;
       referenceId: string;
       referenceType: string;
       type: "debit" | "credit";
@@ -174,10 +174,11 @@ export class FinancialEngine {
       description: string;
       status?: "pending" | "completed" | "failed";
       createdBy?: string | null;
+      targetBalance?: "available" | "pending";
     },
     options?: any
   ): Promise<LedgerEntry> {
-    const { walletType, providerId, referenceId, referenceType, type, amount, description, status = "completed", createdBy = null } = data;
+    const { walletType, providerId, referenceId, referenceType, type, amount, description, status = "completed", createdBy = null, targetBalance } = data;
     const transaction = options?.transaction;
 
     let balanceBefore = 0;
@@ -195,21 +196,57 @@ export class FinancialEngine {
         transaction,
       });
 
-      balanceBefore = wallet.balance;
-      const change = type === "credit" ? amount : -amount;
-      balanceAfter = balanceBefore + change;
+      // التحقق مما إذا كان القيد يخص الرصيد المعلق (مثل تحصيل دفع معلق لحين اكتمال المناسبة) أو الرصيد المتاح
+      const isPendingTarget = targetBalance === "pending" || 
+                              referenceType === "payment_capture" || 
+                              status === "pending" || 
+                              description.includes("المعلقة");
 
-      wallet.balance = balanceAfter;
-      await wallet.save({ transaction });
+      if (isPendingTarget) {
+        // قيد على الرصيد المعلق (Pending / Held Escrow)
+        balanceBefore = wallet.pendingBalance || 0;
+        const change = type === "credit" ? amount : -amount;
+        balanceAfter = balanceBefore + change;
 
-      // إنشاء حركة محفظة لتوافق التقارير والواجهات
-      await WalletTransaction.create({
-        providerId,
-        type: referenceType === "withdrawal" ? "withdrawal" : (type === "credit" ? "release_deposit" : "commission_charge"),
-        description,
-        amount,
-        status: status === "completed" ? "completed" : "pending",
-      }, { transaction });
+        wallet.pendingBalance = balanceAfter;
+        await wallet.save({ transaction });
+
+        // تسجيل حركة محفظة معلقة
+        await WalletTransaction.create({
+          providerId,
+          type: type === "credit" ? "deposit_pending" : "pending_deduction",
+          description,
+          amount,
+          status: "pending",
+        }, { transaction });
+      } else {
+        // قيد على الرصيد المتاح (Available Balance)
+        balanceBefore = wallet.balance || 0;
+        const change = type === "credit" ? amount : -amount;
+        // المحاسبة الصارمة: لا نستخدم Math.max(0) هنا لمنع طمس ديون المزود عند الاسترداد الزائد
+        balanceAfter = balanceBefore + change;
+
+        wallet.balance = balanceAfter;
+        await wallet.save({ transaction });
+
+        // إنشاء حركة محفظة لتوافق التقارير والواجهات
+        let txType: string = "commission_charge";
+        if (referenceType === "withdrawal") {
+          txType = "withdrawal";
+        } else if (referenceType === "refund_execution" || referenceType === "refund") {
+          txType = "refund";
+        } else if (type === "credit") {
+          txType = "release_deposit";
+        }
+
+        await WalletTransaction.create({
+          providerId,
+          type: txType,
+          description,
+          amount,
+          status: status === "completed" ? "completed" : "pending",
+        }, { transaction });
+      }
 
     } else {
       // حساب الرصيد التراكمي لحسابات المنصة

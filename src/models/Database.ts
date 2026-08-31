@@ -519,18 +519,28 @@ export class FinancialClaim extends Model {
   declare id: number;
   declare providerId: number;
   declare amount: number;
-  declare status: 'pending' | 'paid' | 'rejected';
+  declare status: 'pending' | 'processing' | 'paid' | 'rejected' | 'failed';
   declare bankDetails: string;
   declare date: Date;
+  declare transactionReference?: string;
+  declare gateway?: string;
+  declare dispatchedAt?: Date;
+  declare paidAt?: Date;
+  declare rejectionReason?: string;
 }
 
 FinancialClaim.init({
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   providerId: { type: DataTypes.INTEGER, allowNull: false },
   amount: { type: DataTypes.FLOAT, allowNull: false },
-  status: { type: DataTypes.ENUM('pending', 'paid', 'rejected'), defaultValue: 'pending' },
+  status: { type: DataTypes.STRING, defaultValue: 'pending' },
   bankDetails: { type: DataTypes.STRING, allowNull: false },
-  date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  transactionReference: { type: DataTypes.STRING, allowNull: true },
+  gateway: { type: DataTypes.STRING, allowNull: true },
+  dispatchedAt: { type: DataTypes.DATE, allowNull: true },
+  paidAt: { type: DataTypes.DATE, allowNull: true },
+  rejectionReason: { type: DataTypes.TEXT, allowNull: true }
 }, { sequelize, modelName: 'FinancialClaim' });
 
 export class Invoice extends Model {

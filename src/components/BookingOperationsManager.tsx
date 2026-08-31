@@ -185,11 +185,11 @@ export const BookingOperationsManager: React.FC<BookingOperationsManagerProps> =
         </div>
 
         {/* Tab Selection Navigation */}
-        <div className="flex border-b border-slate-200 bg-white px-6 pt-3 gap-6 font-bold text-xs">
+        <div className="flex border-b border-slate-200 bg-white px-6 pt-3 gap-6 font-bold text-xs overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab('stages')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'stages'
                 ? 'border-amber-500 text-amber-600 font-black'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -202,7 +202,7 @@ export const BookingOperationsManager: React.FC<BookingOperationsManagerProps> =
           <button
             type="button"
             onClick={() => setActiveTab('reschedule')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'reschedule'
                 ? 'border-amber-500 text-amber-600 font-black'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -214,8 +214,21 @@ export const BookingOperationsManager: React.FC<BookingOperationsManagerProps> =
 
           <button
             type="button"
+            onClick={() => setActiveTab('store_addons' as any)}
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === ('store_addons' as any)
+                ? 'border-amber-500 text-amber-600 font-black'
+                : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <span>مستلزمات المتجر وإثبات التجهيز 🛒</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('work_order')}
-            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            className={`pb-3 border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'work_order'
                 ? 'border-amber-500 text-amber-600 font-black'
                 : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -434,7 +447,99 @@ export const BookingOperationsManager: React.FC<BookingOperationsManagerProps> =
             </div>
           )}
 
-          {/* TAB 3: WORK ORDER PRINTING */}
+          {/* TAB 3: STORE ADDONS & PREPARATION PROOF FOR REFUND */}
+          {activeTab === ('store_addons' as any) && (
+            <div className="space-y-5">
+              <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80 text-xs text-amber-900 space-y-2">
+                <div className="flex items-center gap-2 font-black">
+                  <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>إدارة مستلزمات المتجر المصغر وضوابط الاسترداد والتجهيز الفعلي</span>
+                </div>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  لحماية حقوق المزود والعميل: تُسترد المستلزمات العامة بالكامل عند الإلغاء، بينما تُشترط موافقة الإدارة وإرفاق <strong>إثبات التجهيز الفعلي</strong> (فواتير شراء، صور التجهيز، أو العقود المباشرة) لخصم أو عدم استرداد قيمة المنتجات الاستهلاكية والتجهيزية المخصصة (ذبائح، بوفيهات، ورود).
+                </p>
+              </div>
+
+              {/* Current Addons List */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+                <h5 className="font-black text-xs text-slate-800 flex items-center justify-between">
+                  <span>الأصناف والمستلزمات المطلوبة لهذا الحجز:</span>
+                  <span className="text-[11px] text-slate-500 font-normal">
+                    {booking?.storeProducts?.length ? `${booking.storeProducts.length} أصناف` : 'لا توجد مستلزمات متجر بعد'}
+                  </span>
+                </h5>
+
+                {booking?.storeProducts && booking.storeProducts.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {booking.storeProducts.map((p: any, idx: number) => (
+                      <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-bold text-slate-800 block">{p.name || p.title}</span>
+                          <span className="text-[10px] text-slate-500">الكمية: {p.quantity || 1} • {p.unit || 'قطعة'}</span>
+                        </div>
+                        <div className="text-left">
+                          <span className="font-black text-amber-600 block">{((p.price || 0) * (p.quantity || 1)).toLocaleString()} ر.س</span>
+                          <span className="text-[9px] text-emerald-600 font-bold">شامل 15% ضريبة</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl text-center text-slate-400 text-xs">
+                    لم يقم العميل بطلب مستلزمات متجر إضافية حتى الآن.
+                  </div>
+                )}
+              </div>
+
+              {/* Proof of Preparation Submission Section */}
+              <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-3">
+                <h5 className="font-black text-xs text-slate-800 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-600" />
+                  <span>توثيق حالة التجهيز الفعلي (Proof of Preparation):</span>
+                </h5>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  في حال إلغاء الحجز من طرف العميل أو نزاع استرداد، قم برفع إثبات بدء التجهيز الفعلي لاعتماده من الإدارة:
+                </p>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-700 block">وصف وتفاصيل التجهيز الفعلي:</label>
+                  <textarea
+                    rows={3}
+                    placeholder="مثال: تم شراء المواد الغذائية وتجهيز الزهور وتوقيع عقد الذبائح بتاريخ..."
+                    defaultValue={booking?.preparationProofNote || ''}
+                    id="prep-proof-note"
+                    className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:border-amber-500 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-[11px] font-bold text-slate-600">
+                    حالة توثيق التجهيز: {booking?.isPreparationStarted ? '✅ موثق (جاري التجهيز)' : '⏳ لم يُسجل بعد'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const noteInput = document.getElementById('prep-proof-note') as HTMLTextAreaElement;
+                      const noteVal = noteInput ? noteInput.value : '';
+                      const updated = {
+                        ...booking,
+                        isPreparationStarted: true,
+                        preparationProofNote: noteVal,
+                        preparationProofDate: new Date().toISOString()
+                      };
+                      onUpdateBooking(updated);
+                      showNotification('success', 'تم حفظ وتوثيق إثبات التجهيز الفعلي بنجاح!');
+                    }}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    حفظ وتوثيق التجهيز الفعلي
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: WORK ORDER PRINTING */}
           {activeTab === 'work_order' && (
             <div className="space-y-6">
               

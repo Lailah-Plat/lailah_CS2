@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ShieldCheck, Cpu, FileText, Lock, Landmark, CreditCard, 
   Eye, EyeOff, Copy, Check, Zap, ExternalLink, Key, Info, Sliders, Settings,
   ShieldAlert, Coins, RefreshCw, AlertTriangle, CheckCircle2, Building2,
-  Users, ClipboardList, Database, Store, SlidersHorizontal
+  Users, ClipboardList, Database, Store, SlidersHorizontal, Plus, Trash2, Tag, Layers, Edit2
 } from 'lucide-react';
 import PaymentTokensAuditPanel from './PaymentTokensAuditPanel';
 import PaymentGatewayLimitsPanel from './PaymentGatewayLimitsPanel';
@@ -11,6 +11,17 @@ import { DiagnosticsDashboard } from '../DiagnosticsDashboard';
 import UnifiedInvoiceTab from '../UnifiedInvoiceTab';
 import SensitiveDataApprovalsPanel from './SensitiveDataApprovalsPanel';
 import { UnifiedPricingRevenueEngine } from '../finance/UnifiedPricingRevenueEngine';
+import {
+  DynamicStoreCategory,
+  getStoredCategories,
+  saveStoredCategories,
+  getStoredCategoryRates,
+  saveStoredCategoryRates,
+  POST_BOOKING_DEADLINE_OPTIONS,
+  getSovereignPostBookingConfig,
+  saveSovereignPostBookingConfig,
+  SovereignPostBookingConfig
+} from '../../data/storeCategoriesConfig';
 
 interface FinancialSettingsSectionProps {
   showNotification?: (type: 'success' | 'error' | 'info' | 'warning', message: string) => void;
@@ -91,12 +102,119 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
     const val = typeof window !== 'undefined' ? localStorage.getItem('MARKETING_COMMISSION_PERCENTAGE') : null;
     return val ? parseInt(val) || 15 : 15;
   });
+
+  // Sovereign Mini-Store Commission Modes & Controls
   const [storeCommissionEnabled, setStoreCommissionEnabled] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('STORE_COMMISSION_ENABLED') === 'true' : false;
+    return typeof window !== 'undefined' ? localStorage.getItem('STORE_COMMISSION_ENABLED') !== 'false' : true;
+  });
+  const [storeCommissionMode, setStoreCommissionMode] = useState<'tier_rate' | 'flat_rate' | 'category_rate'>(() => {
+    return (typeof window !== 'undefined' && localStorage.getItem('STORE_COMMISSION_MODE') as any) || 'tier_rate';
   });
   const [storeCommissionRate, setStoreCommissionRate] = useState<string>(() => {
     return (typeof window !== 'undefined' && localStorage.getItem('STORE_COMMISSION_RATE')) || '5';
   });
+
+  // Dynamic Store Categories List (Synchronized with additions/deletions/edits across the system)
+  const [storeCategoriesList, setStoreCategoriesList] = useState<DynamicStoreCategory[]>(() => {
+    return getStoredCategories();
+  });
+
+  const [storeCategoryRates, setStoreCategoryRates] = useState<{ [cat: string]: number }>(() => {
+    return getStoredCategoryRates();
+  });
+
+  // New category form state for dynamic expansion
+  const [newCatLabel, setNewCatLabel] = useState('');
+  const [newCatRate, setNewCatRate] = useState('7');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [editingCategoryKey, setEditingCategoryKey] = useState<string | null>(null);
+  const [editingCategoryLabel, setEditingCategoryLabel] = useState<string>('');
+
+  // Dynamic Category Handler: Add Category
+  const handleAddCategory = () => {
+    if (!newCatLabel.trim()) {
+      notify('warning', 'يرجى إدخال اسم التصنيف أولاً');
+      return;
+    }
+    const slug = 'cat_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+    const rateVal = parseFloat(newCatRate) || 5;
+    
+    const updatedList = [...storeCategoriesList, { key: slug, label: newCatLabel.trim(), defaultVal: rateVal }];
+    const updatedRates = { ...storeCategoryRates, [slug]: rateVal };
+    
+    setStoreCategoriesList(updatedList);
+    setStoreCategoryRates(updatedRates);
+    
+    saveStoredCategories(updatedList);
+    saveStoredCategoryRates(updatedRates);
+
+    setNewCatLabel('');
+    setNewCatRate('7');
+    setIsAddingCategory(false);
+    notify('success', `تمت إضافة تصنيف "${newCatLabel.trim()}" بنسبة عمولة ${rateVal}% بنجاح وتحديث المتجر فورياً`);
+  };
+
+  // Dynamic Category Handler: Save Edit Category
+  const handleSaveEditCategory = (catKey: string) => {
+    if (!editingCategoryLabel.trim()) {
+      notify('warning', 'اسم التصنيف لا يمكن أن يكون فارغاً');
+      return;
+    }
+    const updatedList = storeCategoriesList.map(c => c.key === catKey ? { ...c, label: editingCategoryLabel.trim() } : c);
+    setStoreCategoriesList(updatedList);
+    saveStoredCategories(updatedList);
+    setEditingCategoryKey(null);
+    setEditingCategoryLabel('');
+    notify('success', `تم تعديل مسمى التصنيف بنجاح وتحديث كافة واجهات المتجر فورياً`);
+  };
+
+  // Dynamic Category Handler: Delete Category
+  const handleDeleteCategory = (catKey: string, catLabel: string) => {
+    if (storeCategoriesList.length <= 1) {
+      notify('warning', 'يجب الإبقاء على تصنيف واحد على الأقل في النظام.');
+      return;
+    }
+
+    const updatedList = storeCategoriesList.filter(c => c.key !== catKey);
+    const updatedRates = { ...storeCategoryRates };
+    delete updatedRates[catKey];
+
+    setStoreCategoriesList(updatedList);
+    setStoreCategoryRates(updatedRates);
+
+    saveStoredCategories(updatedList);
+    saveStoredCategoryRates(updatedRates);
+
+    notify('info', `تم حذف تصنيف "${catLabel}" وتحديث بطاقة التصنيفات والمتجر ديناميكياً.`);
+  };
+
+  // Listen to external category changes across components/tabs
+  useEffect(() => {
+    const handleCategorySync = () => {
+      setStoreCategoriesList(getStoredCategories());
+      setStoreCategoryRates(getStoredCategoryRates());
+    };
+
+    window.addEventListener('storeCategoriesUpdated', handleCategorySync);
+    window.addEventListener('storage', handleCategorySync);
+    return () => {
+      window.removeEventListener('storeCategoriesUpdated', handleCategorySync);
+      window.removeEventListener('storage', handleCategorySync);
+    };
+  }, []);
+
+  // Sovereign Post-Booking Addon Settings (الحوكمة السيادية للطلبات اللاحقة لمتجر المستلزمات)
+  const [sovereignPostBooking, setSovereignPostBooking] = useState<SovereignPostBookingConfig>(() => {
+    return getSovereignPostBookingConfig();
+  });
+
+  const updateSovereignPostBooking = (updates: Partial<SovereignPostBookingConfig>) => {
+    const updated = { ...sovereignPostBooking, ...updates };
+    setSovereignPostBooking(updated);
+    saveSovereignPostBookingConfig(updated);
+    // Legacy sync
+    localStorage.setItem('ALLOW_POST_BOOKING_ADDONS', updated.enabled ? 'true' : 'false');
+  };
 
   // Sovereign Dynamic Pricing & Surge Controls State
   const [sovereignOccupancyThreshold, setSovereignOccupancyThreshold] = useState<number>(() => {
@@ -542,80 +660,418 @@ export function FinancialSettingsSection(props: FinancialSettingsSectionProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-4">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                       <Store className="w-5 h-5 text-amber-500" />
-                      <span>حوكمة وعمولة متجر مستلزمات القاعات (Mini Store Commission)</span>
+                      <span>حوكمة وعمولة متجر مستلزمات القاعات (Mini Store Sovereign Governance)</span>
                     </h3>
-                    <span className="text-xs font-black px-3 py-1 bg-amber-100 text-amber-900 border border-amber-200 rounded-full self-start sm:self-auto">
-                      {storeCommissionEnabled ? `العمولة مفعلة: ${storeCommissionRate}%` : 'معفاة حالياً من العمولة (0%)'}
+                    <span className={`text-xs font-black px-3 py-1 rounded-full border self-start sm:self-auto ${
+                      storeCommissionEnabled 
+                        ? 'bg-amber-100 text-amber-900 border-amber-200' 
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      {storeCommissionEnabled 
+                        ? (storeCommissionMode === 'tier_rate' 
+                            ? 'العمولة: حسب باقة المزود' 
+                            : storeCommissionMode === 'flat_rate' 
+                              ? `عمولة موحدة: ${storeCommissionRate}%` 
+                              : 'عمولة مخصصة لكل تصنيف')
+                        : 'معفاة حالياً من العمولة (0%)'}
                     </span>
                   </div>
 
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-5">
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-6">
+                    {/* Notice */}
                     <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-amber-950 text-xs space-y-2">
                       <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
                         <ShieldCheck className="w-4 h-4 text-amber-600" />
-                        <span>السياسة التجارية والرقابة السيادية:</span>
+                        <span>السياسة التجارية والرقابة السيادية لمتجر المستلزمات:</span>
                       </div>
                       <p className="leading-relaxed text-slate-600 text-[11px]">
-                        افتراضياً، تعفى مبيعات متجر المنتجات والمستلزمات المصغر للقاعات من عمولة المنصة (<strong>عمولة 0%</strong>) كحافز تشغيلي وتجاري للشركاء، مع شمولية ضريبة القيمة المضافة 15% دائماً ضمن الأسعار المعروضة للمستهلك.
-                        يمكن للإدارة العليا تفعيل نسبة اقتطاع مستقبلية بمرونة هنا وتحديد النسبة المستهدفة لكافة مبيعات مستلزمات القاعات.
+                        كافة الأسعار المعروضة لمنتجات ومستلزمات القاعات <strong>شاملة لضريبة القيمة المضافة 15%</strong>. 
+                        تتيح الإدارة العليا اختيار <strong>نمط سيادي واحد فقط</strong> من بين ثلاثة خيارات لاحتساب عمولة المنصة، مع عدم تأثر عمولة المنصة بالخصومات المنفردة من الشريك.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-5 rounded-2xl border border-slate-200 items-start">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-extrabold text-slate-800 text-sm block">تفعيل اقتطاع عمولة المنصة على مبيعات المتجر</span>
-                            <span className="text-[11px] text-slate-400">تطبيق نسبة اقتطاع عند شراء مستلزمات المكان عبر المنصة</span>
+                    {/* General Toggle */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <span className="font-extrabold text-slate-800 text-sm block">تفعيل اقتطاع عمولة المنصة على مبيعات متجر المستلزمات</span>
+                        <span className="text-[11px] text-slate-400">احتساب عمولة سيادية على منتجات المتجر المضافة مع الحجوزات أو الطلبات اللاحقة</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={storeCommissionEnabled}
+                          onChange={(e) => {
+                            const enabled = e.target.checked;
+                            setStoreCommissionEnabled(enabled);
+                            localStorage.setItem('STORE_COMMISSION_ENABLED', enabled ? 'true' : 'false');
+                            notify('info', enabled 
+                              ? 'تم تفعيل عمولة متجر المستلزمات' 
+                              : 'تم إعفاء متجر المستلزمات من العمولة (0%)');
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                      </label>
+                    </div>
+
+                    {/* 3 Sovereign Options (Exclusive Radio Cards) */}
+                    {storeCommissionEnabled && (
+                      <div className="space-y-4">
+                        <label className="block text-xs font-black text-slate-800 uppercase tracking-wider">
+                          اختر نمط احتساب عمولة المتجر السيادي (يتم تطبيق خيار واحد فقط):
+                        </label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Option 1: Match Subscription Tier */}
+                          <div 
+                            onClick={() => {
+                              setStoreCommissionMode('tier_rate');
+                              localStorage.setItem('STORE_COMMISSION_MODE', 'tier_rate');
+                              notify('info', 'تم اختيار نمط العمولة: تطبيق نفس نسبة عمولة باقة اشتراك المزود');
+                            }}
+                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                              storeCommissionMode === 'tier_rate'
+                                ? 'border-amber-500 bg-amber-50/50 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="storeCommissionMode"
+                                  checked={storeCommissionMode === 'tier_rate'}
+                                  onChange={() => {}}
+                                  className="text-amber-600 focus:ring-amber-500"
+                                />
+                                <span className="font-bold text-sm text-slate-900">الخيار الأول</span>
+                              </div>
+                              <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">المعياري</span>
+                            </div>
+                            <h4 className="font-black text-xs text-amber-950 mb-1">ربط بنسبة باقة اشتراك المزود</h4>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              تطبيق نفس نسبة عمولة باقة المزود النشطة (مثلاً 7% للاحترافية، 10% للمتقدمة) على إجمالي منتجات المتجر.
+                            </p>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={storeCommissionEnabled}
-                              onChange={(e) => {
-                                const enabled = e.target.checked;
-                                setStoreCommissionEnabled(enabled);
-                                localStorage.setItem('STORE_COMMISSION_ENABLED', enabled ? 'true' : 'false');
-                                notify('info', enabled 
-                                  ? `تم تفعيل عمولة متجر المستلزمات بنسبة ${storeCommissionRate}%` 
-                                  : 'تم إعفاء متجر المستلزمات من العمولة (0%)');
-                              }}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                          </label>
+
+                          {/* Option 2: Custom Flat Store Rate */}
+                          <div 
+                            onClick={() => {
+                              setStoreCommissionMode('flat_rate');
+                              localStorage.setItem('STORE_COMMISSION_MODE', 'flat_rate');
+                              notify('info', 'تم اختيار نمط العمولة: نسبة عمولة موحدة مخصصة للمتجر');
+                            }}
+                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                              storeCommissionMode === 'flat_rate'
+                                ? 'border-amber-500 bg-amber-50/50 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="storeCommissionMode"
+                                  checked={storeCommissionMode === 'flat_rate'}
+                                  onChange={() => {}}
+                                  className="text-amber-600 focus:ring-amber-500"
+                                />
+                                <span className="font-bold text-sm text-slate-900">الخيار الثاني</span>
+                              </div>
+                              <span className="text-[10px] font-black px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md">نسبة موحدة</span>
+                            </div>
+                            <h4 className="font-black text-xs text-amber-950 mb-1">نسبة عمولة عامة مخصصة</h4>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              تحديد نسبة عمولة ثابتة للمتجر (مثل 5% أو 8%) لتشجيع بيع المستلزمات دون الإضرار بهامش ربح المزود.
+                            </p>
+                          </div>
+
+                          {/* Option 3: Custom Rate by Product Category */}
+                          <div 
+                            onClick={() => {
+                              setStoreCommissionMode('category_rate');
+                              localStorage.setItem('STORE_COMMISSION_MODE', 'category_rate');
+                              notify('info', 'تم اختيار نمط العمولة: نسبة عمولة مخصصة لكل تصنيف في المتجر');
+                            }}
+                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                              storeCommissionMode === 'category_rate'
+                                ? 'border-amber-500 bg-amber-50/50 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="storeCommissionMode"
+                                  checked={storeCommissionMode === 'category_rate'}
+                                  onChange={() => {}}
+                                  className="text-amber-600 focus:ring-amber-500"
+                                />
+                                <span className="font-bold text-sm text-slate-900">الخيار الثالث</span>
+                              </div>
+                              <span className="text-[10px] font-black px-2 py-0.5 bg-purple-100 text-purple-800 rounded-md">حسب التصنيف</span>
+                            </div>
+                            <h4 className="font-black text-xs text-amber-950 mb-1">نسبة مخصصة لكل تصنيف</h4>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              تحديد نسبة عمولة مستقلة لكل تصنيف (مثل 5% للغازيات، 8% للحلويات، 10% للضيافة).
+                            </p>
+                          </div>
                         </div>
+
+                        {/* Flat Rate Input Detail */}
+                        {storeCommissionMode === 'flat_rate' && (
+                          <div className="bg-white p-5 rounded-2xl border border-amber-200 space-y-3">
+                            <label className="block text-xs font-bold text-slate-800">نسبة العمولة العامة الموحدة لمتجر المستلزمات (%)</label>
+                            <div className="relative max-w-xs">
+                              <input
+                                type="number"
+                                min="0"
+                                max="50"
+                                step="0.5"
+                                value={storeCommissionRate}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setStoreCommissionRate(val);
+                                  localStorage.setItem('STORE_COMMISSION_RATE', val || '0');
+                                }}
+                                className="w-full p-3 rounded-xl border border-slate-200 focus:border-amber-500 text-slate-900 font-bold font-mono text-left outline-none"
+                                dir="ltr"
+                                placeholder="5"
+                              />
+                              <span className="absolute left-3 top-3.5 text-slate-400 font-mono font-bold">%</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-relaxed">
+                              تطبق هذه النسبة العامة على كافة المستلزمات والمنتجات المشتراة من متجر القاعة بغض النظر عن باقة اشتراك المزود.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Category Rates Input Detail with Dynamic Add/Remove */}
+                        {storeCommissionMode === 'category_rate' && (
+                          <div className="bg-white p-5 rounded-2xl border border-purple-200 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                              <div>
+                                <h5 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                  <Layers className="w-4 h-4 text-purple-600" />
+                                  <span>تخصيص نسب العمولة حسب تصنيفات متجر المستلزمات (ديناميكية)</span>
+                                </h5>
+                                <span className="text-[10px] text-slate-400">
+                                  تتحدث البطاقات ديناميكياً في حال إضافة أو حذف أي تصنيف، مع حفظ مستقل لنسبة كل تصنيف
+                                </span>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => setIsAddingCategory(!isAddingCategory)}
+                                className="self-start sm:self-auto inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>{isAddingCategory ? 'إلغاء الإضافة' : 'إضافة تصنيف جديد'}</span>
+                              </button>
+                            </div>
+
+                            {/* Add New Category Expandable Form */}
+                            {isAddingCategory && (
+                              <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-xl space-y-3 animate-in fade-in duration-200">
+                                <div className="flex items-center gap-2 text-xs font-bold text-purple-950">
+                                  <Tag className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>إضافة تصنيف جديد لمتجر المستلزمات:</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div className="sm:col-span-2">
+                                    <label className="block text-[11px] font-bold text-slate-700 mb-1">اسم التصنيف الجديد:</label>
+                                    <input
+                                      type="text"
+                                      value={newCatLabel}
+                                      onChange={(e) => setNewCatLabel(e.target.value)}
+                                      placeholder="مثال: التصوير الفوري والمطبوعات"
+                                      className="w-full p-2 bg-white rounded-lg border border-purple-200 focus:border-purple-500 text-xs font-bold outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-bold text-slate-700 mb-1">نسبة العمولة (%):</label>
+                                    <div className="relative">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="50"
+                                        step="0.5"
+                                        value={newCatRate}
+                                        onChange={(e) => setNewCatRate(e.target.value)}
+                                        className="w-full p-2 bg-white rounded-lg border border-purple-200 focus:border-purple-500 font-mono text-left text-xs font-bold outline-none"
+                                        dir="ltr"
+                                        placeholder="7"
+                                      />
+                                      <span className="absolute left-2.5 top-2 text-slate-400 font-mono text-xs font-bold">%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex justify-end gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setIsAddingCategory(false); setNewCatLabel(''); }}
+                                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold"
+                                  >
+                                    إلغاء
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleAddCategory}
+                                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>حفظ وإدراج في البطاقات</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dynamic Category Cards Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                              {storeCategoriesList.map((cat) => {
+                                const isEditingThis = editingCategoryKey === cat.key;
+                                return (
+                                  <div 
+                                    key={cat.key} 
+                                    className="p-3.5 bg-slate-50 hover:bg-purple-50/30 rounded-xl border border-slate-200 hover:border-purple-200 transition-all space-y-2 relative group"
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      {isEditingThis ? (
+                                        <div className="flex items-center gap-1 flex-1">
+                                          <input
+                                            type="text"
+                                            value={editingCategoryLabel}
+                                            onChange={(e) => setEditingCategoryLabel(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleSaveEditCategory(cat.key);
+                                              if (e.key === 'Escape') setEditingCategoryKey(null);
+                                            }}
+                                            className="w-full p-1 text-xs font-bold border border-purple-400 rounded bg-white outline-none"
+                                            autoFocus
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSaveEditCategory(cat.key)}
+                                            title="حفظ التعديل"
+                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                          >
+                                            <Check className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                          <label className="text-xs font-black text-slate-800 truncate block" title={cat.label}>
+                                            {cat.label}
+                                          </label>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingCategoryKey(cat.key);
+                                              setEditingCategoryLabel(cat.label);
+                                            }}
+                                            title={`تعديل مسمى تصنيف "${cat.label}"`}
+                                            className="text-slate-400 hover:text-purple-600 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      )}
+
+                                      {storeCategoriesList.length > 1 && !isEditingThis && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteCategory(cat.key, cat.label)}
+                                          title={`حذف تصنيف "${cat.label}"`}
+                                          className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 transition-colors opacity-70 group-hover:opacity-100"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="relative">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="50"
+                                        step="0.5"
+                                        value={storeCategoryRates[cat.key] ?? cat.defaultVal ?? 5}
+                                        onChange={(e) => {
+                                          const newRates = { ...storeCategoryRates, [cat.key]: parseFloat(e.target.value) || 0 };
+                                          setStoreCategoryRates(newRates);
+                                          saveStoredCategoryRates(newRates);
+                                        }}
+                                        className="w-full p-2 bg-white rounded-lg border border-slate-200 focus:border-purple-500 font-mono text-left text-xs font-bold outline-none"
+                                        dir="ltr"
+                                      />
+                                      <span className="absolute left-2.5 top-2 text-slate-400 font-mono text-xs font-bold">%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1">
+                              <span>إجمالي التصنيفات النشطة في المتجر: <strong>{storeCategoriesList.length}</strong> تصنيف</span>
+                              <span>* يتم حفظ كافة النسب وتطبيقها فورياً على عمليات الشراء</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* حوكمة الطلب اللاحق الملحق بالحجز (Post-Booking Addon Order Controls) */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-800 text-sm">التحكم السيادي في الطلبات اللاحقة لمتجر المستلزمات (Post-Booking Addons)</span>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                              sovereignPostBooking.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {sovereignPostBooking.enabled ? 'مفعل سيادياً' : 'معطل سيادياً'}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 block mt-0.5">
+                            المفتاح السيادي العام لتمكين أو إغلاق إمكانية إضافة مستلزمات جديدة للحجوزات المؤكدة قبل موعد المناسبة.
+                          </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={sovereignPostBooking.enabled}
+                            onChange={(e) => {
+                              const enabled = e.target.checked;
+                              updateSovereignPostBooking({ enabled });
+                              notify('info', enabled 
+                                ? 'تم تفعيل خيار الطلبات اللاحقة لمتجر المستلزمات سيادياً عبر المنصة' 
+                                : 'تم منع وإيقاف الطلبات اللاحقة لمتجر المستلزمات سيادياً بكافة القاعات');
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="block text-sm font-bold text-slate-750">نسبة العمولة المقتطعة (%)</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            max="50"
-                            step="0.5"
-                            disabled={!storeCommissionEnabled}
-                            value={storeCommissionRate}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setStoreCommissionRate(val);
-                              localStorage.setItem('STORE_COMMISSION_RATE', val || '0');
-                            }}
-                            className={`w-full p-3 rounded-xl border font-mono text-left outline-none ${
-                              storeCommissionEnabled 
-                                ? 'bg-white border-slate-200 focus:border-amber-500 text-slate-900 font-bold' 
-                                : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                            }`}
-                            dir="ltr"
-                            placeholder="5"
-                          />
-                          <span className="absolute left-3 top-3.5 text-slate-400 font-mono font-bold">%</span>
+                      {sovereignPostBooking.enabled ? (
+                        <div className="space-y-3 pt-1">
+                          <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+                            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1.5 text-[11px]">
+                              <p className="font-bold text-amber-950">ضوابط الرقابة السيادية والتخصيص الإلزامي للمزودين:</p>
+                              <p className="leading-relaxed text-amber-900">
+                                1. <strong>التخصيص الإلزامي:</strong> يحدد كل مزود خدمة في لوحة إدارة متجر القاعة المهلة القصوى المسموحة للطلب قبل موعد المناسبة بما يتناسب مع طبيعة المنشأة وتجهيزاتها اللوجستية، ولا يمكن تركها فارغة عند التفعيل.<br />
+                                2. <strong>الإغلاق التام عند التعطيل:</strong> في حال قيام المزود بتعطيل الميزة لقاعته، يتم حظر الطلبات اللاحقة نهائياً دون وجود أي مهلة.<br />
+                                3. <strong>حماية التجهيزات والاسترداد:</strong> تخضع المستلزمات لسياسة الإلغاء، مع اشتراط إثبات بدء التجهيز الفعلي للمنتجات الاستهلاكية والتجهيزية (بوفيهات، ذبائح، زهور) لحماية حقوق الشريك.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-slate-500 leading-relaxed">
-                          * يتم اقتطاع هذه النسبة من صافي مبيعات المتجر لصالح المنصة وتحويل المتبقي لحساب المزود عند تفعيل الخيار.
-                        </p>
-                      </div>
+                      ) : (
+                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>تم إيقاف الطلبات اللاحقة لكافة القاعات والمزودين بالمنصة بقرار سيادي.</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

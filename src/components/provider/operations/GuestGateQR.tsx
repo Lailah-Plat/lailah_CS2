@@ -1,0 +1,1 @@
+export { GuestGateQR } from '../GuestGateQR';

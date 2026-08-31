@@ -7,6 +7,10 @@
 
 export type FeatureKey = 
   | 'mini_products_store'
+  | 'store_addons'
+  | 'dynamic_pricing'
+  | 'weekend_pricing'
+  | 'surge_pricing'
   | 'inventory'
   | 'suppliers'
   | 'invoice_export'
@@ -172,6 +176,62 @@ class EntitlementService {
         } else if (feature === 'inventory') {
           if (subData.includesInventory || subData.hasInventory || planNorm.includes('business') || planNorm.includes('pro') || planNorm.includes('أعمال') || planNorm.includes('احترافية')) {
             return { featureKey: feature, isEntitled: true, source: 'plan', planName, isLocked: false };
+          }
+        } else if (feature === 'dynamic_pricing' || feature === 'surge_pricing') {
+          if (
+            subData.includesDynamicPricing ||
+            subData.hasDynamicPricing ||
+            planNorm.includes('الاحترافية') ||
+            planNorm.includes('pro') ||
+            planNorm.includes('الذهبية') ||
+            planNorm.includes('enterprise') ||
+            planNorm.includes('متقدمة')
+          ) {
+            return {
+              featureKey: feature,
+              isEntitled: true,
+              source: 'plan',
+              planName: planName,
+              isLocked: false,
+              notes: `مشمولة ضمن محرك الذكاء التشغيلي لـ ${planName || 'الباقة النشطة'}`
+            };
+          }
+        } else if (feature === 'weekend_pricing') {
+          if (
+            subData.includesWeekendPricing ||
+            subData.hasWeekendPricing ||
+            subData.includesDynamicPricing ||
+            planNorm.includes('الاحترافية') ||
+            planNorm.includes('pro') ||
+            planNorm.includes('متقدمة') ||
+            planNorm.includes('advanced') ||
+            planNorm.includes('الذهبية')
+          ) {
+            return {
+              featureKey: feature,
+              isEntitled: true,
+              source: 'plan',
+              planName: planName,
+              isLocked: false,
+              notes: `مشمولة ضمن مميزات ${planName || 'الباقة النشطة'}`
+            };
+          }
+        } else if (feature === 'store_addons') {
+          if (
+            subData.includesMiniProductsStore ||
+            subData.hasMiniStore ||
+            planNorm.includes('الاحترافية') ||
+            planNorm.includes('pro') ||
+            planNorm.includes('التميز')
+          ) {
+            return {
+              featureKey: feature,
+              isEntitled: true,
+              source: 'plan',
+              planName: planName,
+              isLocked: false,
+              notes: `مشمولة ضمن باقة ${planName || 'الاشتراك'}`
+            };
           }
         }
       }

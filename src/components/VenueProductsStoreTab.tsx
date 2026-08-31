@@ -10,6 +10,10 @@ import {
 } from 'lucide-react';
 import { StoreProductItem } from './modals/VenueStoreManagerModal';
 import { entitlementService, EntitlementResolution } from '../services/entitlementService';
+import {
+  DynamicStoreCategory,
+  getStoredCategories
+} from '../data/storeCategoriesConfig';
 
 interface VenueProductsStoreTabProps {
   userRole: string;
@@ -211,6 +215,23 @@ export function VenueProductsStoreTab({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [itemTypeFilter, setItemTypeFilter] = useState<string>('all');
+
+  // Dynamic Categories from Sovereign Settings
+  const [dynamicCategories, setDynamicCategories] = useState<DynamicStoreCategory[]>(() => {
+    return getStoredCategories();
+  });
+
+  useEffect(() => {
+    const handleCategorySync = () => {
+      setDynamicCategories(getStoredCategories());
+    };
+    window.addEventListener('storeCategoriesUpdated', handleCategorySync);
+    window.addEventListener('storage', handleCategorySync);
+    return () => {
+      window.removeEventListener('storeCategoriesUpdated', handleCategorySync);
+      window.removeEventListener('storage', handleCategorySync);
+    };
+  }, []);
 
   // Load all products aggregated from scoped halls + localStorage
   const [productsVersion, setProductsVersion] = useState(0);
@@ -730,28 +751,33 @@ export function VenueProductsStoreTab({
 
         {/* Categories Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold pt-1 border-t border-slate-100">
-          {[
-            { id: 'all', label: 'كافة التصنيفات', icon: Layers },
-            { id: 'beverages', label: 'المشروبات والمياه', icon: Wine },
-            { id: 'hospitality', label: 'الإعاشة والضيافة', icon: Utensils },
-            { id: 'furniture', label: 'الأثاث والديكور الإضافي', icon: Armchair },
-            { id: 'logistics', label: 'الخدمات اللوجستية والعمالة', icon: Users },
-            { id: 'perfumes', label: 'عطور ومستلزمات عامة', icon: Sparkles }
-          ].map(cat => {
-            const Icon = cat.icon;
-            const isSelected = selectedCategory === cat.id;
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+              selectedCategory === 'all'
+                ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
+            }`}
+          >
+            <Layers className={`w-3.5 h-3.5 ${selectedCategory === 'all' ? 'text-slate-950' : 'text-slate-500'}`} />
+            <span>كافة التصنيفات</span>
+          </button>
+
+          {dynamicCategories.map(cat => {
+            const isSelected = selectedCategory === cat.key;
             return (
               <button
-                key={cat.id}
+                key={cat.key}
                 type="button"
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => setSelectedCategory(cat.key)}
                 className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
                   isSelected
                     ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
                     : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-500'}`} />
+                <Tag className={`w-3.5 h-3.5 ${isSelected ? 'text-slate-950' : 'text-slate-500'}`} />
                 <span>{cat.label}</span>
               </button>
             );
@@ -1006,16 +1032,15 @@ export function VenueProductsStoreTab({
                   <div>
                     <label className="block mb-1 text-slate-800">التصنيف <span className="text-rose-500">*</span></label>
                     <select
-                      value={formData.category || 'hospitality'}
-                      onChange={e => setFormData({ ...formData, category: e.target.value as any })}
+                      value={formData.category || (dynamicCategories[0]?.key ?? 'hospitality')}
+                      onChange={e => setFormData({ ...formData, category: e.target.value })}
                       className="w-full p-2.5 rounded-xl border border-slate-200 focus:border-amber-500 outline-none bg-white cursor-pointer"
                     >
-                      <option value="hospitality">الإعاشة والضيافة</option>
-                      <option value="beverages">المشروبات والمياه</option>
-                      <option value="furniture">الأثاث والديكور الإضافي</option>
-                      <option value="logistics">الخدمات اللوجستية والعمالة</option>
-                      <option value="perfumes">عطور ومستلزمات عامة</option>
-                      <option value="general">أصناف عامة</option>
+                      {dynamicCategories.map(cat => (
+                        <option key={cat.key} value={cat.key}>
+                          {cat.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

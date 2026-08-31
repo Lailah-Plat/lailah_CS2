@@ -230,14 +230,15 @@ export async function handleReBookingForceMajeureTrigger(booking: any, req: any)
               defaults: { balance: 0, pendingBalance: 0 }
             });
 
+            // المحاسبة الصارمة: الحفاظ على التزام المزود المالي دون شطب قسري بـ Math.max(0)
             await pWallet.update({
-              balance: Math.max(0, pWallet.balance - refundAmount)
+              balance: (pWallet.balance || 0) - refundAmount
             });
 
             await WalletTransaction.create({
               providerId,
               type: 'refund',
-              description: `استرداد نقدي تلقائي لحساب حجز القوة القاهرة رقم #${fm.bookingId} لإعادة بيع القاعة بموجب حجز رقم #${booking.id}`,
+              description: `استرداد نقدي لحساب حجز القوة القاهرة رقم #${fm.bookingId} لإعادة بيع القاعة بموجب حجز رقم #${booking.id} (قيد التزام مالي)`,
               amount: refundAmount,
               status: 'completed'
             });

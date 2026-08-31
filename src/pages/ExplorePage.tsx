@@ -129,6 +129,36 @@ export default function ExplorePage() {
   const [isProviderChatOpen, setIsProviderChatOpen] = useState(false);
   const [chatData, setChatData] = useState({ providerName: '', hallName: '' });
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [gridColumns, setGridColumns] = useState<3 | 4 | 5>(() => {
+    try {
+      const saved = localStorage.getItem('EXPLORE_GRID_COLUMNS');
+      if (saved && (saved === '3' || saved === '4' || saved === '5')) {
+        return Number(saved) as 3 | 4 | 5;
+      }
+    } catch {}
+    return 3;
+  });
+
+  const handleSetGridColumns = (cols: 3 | 4 | 5) => {
+    setGridColumns(cols);
+    try {
+      localStorage.setItem('EXPLORE_GRID_COLUMNS', String(cols));
+    } catch {}
+    if (viewMode !== 'grid') {
+      setViewMode('grid');
+    }
+  };
+
+  const getGridColsClass = () => {
+    if (viewMode === 'list') return 'flex flex-col gap-6';
+    if (gridColumns === 5) {
+      return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4';
+    }
+    if (gridColumns === 4) {
+      return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5';
+    }
+    return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8';
+  };
 
   // For services modal
   const [selectedServiceToRequest, setSelectedServiceToRequest] = useState<EventService | null>(null);
@@ -446,7 +476,7 @@ export default function ExplorePage() {
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col" dir="rtl">
       <Header />
       <AdBanner placement="شريط الإعلان العلوي" layout="banner" className="border-none" />
-      <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 w-full py-12">
+      <main className={`flex-grow ${gridColumns === 5 && viewMode === 'grid' ? 'max-w-[1700px]' : gridColumns === 4 && viewMode === 'grid' ? 'max-w-[1480px]' : 'max-w-7xl'} mx-auto px-4 md:px-6 w-full py-12 transition-all duration-300`}>
         
         {/* Header Section */}
         <div className="mb-10 text-center max-w-3xl mx-auto">
@@ -658,11 +688,39 @@ export default function ExplorePage() {
         </div>
 
         {/* Results */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">
-            {activeTab === 'services' ? 'الخدمات المتاحة' : 'الأماكن المتاحة'}
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <span>{activeTab === 'services' ? 'الخدمات المتاحة' : 'الأماكن المتاحة'}</span>
+            <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+              {(activeTab === 'services' ? filteredServices : filteredHalls).length}
+            </span>
           </h2>
-          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+          
+          <div className="flex items-center gap-3">
+            {/* Grid Columns Controls (3, 4, 5) */}
+            <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-2xs">
+              <span className="text-xs font-bold text-slate-400 px-2 select-none">الأعمدة:</span>
+              <div className="flex items-center gap-1">
+                {([3, 4, 5] as const).map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleSetGridColumns(num)}
+                    className={`w-8 h-8 rounded-lg text-xs font-black transition-all flex items-center justify-center ${
+                      gridColumns === num && viewMode === 'grid'
+                        ? 'bg-amber-500 text-white shadow-xs scale-105'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-amber-600'
+                    }`}
+                    title={`عرض ${num} بطاقات في الصف الواحد`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
+          </div>
         </div>
 
         <AdBanner placement="نتائج البحث (صفحة استكشاف)" layout="card" className="mb-8" />
@@ -727,43 +785,70 @@ export default function ExplorePage() {
                 </table>
               </div>
             ) : (
-              <div className={viewMode === 'list' ? "flex flex-col gap-6" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"}>
+              <div className={getGridColsClass()}>
                 {filteredHalls.map((hall, index) => {
                   const providerData = providers.find(p => p.name === hall.provider);
                   const partnerLevel = providerData ? getPartnerLevel(providerData.bookingsCount, providerData.rating, isEnabled, providerData.packageName, providerData.packageDuration) : null;
                   return (
                     <React.Fragment key={hall.id}>
-                      <div className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
-                        <div className={`relative overflow-hidden ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-60'}`}>
-                          <img src={hall.image} alt={hall.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          <FavoriteHeartButton hallId={hall.id} />
-                          <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
-                          {hall.featured && (
-                            <div className="absolute top-4 right-20 bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-sm z-10">
-                              <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
-                            </div>
+                      <div className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100/90 group flex ${viewMode === 'list' ? 'flex-col md:flex-row md:min-h-[280px]' : gridColumns === 5 ? 'flex-col min-h-[470px]' : gridColumns === 4 ? 'flex-col min-h-[495px]' : 'flex-col min-h-[520px]'} relative`}>
+                        {/* Full-Card Background Image spanning completely to the bottom */}
+                        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+                          <img 
+                            src={hall.image} 
+                            alt={hall.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                          />
+                          
+                          {/* Smooth Full-Height Panoramic Gradient Overlays */}
+                          {/* Vertical Gradient Fade (Grid & Mobile) */}
+                          <div className={`absolute inset-0 bg-gradient-to-t from-white via-white/90 via-45% to-black/30 ${viewMode === 'list' ? 'md:hidden' : ''}`} />
+                          
+                          {/* Horizontal Gradient Fade (Desktop List Mode in RTL) */}
+                          {viewMode === 'list' && (
+                            <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-white via-white/95 via-50% to-transparent" />
                           )}
-                          <div className="absolute top-4 left-4 flex flex-col gap-2 items-start z-10 pl-14">
-                            <div className="bg-blue-950/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1">
+                        </div>
+
+                        {/* Top Badges & Floating Controls Layer */}
+                        <div className="relative z-10 p-3 sm:p-4 pb-0 flex justify-between items-start">
+                          <div className="flex flex-col gap-2 items-start">
+                            <div className="bg-blue-950/85 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1">
                               {hall.category}
                             </div>
                             <PricingPatternBadge bookingType={hall.bookingType} />
                             {partnerLevel && (
-                              <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
+                              <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
                                 {partnerLevel.icon} {partnerLevel.name}
                               </div>
                             )}
                           </div>
+
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            {hall.featured && (
+                              <div className="bg-white/95 backdrop-blur-sm px-2 sm:px-2.5 py-1 rounded-full text-[9px] font-bold text-amber-600 flex items-center gap-1 shadow-sm">
+                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> مميزة
+                              </div>
+                            )}
+                            <HallStatusBadges status={hall.status} bookingStatus={hall.bookingStatus} />
+                            <FavoriteHeartButton hallId={hall.id} />
+                          </div>
+                        </div>
+
+                        {/* Spacer to showcase panoramic image header in grid mode */}
+                        <div className={`relative z-10 pointer-events-none ${viewMode === 'list' ? 'h-16 md:hidden' : gridColumns === 5 ? 'h-24 sm:h-28' : 'h-32 sm:h-36'}`}>
                           {nearMe && (
-                            <div className="absolute bottom-4 right-4 bg-emerald-500/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 z-10">
+                            <div className="absolute bottom-2 right-4 bg-emerald-600/95 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 pointer-events-auto">
                               <MapPin className="w-3.5 h-3.5" /> تبعد {hall.mockDistance} كم
                             </div>
                           )}
                         </div>
-                        <div className="p-6 flex-grow flex flex-col justify-between">
+
+                        {/* Content Body sitting cleanly on full-height white fade */}
+                        <div className="p-4 sm:p-5 md:p-6 pt-2 flex-grow flex flex-col justify-between relative z-10">
                           <div>
                             <div className="flex justify-between items-start mb-3">
-                              <h3 className="text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2">
+                              <h3 className="text-lg sm:text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2">
                                  {hall.name}
                                  {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
                                    <button onClick={(e) => openProviderChat(e, hall.provider, hall.name)} className="text-amber-500 hover:text-amber-600 transition-colors bg-amber-50 p-1.5 rounded-lg" title="مراسلة المزود">
@@ -771,16 +856,16 @@ export default function ExplorePage() {
                                    </button>
                                  )}
                               </h3>
-                              <div className="flex items-center gap-1 text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
-                                <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                              <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-700 bg-white/90 backdrop-blur-xs px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-2xs">
+                                <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-500 text-amber-500" />
                                 {hall.rating}
                               </div>
                             </div>
-                            <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
-                              <MapPin className="w-4 h-4 text-amber-500" /> {hall.city}
+                            <p className="text-slate-500 text-xs sm:text-sm mb-3 sm:mb-4 flex items-center gap-1.5 font-medium">
+                              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" /> {hall.city}
                             </p>
                             {hall.showProvider !== false && isProviderNameVisible(hall.provider) && (
-                              <div className="bg-slate-50 rounded-lg p-2.5 mb-2 flex items-center justify-between border border-slate-100">
+                              <div className="bg-slate-50/90 backdrop-blur-xs rounded-xl p-2.5 mb-2 flex items-center justify-between border border-slate-200/70 shadow-2xs">
                                  <div className="flex items-center gap-2 overflow-hidden">
                                     <span className="text-xs text-slate-400 shrink-0">مقدم الخدمة:</span>
                                     <Link 
@@ -806,7 +891,7 @@ export default function ExplorePage() {
                           </div>
                           <div className="flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
                             <HallCapacityLabel capacity={hall.capacity} />
-                            <Link to={`/hall/${hall.id}${selectedDateFilter ? `?date=${selectedDateFilter}` : ''}`} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all">
+                            <Link to={`/hall/${hall.id}${selectedDateFilter ? `?date=${selectedDateFilter}` : ''}`} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-xs">
                               التفاصيل
                             </Link>
                           </div>
@@ -907,57 +992,78 @@ export default function ExplorePage() {
                 </table>
               </div>
             ) : (
-            <div className={viewMode === 'list' ? "flex flex-col gap-6" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"}>
+            <div className={getGridColsClass()}>
               {filteredServices.map((service) => {
                 const providerData = providers.find(p => p.name === service.provider);
                 const partnerLevel = providerData ? getPartnerLevel(providerData.bookingsCount, providerData.rating, isEnabled, providerData.packageName, providerData.packageDuration) : null;
                 return (
-                  <div key={service.id} className={`bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 group flex ${viewMode === 'list' ? 'flex-col md:flex-row' : 'flex-col'}`}>
-                    <div className={`relative overflow-hidden ${viewMode === 'list' ? 'h-48 md:h-auto md:w-1/3 shrink-0' : 'h-60'}`}>
+                  <div key={service.id} className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100/90 group flex ${viewMode === 'list' ? 'flex-col md:flex-row md:min-h-[280px]' : gridColumns === 5 ? 'flex-col min-h-[450px]' : gridColumns === 4 ? 'flex-col min-h-[475px]' : 'flex-col min-h-[500px]'} relative`}>
+                    {/* Full-Card Background Image spanning completely to the bottom */}
+                    <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
                       <img 
                         src={service.image} 
                         alt={service.name} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer" 
-                        onClick={() => handleOpenDetails(service)}
-                        title="عرض تفاصيل الخدمة" 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
                       />
-                      <div className="absolute top-4 left-4 flex flex-col gap-2 items-start z-10">
-                        <div className="bg-blue-950/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1">
+                      
+                      {/* Smooth Full-Height Panoramic Gradient Overlays */}
+                      {/* Vertical Gradient Fade (Grid & Mobile) */}
+                      <div className={`absolute inset-0 bg-gradient-to-t from-white via-white/90 via-45% to-black/30 ${viewMode === 'list' ? 'md:hidden' : ''}`} />
+                      
+                      {/* Horizontal Gradient Fade (Desktop List Mode in RTL) */}
+                      {viewMode === 'list' && (
+                        <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-white via-white/95 via-50% to-transparent" />
+                      )}
+                    </div>
+
+                    {/* Top Badges & Floating Controls Layer */}
+                    <div className="relative z-10 p-3 sm:p-4 pb-0 flex justify-between items-start">
+                      <div className="flex flex-col gap-2 items-start">
+                        <div className="bg-blue-950/85 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold text-white shadow-sm flex items-center gap-1">
                           {service.category}
                         </div>
                         {partnerLevel && (
-                          <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
+                          <div className={`${partnerLevel.bg}/90 backdrop-blur-sm px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold ${partnerLevel.color} shadow-sm border ${partnerLevel.border}`}>
                             {partnerLevel.icon} {partnerLevel.name}
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Spacer to showcase panoramic image header in grid mode */}
+                    <div className={`relative z-10 pointer-events-none ${viewMode === 'list' ? 'h-16 md:hidden' : gridColumns === 5 ? 'h-24 sm:h-28' : 'h-32 sm:h-36'}`}>
                       {nearMe && (
-                        <div className="absolute bottom-4 right-4 bg-emerald-500/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 z-10">
+                        <div className="absolute bottom-2 right-4 bg-emerald-600/95 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1 pointer-events-auto">
                           <MapPin className="w-3.5 h-3.5" /> تبعد {service.mockDistance} كم
                         </div>
                       )}
                     </div>
-                    <div className="p-6 flex-grow flex flex-col justify-between">
+
+                    {/* Content Body sitting cleanly on full-height white fade */}
+                    <div className="p-4 sm:p-5 md:p-6 pt-2 flex-grow flex flex-col justify-between relative z-10">
                       <div>
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2">
+                          <h3 
+                            className="text-lg sm:text-xl font-bold text-blue-950 group-hover:text-amber-600 transition-colors flex items-center gap-2 cursor-pointer"
+                            onClick={() => handleOpenDetails(service)}
+                          >
                              {service.name}
                              {localStorage.getItem('IS_AUTHENTICATED') === 'true' && (
-                               <button onClick={(e) => openProviderChat(e, service.provider, service.name)} className="text-amber-500 hover:text-amber-600 transition-colors bg-amber-50 p-1.5 rounded-lg" title="مراسلة المزود">
+                               <button onClick={(e) => { e.stopPropagation(); openProviderChat(e, service.provider, service.name); }} className="text-amber-500 hover:text-amber-600 transition-colors bg-amber-50 p-1.5 rounded-lg" title="مراسلة المزود">
                                   <MessageCircle className="w-5 h-5" />
                                </button>
                              )}
                           </h3>
-                          <div className="flex items-center gap-1 text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
-                            <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                          <div className="flex items-center gap-1 text-xs sm:text-sm font-bold text-slate-700 bg-white/90 backdrop-blur-xs px-2 sm:px-2.5 py-1 rounded-lg border border-slate-200/80 shadow-2xs">
+                            <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-amber-500 text-amber-500" />
                             {service.rating}
                           </div>
                         </div>
-                        <p className="text-slate-500 text-sm mb-4 flex items-center gap-1.5">
-                          <MapPin className="w-4 h-4" /> {service.city}
+                        <p className="text-slate-500 text-xs sm:text-sm mb-3 sm:mb-4 flex items-center gap-1.5 font-medium">
+                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" /> {service.city}
                         </p>
                         {isProviderNameVisible(service.provider) && (
-                          <div className="bg-slate-50 rounded-lg p-2.5 mb-4 flex items-center justify-between border border-slate-100">
+                          <div className="bg-slate-50/90 backdrop-blur-xs rounded-xl p-2.5 mb-4 flex items-center justify-between border border-slate-200/70 shadow-2xs">
                              <div className="flex items-center gap-2 overflow-hidden">
                                 <span className="text-xs text-slate-400 shrink-0">مقدم الخدمة:</span>
                                 <Link 
@@ -983,7 +1089,7 @@ export default function ExplorePage() {
                           <span className="block text-xs text-slate-400 mb-0.5">يبدأ من</span>
                           <span className="text-lg font-bold text-orange-500">{service.price} <span className="text-sm font-medium">ريال</span></span>
                         </div>
-                        <button onClick={() => handleRequestService(service)} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all">
+                        <button onClick={() => handleRequestService(service)} className="bg-white border-2 border-slate-200 hover:border-amber-500 text-blue-950 hover:text-amber-600 px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-xs">
                           طلب الخدمة
                         </button>
                       </div>

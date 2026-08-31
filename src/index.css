@@ -12,69 +12,6 @@
   --color-luxury-gold: #E2B857;
   --color-luxury-wine: #818CF8;
   --color-luxury-cream: #F3F4F6;
-
-  /* ضبط وتصغير منحنيات الحواف (Border Radius Curve Refinement) لجميع مكونات التطبيق ولوحة تحكم الإدارة */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 5px;
-  --radius-xl: 6px;
-  --radius-2xl: 7px;
-  --radius-3xl: 8px;
-  --radius-4xl: 10px;
-}
-
-/* ========================================================
-   قواعد تصغير وضبط منحنيات لوحة تحكم الإدارة (Admin Dashboard Curves)
-   منح حواف رشيقة وأنيقة للبطاقات، الأزرار، الحقول، النوافذ، والقوائم
-   ======================================================== */
-.admin-workspace .rounded-3xl,
-.admin-workspace .rounded-2xl {
-  border-radius: 8px !important;
-}
-
-.admin-workspace .rounded-xl {
-  border-radius: 6px !important;
-}
-
-.admin-workspace .rounded-lg {
-  border-radius: 5px !important;
-}
-
-.admin-workspace .rounded-md {
-  border-radius: 4px !important;
-}
-
-.admin-workspace .rounded-sm {
-  border-radius: 3px !important;
-}
-
-.admin-workspace button:not(.rounded-full):not([class*="rounded-full"]),
-.admin-workspace input:not(.rounded-full):not([class*="rounded-full"]),
-.admin-workspace select:not(.rounded-full):not([class*="rounded-full"]),
-.admin-workspace textarea:not(.rounded-full):not([class*="rounded-full"]) {
-  border-radius: 6px !important;
-}
-
-.admin-workspace aside,
-.admin-workspace aside button,
-.admin-workspace header,
-.admin-workspace header button {
-  border-radius: 6px !important;
-}
-
-.admin-workspace aside button.rounded-full,
-.admin-workspace header div.rounded-full,
-.admin-workspace span.rounded-full {
-  border-radius: 9999px !important;
-}
-
-/* Modal and dialog wrappers in Admin */
-.admin-workspace .modal-content,
-[role="dialog"] .bg-white,
-[role="dialog"] .bg-slate-900,
-[role="dialog"] .bg-slate-950 {
-  border-radius: 8px !important;
 }
 
 .max-w-7xl {
@@ -316,7 +253,7 @@ div#root:nth-of-type(1) > div:nth-of-type(1) > header:nth-of-type(1) > div:nth-o
   background-color: rgba(238, 242, 255, 0.4) !important;
   position: relative !important;
   overflow: hidden !important;
-  border-radius: 0.625rem !important;
+  border-radius: 1rem !important;
   transition: all 0.2s ease-in-out !important;
 }
 

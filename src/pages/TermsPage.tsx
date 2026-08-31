@@ -201,7 +201,70 @@ export default function TermsPage() {
                   </div>
                 </div>
 
-                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">5. تصنيف شركاء المنصة المتعددين والمسؤوليات التقاعدية</h3>
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">5. أحكام وضوابط متجر المستلزمات والمنتجات المصغر للقاعة (In-Venue Addon Store)</h3>
+                <div className="bg-slate-50 border border-slate-200/80 p-8 rounded-3xl mb-8 space-y-6 text-slate-700">
+                  <p className="text-base leading-relaxed font-medium text-slate-800">
+                    تنظم هذه المادة القواعد التشغيلية والمالية لمتجر المستلزمات المصغر المرتبط بالقاعة ومزودي الخدمات، وحقوق العميل والتزامات المزود في الشراء والطلبات اللاحقة وضمانات الجودة:
+                  </p>
+
+                  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+                    <div>
+                      <h4 className="text-base font-bold text-blue-950 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        أولاً: طبيعة المتجر وشاملية ضريبة القيمة المضافة (15% VAT-Inclusive)
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        يُعد متجر المستلزمات متجراً داخلياً مرتبطاً بالمنشأة ومزود القاعة. كافة الأسعار المعروضة لمنتجات ومستلزمات الحفل (باقات ورد، إضاءات، ضيافة، حلويات، تجهيزات VIP) هي <strong>أسعار نهائية شاملة لضريبة القيمة المضافة 15%</strong>، ويتم إدراجها ضمن الفاتورة والعقد الموحد للحجز.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <h4 className="text-base font-bold text-blue-950 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        ثانياً: الطلبات اللاحقة الملحقة بالحجز (Post-Booking Addon Orders)
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        يحق للعميل إضافة مستلزمات ومنتجات جديدة لحجزه المؤكد كـ <strong>"طلب لاحق ملحق بالحجز"</strong> قبل موعد المناسبة بالمهلة الزمنية المعتمدة سيادياً في النظام (مثل 48 ساعة قبل موعد الحفل)، مع حق إدارة المنصة السيادي في تفعيل أو إيقاف الطلبات اللاحقة لضمان الجاهزية اللوجستية للقاعات.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <h4 className="text-base font-bold text-blue-950 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        ثالثاً: عمولة المنصة وعدم تأثرها بالخصومات الفردية
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        تُحتسب عمولة المنصة السيادية على مبيعات المتجر وفق النمط المعتمد من الإدارة، وتُحسب العمولة دائماً على <strong>السعر الأصلي الأساسي</strong> للمنتج. وفي حال قيام المزود بتقديم تخفيض منفرد، يتحمل المزود كامل قيمة الخصم من صافي أرباحه ولا تنقص عمولة المنصة المعتمدة.
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <h4 className="text-base font-bold text-blue-950 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                        رابعاً: ضمان الجودة والتعويض الفوري عند تعذر التوفير أو القصور (Deficiency & Quality Protection)
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed mb-2">
+                        يلتزم المزود بتوفير كافة المستلزمات المطلوبة بالموعد المحدد والمواصفات المتفق عليها وتضمينها في مسار التشغيل الميداني (<span className="font-mono text-xs font-bold text-slate-800">Event Run-Sheet</span>). وفي حال:
+                      </p>
+                      <ul className="list-disc pr-6 space-y-1.5 text-sm text-slate-600">
+                        <li><strong>تعذر توفير الصنف:</strong> استرداد فوري وكامل لقيمة المنتج لصالح العميل وخصمه من مستحقات المزود المعلقة.</li>
+                        <li><strong>قصور في المواصفات أو الجودة:</strong> تقييم القصور من قِبل الدعم التحكيمي للمنصة ورد القيمة المناسبة أو كاملة للعميل مع احتفاظ المنصة بحق فرض غرامات تشغيلية في حال تكرار المخالفة.</li>
+                      </ul>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <h4 className="text-base font-bold text-blue-950 mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                        خامساً: حجز الضمان المعلق (Held Escrow) وموعد التسوية
+                      </h4>
+                      <p className="text-sm text-slate-600 leading-relaxed">
+                        تدخل كافة مستحقات مبيعات المتجر الخاصة بالمزود ضمن الرصيد المعلق المحجوز (<span className="font-mono text-xs font-bold text-slate-800">Pending Balance / Held Escrow</span>) ولا تُتاح للسحب إلا بعد إتمام المناسبة بنجاح وانقضاء نافذة التحقق والجودة بنجاح.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">6. تصنيف شركاء المنصة المتعددين والمسؤوليات التقاعدية</h3>
                 <div className="space-y-4 mb-6 text-sm sm:text-base text-slate-600 leading-relaxed">
                   <p>
                     تضم منصة ليلة شبكة واسعة من الشركاء التجاريين المستقلين الخاضعين لرقابة وحوكمة المنصة الصارمة لضمان موثوقية وجودة التنفيذ:
@@ -222,7 +285,7 @@ export default function TermsPage() {
                   </ul>
                 </div>
 
-                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">6. معايير الامتثال التنظيمي والالتزامات العامة</h3>
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">7. معايير الامتثال التنظيمي والالتزامات العامة</h3>
                 <div className="bg-slate-50 border border-slate-200/80 p-6 rounded-2xl mb-6 space-y-4 text-sm sm:text-base text-slate-600">
                   <h4 className="font-bold text-slate-800">أ) التزامات العميل (Customer Commitments):</h4>
                   <ul className="list-disc pr-6 space-y-1">
@@ -239,7 +302,7 @@ export default function TermsPage() {
                   </ul>
                 </div>
 
-                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">7. حوكمة تسوية النزاعات وبروتوكول التحكيم الودي</h3>
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">8. حوكمة تسوية النزاعات وبروتوكول التحكيم الودي</h3>
                 <p className="mb-6 text-sm sm:text-base text-slate-600 leading-relaxed">
                   باعتبار منصة ليلة وسيطاً تقنياً معتمداً وموثقاً، فإنها تقدم لوحة تسوية ومطالبة متطورة لفض النزاعات وحفظ كفاءة التنسيق. في حال تعذر تنفيذ الخدمة أو نشوء خلاف بين العميل والشركاء، يتم اللجوء إلزامياً لبروتوكول التسوية الودية للمنصة:
                   <br />
@@ -252,12 +315,12 @@ export default function TermsPage() {
                   4. في حال استنفاد كافة الطرق الودية للتسوية التقنية، يحق لآي من الطرفين التوجه إلى الجهات القضائية والمحاكم المختصة بمدينة الرياض بالمملكة العربية السعودية وفقاً لأنظمة وزارة العدل.
                 </p>
 
-                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">8. حدود المسؤولية والامتثال القانوني لأحكام النشر</h3>
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">9. حدود المسؤولية والامتثال القانوني لأحكام النشر</h3>
                 <p className="mb-6 text-sm sm:text-base text-slate-600 leading-relaxed">
                   تلتزم المنصة بتوفير خدمات الربط التقني بأعلى نسبة موثوقية واستقرار. إن منصة ليلة غير مسؤولة نظامياً عن أي أضرار مادية، إصابات بدنية، أو خسائر تجارية تنجم بالخطأ أو الإهمال البشري من قبل الشركاء في أرض الواقع، أو أي مشكلات لوجستية تتعرض لشروط القوة القاهرة كالأحوال الجوية السيئة، انقطاع التيار الكهربائي العام، أو الإشعارات الأمنية والصحية العامة.
                 </p>
 
-                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">9. القانون المطبق والسيادة النظامية</h3>
+                <h3 className="text-2xl font-bold mt-10 mb-4 text-blue-950 border-r-4 border-amber-500 pr-3">10. القانون المطبق والسيادة النظامية</h3>
                 <p className="mb-6 text-sm sm:text-base text-slate-600 leading-relaxed">
                   تخضع هذه الشروط والأحكام وعلاقات السداد والتوثيقات وتُفسر بالكامل وتُطبق وتُنفذ بموجب الأنظمة والقوانين والتعليمات السارية والنافذة في المملكة العربية السعودية، وخصوصاً لائحة نظام التجارة الإلكترونية، ونظام التعاملات الإلكترونية ونظام مكافحة الجرائم المعلوماتية.
                 </p>

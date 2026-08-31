@@ -5,6 +5,7 @@ import {
 } from '../booking.helpers.js';
 import { Wallet, WalletTransaction, CustomerWallet, CustomerHeldBalance, Expense } from '../../../models/Database.js';
 import { User, PlatformConfig } from '../../../models/UserModels.js';
+import { UnifiedPaymentsEngine } from '../../../services/payment/UnifiedPaymentsEngine.js';
 
 export class CancelBookingUseCase {
   constructor(private repo: BookingRepository) {}
@@ -164,25 +165,38 @@ export class CancelBookingUseCase {
       refundOutcomeMessage = `تم معالجة الإلغاء بدقة وفق نموذج الحساب النشط (${calcReason}). `;
 
       if (cashAmount > 0) {
-        const [pWallet] = await Wallet.findOrCreate({
-          where: { providerId },
-          defaults: { balance: 0, pendingBalance: 0 }
-        });
+        // Single Source of Truth for Refunds (Unified Financial Engine & Ledger Journaling)
+        try {
+          await UnifiedPaymentsEngine.calculateAndAllocateRefund({
+            paymentId: String(booking.id),
+            refundAmountHalalas: Math.round(cashAmount * 100),
+            reason: calcReason || `إلغاء حجز #${booking.id}`,
+            cancelledBy: 'customer',
+            cancellationFeeHalalas: Math.round((booking.totalAmount - cashAmount - creditAmount) * 100)
+          });
+        } catch (engineErr) {
+          console.warn('UnifiedPaymentsEngine refund allocation warning, falling back to direct ledger entry:', engineErr);
+          const [pWallet] = await Wallet.findOrCreate({
+            where: { providerId },
+            defaults: { balance: 0, pendingBalance: 0 }
+          });
 
-        await pWallet.update({
-          balance: Math.max(0, pWallet.balance - cashAmount)
-        });
+          // المحاسبة الصارمة: لا نستخدم Math.max(0) لمنع شطب ديون المزود/الذمم المدينة للمنصة
+          await pWallet.update({
+            balance: (pWallet.balance || 0) - cashAmount
+          });
+
+          await WalletTransaction.create({
+            providerId,
+            type: 'refund',
+            description: `استرداد نقدي لحساب حجز ملغي رقم #${booking.id} (تسجيل التزام مالي)`,
+            amount: cashAmount,
+            status: 'completed'
+          });
+        }
 
         await cWallet.update({
-          cashBalance: cWallet.cashBalance + cashAmount
-        });
-
-        await WalletTransaction.create({
-          providerId,
-          type: 'refund',
-          description: `استرداد نقدي تلقائي للعميل لحساب حجز ملغي رقم #${booking.id}`,
-          amount: cashAmount,
-          status: 'completed'
+          cashBalance: (cWallet.cashBalance || 0) + cashAmount
         });
 
         await Expense.create({

@@ -20,7 +20,7 @@ export default defineConfig(({mode}) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -37,6 +37,9 @@ export default defineConfig(({mode}) => {
               if (id.includes('lucide-react')) {
                 return 'vendor-lucide';
               }
+              if (id.includes('motion')) {
+                return 'vendor-motion';
+              }
               if (id.includes('recharts') || id.includes('d3')) {
                 return 'vendor-charts';
               }
@@ -46,10 +49,12 @@ export default defineConfig(({mode}) => {
               if (id.includes('@google/genai')) {
                 return 'vendor-gemini';
               }
-              // We omit the generic catch-all return statement here to allow
-              // Rollup's advanced automatic code-splitting engine to handle
-              // smaller third-party libraries, completely eliminating cyclic
-              // dependency risks and asset-loading issues in cloud hosting.
+              if (id.includes('socket.io-client') || id.includes('socket.io-parser') || id.includes('engine.io-client')) {
+                return 'vendor-socket';
+              }
+              if (id.includes('date-fns')) {
+                return 'vendor-date-fns';
+              }
             }
           }
         }
