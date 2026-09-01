@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { ItemQrCodeButton } from './common/ItemQrCodeModal';
-import { LogisticsOperationsCenter } from './logistics/LogisticsOperationsCenter';
+import { LogisticsOperationsCenter, getIncompleteLogisticsCount } from './logistics/LogisticsOperationsCenter';
 import { getActiveProviderCapabilities } from '../utils/capabilityEngine';
 
 interface ServicesManagementProps {
@@ -97,6 +97,23 @@ export default function ServicesManagement({
 
   const capabilities = useMemo(() => getActiveProviderCapabilities(), [providerSubscription]);
   const hasOperationsCapability = userRole === 'admin' || capabilities.hasOperationsDashboard;
+
+  const [incompleteLogisticsCount, setIncompleteLogisticsCount] = useState<number>(() => {
+    return getIncompleteLogisticsCount(currentProviderName, currentProviderId, userRole);
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setIncompleteLogisticsCount(getIncompleteLogisticsCount(currentProviderName, currentProviderId, userRole));
+    };
+    handleUpdate();
+    window.addEventListener('logisticsTasksUpdated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('logisticsTasksUpdated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [currentProviderName, currentProviderId, userRole]);
 
   const baseServices = useMemo(() => {
     if (userRole === 'provider') {
@@ -244,19 +261,23 @@ export default function ServicesManagement({
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Truck className="w-4 h-4" />
-          <span>مركز العمليات اللوجستية 🚚</span>
+          <Truck className={`w-4 h-4 ${activeServicesSubTab === 'logistics' ? 'text-white' : 'text-purple-600'}`} />
+          <span>مركز العمليات اللوجستية</span>
           {!hasOperationsCapability ? (
             <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
               <Lock className="w-3 h-3 text-amber-600" />
               <span>مغلق</span>
             </span>
           ) : (
-            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-              activeServicesSubTab === 'logistics' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-700'
-            }`}>
-              جديد
-            </span>
+            incompleteLogisticsCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black min-w-[20px] text-center transition-all ${
+                activeServicesSubTab === 'logistics'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'bg-purple-100 text-purple-700 border border-purple-200'
+              }`}>
+                {incompleteLogisticsCount}
+              </span>
+            )
           )}
         </button>
       </div>

@@ -1,5 +1,5 @@
 import { BookingRepository } from '../booking.repository.js';
-import { CustomerWallet, CustomerHeldBalance, Expense } from '../../../models/Database.js';
+import { RefundOrchestrator } from '../../../services/finance/RefundOrchestrator.js';
 
 export class ResolveForceMajeureUseCase {
   constructor(private repo: BookingRepository) {}
@@ -33,6 +33,7 @@ export class ResolveForceMajeureUseCase {
 
     let refundType = 'none';
     let amountRefunded = 0;
+    let refundResult: any = null;
 
     if (status === 'approved') {
       if (booking.status !== 'cancelled') {
@@ -43,38 +44,13 @@ export class ResolveForceMajeureUseCase {
       amountRefunded = totalPaid;
       refundType = 'credit_held';
 
-      const finalEmail = request.customerEmail;
-      await CustomerWallet.findOrCreate({
-        where: { customerEmail: finalEmail },
-        defaults: { customerName: request.customerName, cashBalance: 0 }
-      });
-
-      const hall = await this.repo.findHallByPk(booking.hallId);
-      const providerId = hall?.providerId ? Number(hall.providerId) : (hall?.provider ? Number(hall.provider.replace('provider_', '')) : 1);
-
-      await CustomerHeldBalance.create({
-        customerEmail: finalEmail,
+      // استدعاء محرك الاسترداد المالي الموحد السيادي
+      refundResult = await RefundOrchestrator.processForceMajeureRefund({
+        bookingId: booking.id,
+        customerEmail: request.customerEmail,
         customerName: request.customerName,
-        amount: totalPaid,
-        originalBookingId: booking.id,
-        originalProviderId: providerId,
-        holdReason: 'force_majeure',
-        heldSince: new Date(),
-        conversionStatus: 'held',
-        approvedByAdmin: 'نظام التدقيق الإداري والمطالبات المعتمدة',
-        notes: `رصيد قوة قاهرة مجدول (قسيمة ائتمانية مؤجلة) بموافقة الإدارة لحساب حجز رقم #${booking.id}`
-      });
-
-      await Expense.create({
-        title: `قسيمة جدولة رصيد قوة قاهرة للعميل لحساب حجز #${booking.id} - ${booking.customerName}`,
-        amount: totalPaid / 1.15,
-        vatAmount: totalPaid - (totalPaid / 1.15),
-        amountIncludingVat: totalPaid,
-        category: String(providerId),
-        paymentMethod: 'credit_held',
-        status: 'paid',
-        EmployeeId: 1,
-        type: 'refund'
+        totalAmountSar: totalPaid,
+        adminNotes: adminNotes || 'اعتماد رسمي لطلب قوة قاهرة'
       });
     }
 
@@ -87,13 +63,14 @@ export class ResolveForceMajeureUseCase {
     });
 
     if (io) {
-      io.emit("force_majeure_resolved", { id, status, request });
+      io.emit("force_majeure_resolved", { id, status, request, refund: refundResult?.refund || null });
     }
 
     return {
       success: true,
-      message: status === 'approved' ? 'تمت الموافقة على الطلب بنجاح وإصدار قسيمة رصيد مالي للعميل.' : 'تم رفض الطلب بنجاح وإغلاق التذكرة.',
-      request
+      message: status === 'approved' ? 'تمت الموافقة على الطلب بنجاح وإصدار قسيمة رصيد مالي للعميل عبر المحرك المالي السيادي.' : 'تم رفض الطلب بنجاح وإغلاق التذكرة.',
+      request,
+      refund: refundResult?.refund || null
     };
   }
 }

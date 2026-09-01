@@ -51,6 +51,17 @@ router.post('/trigger-cron', controller.triggerCron);
 router.post('/process-payout', controller.processPayout);
 router.post('/payout-webhook', controller.handlePayoutWebhook);
 
+// P0 Comprehensive Payout & Settlement Verification Lifecycle
+router.get('/settlements/eligibility/:id', controller.evaluateSettlementEligibility);
+router.post('/settlements/release', controller.releaseSettlement);
+router.get('/payouts', controller.getPayouts);
+router.get('/payouts/:id', controller.getPayoutById);
+router.post('/payouts/create', controller.createPayout);
+router.post('/payouts/dispatch', controller.dispatchPayout);
+router.post('/payouts/reconcile', controller.reconcilePayout);
+router.post('/payouts/return', controller.returnPayout);
+router.post('/payouts/dual-approve', controller.dualApprovePayout);
+
 // Unified ledger and settlements
 router.get('/settlements', controller.getSettlements);
 router.post('/settlements/approve', controller.approveSettlement);

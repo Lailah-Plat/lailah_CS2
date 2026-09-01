@@ -4,7 +4,12 @@
  * يوفر آلية تنفيذ الاستدعاءات الخارجية مع الدعم التلقائي لإعادة المحاولة عند الفشل (Retry with Exponential Backoff) والمهلة الزمنية (Timeout).
  */
 
-import { Logger } from "../services/logger.service.js";
+const HttpLogger = {
+  debug: (msg: string) => console.debug(`[HTTP Client] ${msg}`),
+  warn: (msg: string) => console.warn(`[HTTP Client] ${msg}`),
+  error: (msg: string, err?: any) => console.error(`[HTTP Client] ${msg}`, err || ''),
+  info: (msg: string) => console.info(`[HTTP Client] ${msg}`)
+};
 
 /**
  * واجهة خيارات وإعدادات عميل HTTP
@@ -74,7 +79,7 @@ export class HttpClient {
       const id = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
-        Logger.debug(`طلب خارجي: [${method}] ${url} | المحاولة ${attempt}/${retries}`);
+        HttpLogger.debug(`طلب خارجي: [${method}] ${url} | المحاولة ${attempt}/${retries}`);
         
         const fetchOptions: RequestInit = {
           method,
@@ -117,19 +122,19 @@ export class HttpClient {
           ? `انتهت المهلة الزمنية للطلب بعد ${timeoutMs} ملي ثانية`
           : err.message || "خطأ غير معروف";
 
-        Logger.warn(
+        HttpLogger.warn(
           `فشل الاستدعاء الخارجي: [${method}] ${url} | المحاولة ${attempt}/${retries} | الخطأ: ${errorMsg}`
         );
 
         // في حال استنفاد جميع المحاولات المتاحة
         if (attempt >= retries) {
-          Logger.error(`استنفد الطلب الخارجي كافة المحاولات وفشل بشكل دائم: [${method}] ${url}`, err);
+          HttpLogger.error(`استنفد الطلب الخارجي كافة المحاولات وفشل بشكل دائم: [${method}] ${url}`, err);
           throw err;
         }
 
         // حساب وقت الانتظار والتراجع الأسّي (Exponential Backoff)
         const delay = backoffMs * Math.pow(2, attempt - 1);
-        Logger.debug(`انتظار التراجع الأسّي: ${delay} ملي ثانية قبل إعادة المحاولة...`);
+        HttpLogger.debug(`انتظار التراجع الأسّي: ${delay} ملي ثانية قبل إعادة المحاولة...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

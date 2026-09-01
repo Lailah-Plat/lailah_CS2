@@ -5,8 +5,27 @@
  */
 
 import { SupplementaryReceiptVoucher, Booking } from '../types/index.js';
-import { NotificationService } from './notification/NotificationService.js';
 import { formatBookingId } from '../utils/idUtils.js';
+
+// دالة مساعدة لإرسال الإشعارات عبر الواجهة الخلفية أو القنوات المعتمدة دون تضمين مكتبات خادم Node في المتصفح
+async function dispatchChannelNotification(
+  channel: 'email' | 'sms' | 'whatsapp',
+  recipient: string,
+  message: string,
+  options?: any
+) {
+  try {
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      fetch('/api/notifications/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel, recipient, message, options })
+      }).catch(() => {});
+    }
+  } catch (e) {
+    // تجاهل أخطاء الإرسال في بيئة المعاينة
+  }
+}
 
 // الذاكرة التخزينية لمفتاح سندات القبض الملحقة
 const SUPPLEMENTARY_RECEIPTS_KEY = 'LAYLAH_SUPPLEMENTARY_RECEIPT_VOUCHERS';
@@ -320,7 +339,7 @@ ${items.map(i => `- ${i.name} (الكمية: ${i.quantity}) - السعر: ${(i.t
 منصة ليلة للمناسبات
     `.trim();
 
-    NotificationService.sendNotification(
+    dispatchChannelNotification(
       'email',
       booking.customerEmail || 'partner@laylah.app',
       emailBody,
@@ -333,7 +352,7 @@ ${items.map(i => `- ${i.name} (الكمية: ${i.quantity}) - السعر: ${(i.t
   // ج) 📱 رسائل نصية SMS
   try {
     const smsMessage = `منصة ليلة: تم إصدار سند قبض ملحق #${voucherNumber} بقيمة ${totalAmount} ر.س للحجز #${formatBookingId(booking.id)} لمناسبة ${voucher.eventDate}. تم تحديث العقد.`;
-    NotificationService.sendNotification(
+    dispatchChannelNotification(
       'sms',
       voucher.customerPhone || '0500000000',
       smsMessage,
@@ -346,7 +365,7 @@ ${items.map(i => `- ${i.name} (الكمية: ${i.quantity}) - السعر: ${(i.t
   // د) 💬 تنبيه عبر WhatsApp
   try {
     const waMessage = `✨ *منصة ليلة - إشعار سند قبض ملحق*\n\nتم اعتماد طلب مستلزمات إضافي للحجز *#${bookingFormattedNumber}*.\n📄 *رقم سند القبض:* ${voucherNumber}\n💰 *المبلغ:* ${totalAmount.toLocaleString()} ر.س (شامل الضريبة)\n🛍️ *الأصناف:* ${itemsSummary}\n📅 *تاريخ المناسبة:* ${voucher.eventDate}\n\nتم تحديث الفاتورة الضريبية والعقد الإلكتروني تلقائياً.`;
-    NotificationService.sendNotification(
+    dispatchChannelNotification(
       'whatsapp',
       voucher.customerPhone || '0500000000',
       waMessage,

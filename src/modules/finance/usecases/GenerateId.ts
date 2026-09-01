@@ -71,18 +71,24 @@ export async function generateSettlementNumber(): Promise<string> {
   return `SET-${yy}-${seq}`;
 }
 
+let ledgerCounter = 0;
 export async function generateLedgerNumber(): Promise<string> {
   const currentYear = new Date().getFullYear();
   const yy = getYearSuffix();
   
-  const count = await LedgerEntry.count({
-    where: {
-      createdAt: {
-        [Op.gte]: new Date(`${currentYear}-01-01T00:00:00.000Z`)
+  let count = 0;
+  try {
+    count = await LedgerEntry.count({
+      where: {
+        createdAt: {
+          [Op.gte]: new Date(`${currentYear}-01-01T00:00:00.000Z`)
+        }
       }
-    }
-  });
+    });
+  } catch (e) {}
   
-  const seq = String(count + 1).padStart(10, '0');
+  ledgerCounter++;
+  const uniqueSeq = String(count + ledgerCounter + Math.floor(Math.random() * 100000));
+  const seq = uniqueSeq.padStart(10, '0').slice(-10);
   return `LDG-${yy}-${seq}`;
 }

@@ -3,9 +3,8 @@ import { BookingRepository } from '../booking.repository.js';
 import {
   deductLoyaltyPointsForCancelledBooking
 } from '../booking.helpers.js';
-import { Wallet, WalletTransaction, CustomerWallet, CustomerHeldBalance, Expense } from '../../../models/Database.js';
 import { User, PlatformConfig } from '../../../models/UserModels.js';
-import { UnifiedPaymentsEngine } from '../../../services/payment/UnifiedPaymentsEngine.js';
+import { RefundOrchestrator } from '../../../services/finance/RefundOrchestrator.js';
 
 export class CancelBookingUseCase {
   constructor(private repo: BookingRepository) {}
@@ -29,9 +28,7 @@ export class CancelBookingUseCase {
     }
 
     const previousStatus = booking.status;
-
     const hall = await this.repo.findHallByPk(booking.hallId);
-    const providerId = hall?.providerId ? Number(hall.providerId) : (hall?.provider ? Number(hall.provider.replace('provider_', '')) : 1);
     const listingCancellationPeriod = (hall && hall.cancellationPeriod !== undefined) ? hall.cancellationPeriod : null;
 
     let finalEmail = userEmail || '';
@@ -51,15 +48,9 @@ export class CancelBookingUseCase {
       }
     }
 
-    let refundOutcomeMessage = 'تم إلغاء الحجز بنجاح.';
-    let cashAmount = 0;
-    let creditAmount = 0;
+    let refundResult: any = null;
 
-    const [cWallet] = await CustomerWallet.findOrCreate({
-      where: { customerEmail: finalEmail },
-      defaults: { customerName: booking.customerName, cashBalance: 0 }
-    });
-
+    // التنفيذ المالي الموحد عبر المحرك السيادي فقط عند إلغاء حجز مؤكد أو مدفوع
     if (previousStatus === 'confirmed') {
       let reconciliationModel: 'hybrid' | 'binary' = 'hybrid';
       try {
@@ -74,191 +65,44 @@ export class CancelBookingUseCase {
         console.error('Error fetching SYSTEM_FINANCIAL_SETTINGS:', err);
       }
 
-      const cancelTime = new Date();
-      const bookingConfirmationTime = booking.createdAt || new Date();
-      const eventStartTime = booking.startTime;
-
-      const diffMs = eventStartTime.getTime() - cancelTime.getTime();
-      const daysRemaining = diffMs / (1000 * 60 * 60 * 24);
-
-      const diffConfirmationMs = cancelTime.getTime() - bookingConfirmationTime.getTime();
-      const confirmedHoursAgo = diffConfirmationMs / (1000 * 60 * 60);
-
-      const timeToEventFromBookingMs = eventStartTime.getTime() - bookingConfirmationTime.getTime();
-      const hoursToEventFromBooking = timeToEventFromBookingMs / (1000 * 60 * 60);
-
-      const isGraceWindowEligible = confirmedHoursAgo <= 24 && hoursToEventFromBooking >= 72;
-
-      let cashPercent = 0;
-      let creditPercent = 0;
-      let calcReason = '';
-
-      if (isGraceWindowEligible) {
-        cashPercent = 100;
-        creditPercent = 0;
-        calcReason = 'نافذة سماح الـ 24 ساعة للإلغاء بعد تأكيد الحجز (استرداد كامل)';
-      } else {
-        const effectiveListingPeriod = (listingCancellationPeriod !== null && listingCancellationPeriod >= 0)
-          ? listingCancellationPeriod
-          : 14;
-
-        if (reconciliationModel === 'binary') {
-          if (listingCancellationPeriod !== null) {
-            if (daysRemaining >= listingCancellationPeriod) {
-              cashPercent = 100;
-              creditPercent = 0;
-              calcReason = 'الإلغاء قبل مهلة إلغاء القاعة (النموذج القاطع - استرداد كامل)';
-            } else {
-              cashPercent = 0;
-              creditPercent = 0;
-              calcReason = 'الإلغاء بعد تجاوز مهلة إلغاء القاعة (النموذج القاطع - لا يوجد استرداد)';
-            }
-          } else {
-            if (daysRemaining >= 15) {
-              cashPercent = 100;
-              creditPercent = 0;
-              calcReason = 'سياسة المنصة العامة: متبقي أكثر من 15 يوماً (استرداد كاش)';
-            } else if (daysRemaining >= 7) {
-              cashPercent = 0;
-              creditPercent = 75;
-              calcReason = 'سياسة المنصة العامة: متبقي 7 - 14 يوماً (رصيد جدولة 75٪)';
-            } else if (daysRemaining >= 4) {
-              cashPercent = 0;
-              creditPercent = 50;
-              calcReason = 'سياسة المنصة العامة: متبقي 4 - 6 أيام (رصيد جدولة 50٪)';
-            } else {
-              cashPercent = 0;
-              creditPercent = 0;
-              calcReason = 'سياسة المنصة العامة: متبقي أقل من 3 أيام (لا يوجد استرداد)';
-            }
-          }
-        } else {
-          if (daysRemaining >= effectiveListingPeriod) {
-            cashPercent = 100;
-            creditPercent = 0;
-            calcReason = 'قبل المهلة المحددة للقاعة (نموذج هجين - استرداد كلي 100٪)';
-          } else {
-            if (daysRemaining >= 15) {
-              cashPercent = 100;
-              creditPercent = 0;
-              calcReason = 'طبيعة المنصة الهجينة: بقاء أكثر من 15 يوماً (استرداد كامل)';
-            } else if (daysRemaining >= 7) {
-              cashPercent = 0;
-              creditPercent = 75;
-              calcReason = 'طبيعة المنصة الهجينة: متبقي 7 - 14 يوماً (رصيد جدولة 75٪)';
-            } else if (daysRemaining >= 4) {
-              cashPercent = 0;
-              creditPercent = 50;
-              calcReason = 'طبيعة المنصة الهجينة: متبقي 4 - 6 أيام (رصيد جدولة 50٪)';
-            } else {
-              cashPercent = 0;
-              creditPercent = 0;
-              calcReason = 'طبيعة المنصة الهجينة: بقاء أقل من 3 أيام على الموعد (لا يوجد استرداد)';
-            }
-          }
-        }
-      }
-
-      cashAmount = (booking.totalAmount * cashPercent) / 100;
-      creditAmount = (booking.totalAmount * creditPercent) / 100;
-
-      refundOutcomeMessage = `تم معالجة الإلغاء بدقة وفق نموذج الحساب النشط (${calcReason}). `;
-
-      if (cashAmount > 0) {
-        // Single Source of Truth for Refunds (Unified Financial Engine & Ledger Journaling)
-        try {
-          await UnifiedPaymentsEngine.calculateAndAllocateRefund({
-            paymentId: String(booking.id),
-            refundAmountHalalas: Math.round(cashAmount * 100),
-            reason: calcReason || `إلغاء حجز #${booking.id}`,
-            cancelledBy: 'customer',
-            cancellationFeeHalalas: Math.round((booking.totalAmount - cashAmount - creditAmount) * 100)
-          });
-        } catch (engineErr) {
-          console.warn('UnifiedPaymentsEngine refund allocation warning, falling back to direct ledger entry:', engineErr);
-          const [pWallet] = await Wallet.findOrCreate({
-            where: { providerId },
-            defaults: { balance: 0, pendingBalance: 0 }
-          });
-
-          // المحاسبة الصارمة: لا نستخدم Math.max(0) لمنع شطب ديون المزود/الذمم المدينة للمنصة
-          await pWallet.update({
-            balance: (pWallet.balance || 0) - cashAmount
-          });
-
-          await WalletTransaction.create({
-            providerId,
-            type: 'refund',
-            description: `استرداد نقدي لحساب حجز ملغي رقم #${booking.id} (تسجيل التزام مالي)`,
-            amount: cashAmount,
-            status: 'completed'
-          });
-        }
-
-        await cWallet.update({
-          cashBalance: (cWallet.cashBalance || 0) + cashAmount
-        });
-
-        await Expense.create({
-          title: `استرداد مالي تلقائي لحجز ملغي #${booking.id} - ${booking.customerName}`,
-          amount: cashAmount / 1.15,
-          vatAmount: cashAmount - (cashAmount / 1.15),
-          amountIncludingVat: cashAmount,
-          category: String(providerId),
-          paymentMethod: 'refund',
-          status: 'paid',
-          EmployeeId: 1,
-          type: 'refund'
-        });
-      }
-
-      if (creditAmount > 0) {
-        await CustomerHeldBalance.create({
-          customerEmail: finalEmail,
-          customerName: booking.customerName,
-          amount: creditAmount,
-          originalBookingId: booking.id,
-          originalProviderId: providerId,
-          holdReason: 'rescheduling',
-          heldSince: new Date(),
-          conversionStatus: 'held',
-          notes: `رصيد جدولة مالي مستحق بنسبة ${creditPercent}% لحساب الحجز الملغي #${booking.id}`
-        });
-
-        await Expense.create({
-          title: `رصيد جدولة مالي مستحق للعميل لحساب حجز ملغي #${booking.id} - ${booking.customerName}`,
-          amount: creditAmount / 1.15,
-          vatAmount: creditAmount - (creditAmount / 1.15),
-          amountIncludingVat: creditAmount,
-          category: String(providerId),
-          paymentMethod: 'credit',
-          status: 'paid',
-          EmployeeId: 1,
-          type: 'refund'
-        });
-      }
+      // استدعاء المسار المالي الموحد السيادي (Canonical Financial Refund Flow)
+      refundResult = await RefundOrchestrator.processBookingCancellationRefund({
+        booking,
+        cancelledBy: 'customer',
+        userEmail: finalEmail,
+        reason: req?.body?.reason || `إلغاء حجز #${booking.id} من قبل العميل`,
+        eventStartTime: booking.startTime,
+        listingCancellationPeriod,
+        reconciliationModel
+      });
     }
 
+    // تحديث الحالة التشغيلية للحجز
     await booking.update({ status: 'cancelled' });
     await deductLoyaltyPointsForCancelledBooking(booking);
+
+    const cashRefunded = refundResult?.snapshot?.refundedCustomerAmount ? (refundResult.snapshot.refundedCustomerAmount / 100) : 0;
+    const creditHeld = refundResult?.snapshot?.retainedProviderAmount ? 0 : 0;
 
     if (io) {
       io.emit("booking_cancelled_event", {
         bookingId: id,
-        amountRefunded: cashAmount,
-        amountCredited: creditAmount,
+        amountRefunded: cashRefunded,
+        amountCredited: creditHeld,
         customerEmail: finalEmail
       });
     }
 
     return {
       success: true,
-      message: `${refundOutcomeMessage} تم إلغاء الحجز وتحديث الرصيد التلقائي للعميل بنجاح 💸. النقد المسترد: ${cashAmount} ر.س | رصيد الجدولة المحجوز: ${creditAmount} ر.س.`,
+      message: `تم إلغاء الحجز بنجاح ومعالجة الاسترداد المالي والقيود المحاسبية عبر المحرك المالي السيادي الموحد.`,
       booking,
       refundDetail: {
-        cashAmount,
-        creditAmount,
-        customerEmail: finalEmail
+        cashAmount: cashRefunded,
+        creditAmount: creditHeld,
+        customerEmail: finalEmail,
+        refundId: refundResult?.refundId || null,
+        journalId: refundResult?.journal?.id || null
       }
     };
   }

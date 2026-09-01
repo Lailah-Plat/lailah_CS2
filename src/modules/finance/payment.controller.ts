@@ -2,8 +2,12 @@ import { Router, Request, Response } from "express";
 import { Op } from "sequelize";
 import { PaymentFactory } from "../../services/payment/PaymentFactory.js";
 import { UnifiedPaymentsEngine } from "../../services/payment/UnifiedPaymentsEngine.js";
-import { GatewayEvent, SettlementInstruction, GatewayCapability, SplitTransaction, Beneficiary } from "../../models/Database.js";
+import { GatewayEvent, SettlementInstruction, GatewayCapability, SplitTransaction, Beneficiary, VerifiedPaymentEvent } from "../../models/Database.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
+import { PaymentWebhookService } from "../../services/payment/PaymentWebhookService.js";
+import { CaptureGuard } from "../../services/payment/CaptureGuard.js";
+import { PaymentRecoveryService } from "../../services/payment/PaymentRecoveryService.js";
+import { PaymentSecurityAuditService } from "../../services/payment/PaymentSecurityAuditService.js";
 
 const router = Router();
 
@@ -38,166 +42,113 @@ router.post("/checkout", async (req: Request, res: Response) => {
   }
 });
 
-// 2. Webhook Ingestion Pipeline (Section 9.1 of Architecture Reference)
+// 2. Webhook Ingestion Pipeline (Strict Verified Payment Event Ingestion)
 router.post("/webhook/:gatewayName", async (req: Request, res: Response) => {
   try {
     const { gatewayName } = req.params;
-    const gateway = PaymentFactory.getGateway(gatewayName);
-    
     let signature = "";
     if (gatewayName.toLowerCase() === "moyasar") {
-      signature = (req.headers["moyasar-signature"] as string) || "";
+      signature = (req.headers["moyasar-signature"] as string) || (req.headers["x-signature"] as string) || "";
     } else {
-      signature = (req.headers["x-signature"] as string) || (req.headers["signature"] as string) || "";
+      signature = (req.headers["x-signature"] as string) || (req.headers["signature"] as string) || (req.headers["x-webhook-signature"] as string) || "";
     }
 
-    const rawPayload = req.body || {};
-    const externalEventId = rawPayload.id || rawPayload.event_id || `EVT-${Date.now()}`;
-    const eventType = rawPayload.type || rawPayload.event || 'payment.captured';
-
-    // Deduplication Check
-    const existingEvent = await GatewayEvent.findOne({
-      where: { gatewayName, externalEventId }
-    });
-
-    if (existingEvent) {
-      return res.status(200).json({ status: "already_processed", message: "Duplicate event acknowledged" });
-    }
-
-    const isValid = gateway.validateWebhookSignature(rawPayload, signature);
-
-    // Raw Persistence in GatewayEvent
-    const eventRecord = await GatewayEvent.create({
-      gatewayName,
-      externalEventId,
-      eventType,
-      payload: rawPayload,
-      signature,
-      verified: isValid,
-      processed: isValid
-    });
-
-    if (!isValid) {
-      return res.status(400).send("Invalid Webhook Signature");
-    }
-
-    // Process payment capture ONLY upon verified payment webhook (P0 Fix)
-    const paymentId = rawPayload.payment_id || rawPayload.id || rawPayload.order_id || rawPayload.data?.id;
-    const isPaymentSuccess = eventType === 'payment.captured' || eventType === 'paid' || eventType === 'charge.succeeded';
-
-    if (paymentId && isPaymentSuccess) {
-      const existingSplits = await SplitTransaction.findAll({ where: { paymentId: String(paymentId) } });
-      
-      if (existingSplits.length === 0) {
-        // Execute capture snapshot now that payment is verified by gateway
-        const bookingId = Number(rawPayload.booking_id || rawPayload.metadata?.booking_id || rawPayload.data?.metadata?.booking_id || 0);
-        const providerId = Number(rawPayload.provider_id || rawPayload.metadata?.provider_id || rawPayload.data?.metadata?.provider_id || 1);
-        const grossAmountHalalas = Math.round(Number(rawPayload.amount || rawPayload.data?.amount || 0) * (rawPayload.currency === 'SAR' && rawPayload.amount < 10000 ? 100 : 1));
-        const commissionRate = Number(rawPayload.commission_rate || rawPayload.metadata?.commission_rate || 0.10);
-
-        if (bookingId && providerId && grossAmountHalalas > 0) {
-          await UnifiedPaymentsEngine.processPaymentCapture({
-            paymentId: String(paymentId),
-            bookingId,
-            providerId,
-            grossAmountHalalas,
-            commissionRate
-          });
-        }
+    let rawPayload = req.body;
+    if (Buffer.isBuffer(rawPayload)) {
+      try {
+        rawPayload = JSON.parse(rawPayload.toString('utf8'));
+      } catch (e) {
+        rawPayload = {};
       }
     }
 
-    return res.status(200).send("OK");
+    const result = await PaymentWebhookService.handleIncomingWebhook(
+      gatewayName,
+      rawPayload,
+      signature,
+      req.headers as Record<string, any>
+    );
+
+    return res.status(200).json({
+      status: "ok",
+      verifiedEventId: result.verifiedEvent.id,
+      captured: !!result.captureResult
+    });
   } catch (err: any) {
-    console.error("Webhook Pipeline Error:", err);
-    return res.status(500).send("Internal Server Error");
+    console.error("Webhook Pipeline Error:", err.message || err);
+    if (err.message?.includes('Invalid cryptographic signature')) {
+      return res.status(400).json({ error: "Invalid Webhook Signature", code: "INVALID_SIGNATURE" });
+    }
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
   }
 });
 
-// 2.1 Direct Verified Capture Confirmation Endpoint (Protected & Strictly Enforced)
+// 2.1 Verified Capture Execution Endpoint (Strictly Protected - Requires VerifiedPaymentEvent)
+// P0 Security Rule: Direct capture WITHOUT a cryptographically verified VerifiedPaymentEvent in DB is FORBIDDEN.
 router.post("/capture", async (req: Request, res: Response) => {
   try {
-    const { paymentId, bookingId, providerId, amount, commissionRate = 0.10, verificationProof } = req.body;
+    const { verifiedEventId, bookingId, providerId, commissionRate, amount } = req.body;
 
-    if (!paymentId || !bookingId || !providerId || !amount) {
-      return res.status(400).json({ error: "Missing paymentId, bookingId, providerId, or amount" });
-    }
-
-    // P0 Security & Financial Integrity Rule: Enforce Strict Verification Proof
-    // Capture MUST NOT be executed without verified cryptographic proof or an existing verified gateway webhook event.
-    if (!verificationProof) {
+    // Backend is the ONLY authority: A database-persisted VerifiedPaymentEvent is mandatory
+    if (!verifiedEventId) {
+      await PaymentSecurityAuditService.logEvent('CAPTURE_WITHOUT_VERIFIED_EVENT_ATTEMPT', {
+        errorMessage: 'Attempted to invoke /capture without a verifiedEventId'
+      });
       return res.status(403).json({
-        error: "Forbidden: Missing verificationProof. Direct capture requires cryptographic gateway verification proof.",
+        error: "Forbidden: Financial capture strictly requires a verifiedEventId pointing to a cryptographically verified gateway event.",
         code: "UNVERIFIED_CAPTURE_REJECTED"
       });
     }
 
-    let isProofVerified = false;
-
-    // 1. Check if there is already a verified GatewayEvent in the database for this paymentId
-    const verifiedGatewayEvent = await GatewayEvent.findOne({
-      where: {
-        verified: true,
-        [Op.or]: [
-          { externalEventId: String(paymentId) },
-          { payload: { [Op.like]: `%"${paymentId}"%` } }
-        ]
-      }
-    });
-
-    if (verifiedGatewayEvent) {
-      isProofVerified = true;
-    } else if (typeof verificationProof === 'object') {
-      // 2. Check cryptographic signature or gateway proof tokens
-      if (verificationProof.gatewayName && verificationProof.signature && verificationProof.payload) {
-        try {
-          const gw = PaymentFactory.getGateway(verificationProof.gatewayName);
-          isProofVerified = gw.validateWebhookSignature(verificationProof.payload, verificationProof.signature);
-        } catch (e) {
-          isProofVerified = false;
-        }
-      } else if (verificationProof.internalAuthKey && verificationProof.internalAuthKey === (process.env.INTERNAL_SERVICE_SECRET || 'LAILAH_FINANCIAL_SECURE_TOKEN_2026')) {
-        isProofVerified = true;
-      }
-    } else if (typeof verificationProof === 'string' && verificationProof.startsWith('PROOF_SIG_VERIFIED_')) {
-      isProofVerified = true;
-    }
-
-    if (!isProofVerified) {
-      return res.status(403).json({
-        error: "Forbidden: Invalid cryptographic gateway proof. Payment capture can only be executed upon verified webhook from the payment gateway.",
-        code: "INVALID_GATEWAY_PROOF"
-      });
-    }
-
-    // Check if already captured to prevent duplicate snapshot creation
-    const existingSplits = await SplitTransaction.findAll({ where: { paymentId: String(paymentId) } });
-    if (existingSplits.length > 0) {
-      return res.json({
-        success: true,
-        message: "Payment already captured and frozen in immutable ledger snapshot.",
-        splits: existingSplits
-      });
-    }
-
-    const grossAmountHalalas = Math.round(Number(amount) * 100);
-
-    const snapshot = await UnifiedPaymentsEngine.processPaymentCapture({
-      paymentId: String(paymentId),
-      bookingId: Number(bookingId),
-      providerId: Number(providerId),
-      grossAmountHalalas,
-      commissionRate: Number(commissionRate)
+    // Execute capture strictly through CaptureGuard
+    const grossAmountHalalas = amount ? Math.round(Number(amount) * 100) : undefined;
+    const captureResult = await CaptureGuard.processVerifiedCapture(verifiedEventId, {
+      bookingId: bookingId ? Number(bookingId) : undefined,
+      providerId: providerId ? Number(providerId) : undefined,
+      commissionRate: commissionRate ? Number(commissionRate) : undefined,
+      grossAmountHalalas
     });
 
     return res.json({
       success: true,
-      message: "Payment captured successfully and frozen in immutable ledger snapshot.",
-      snapshot
+      message: captureResult.isDuplicate 
+        ? "Payment already captured (Idempotent replay)." 
+        : "Payment captured successfully and frozen in immutable ledger snapshot.",
+      captureResult
     });
   } catch (err: any) {
-    console.error("Capture Confirmation Error:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("Capture Confirmation Error:", err.message || err);
+    if (err.message?.startsWith('Forbidden')) {
+      return res.status(403).json({ error: err.message, code: "UNVERIFIED_CAPTURE_REJECTED" });
+    }
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
+  }
+});
+
+// 2.2 Payment Recovery Endpoint (Out-of-Band Reconciliation for Missed Webhooks)
+router.post("/recover-payment", async (req: Request, res: Response) => {
+  try {
+    const { paymentReference, gatewayName, externalPaymentId, expectedAmountHalalas, expectedCurrency } = req.body;
+
+    if (!paymentReference || !gatewayName) {
+      return res.status(400).json({ error: "Missing paymentReference or gatewayName" });
+    }
+
+    const result = await PaymentRecoveryService.recoverPayment(paymentReference, gatewayName, {
+      externalPaymentId,
+      expectedAmountHalalas: expectedAmountHalalas ? Number(expectedAmountHalalas) : undefined,
+      expectedCurrency
+    });
+
+    return res.json({
+      success: true,
+      message: "Payment successfully recovered from gateway API and frozen in immutable ledger snapshot.",
+      verifiedEventId: result.verifiedEvent.id,
+      captureResult: result.captureResult
+    });
+  } catch (err: any) {
+    console.error("Payment Recovery Error:", err.message || err);
+    return res.status(500).json({ error: err.message || "Internal Server Error" });
   }
 });
 

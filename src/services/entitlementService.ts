@@ -216,8 +216,10 @@ class EntitlementService {
               notes: `مشمولة ضمن مميزات ${planName || 'الباقة النشطة'}`
             };
           }
-        } else if (feature === 'store_addons') {
+        } else if (feature === 'store_addons' || feature === 'post_booking_addons' || feature === 'post_booking_store') {
           if (
+            subData.includesPostBookingAddons === true ||
+            subData.hasPostBookingAddons === true ||
             subData.includesMiniProductsStore ||
             subData.hasMiniStore ||
             planNorm.includes('الاحترافية') ||

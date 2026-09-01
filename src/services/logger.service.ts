@@ -13,19 +13,27 @@ export type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG" | "FINANCIAL" | "SECU
 /**
  * فئة إدارة السجلات والتدقيق المتقدم
  */
-export class Logger {
-  private static logDir = path.join(process.cwd(), "logs");
-  private static logFile = path.join(Logger.logDir, "app.log");
+let logDir: string = "";
+let logFile: string = "";
 
-  static {
-    try {
-      if (!fs.existsSync(Logger.logDir)) {
-        fs.mkdirSync(Logger.logDir, { recursive: true });
-      }
-    } catch (err) {
-      console.error("[Logger] فشل تهيئة مجلد السجلات:", err);
+if (typeof window === "undefined" && typeof process !== "undefined" && typeof process.cwd === "function") {
+  try {
+    logDir = path.join(process.cwd(), "logs");
+    logFile = path.join(logDir, "app.log");
+    if (fs && typeof fs.existsSync === "function" && !fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
     }
+  } catch (err) {
+    console.error("[Logger] فشل تهيئة مجلد السجلات:", err);
   }
+}
+
+/**
+ * فئة إدارة السجلات والتدقيق المتقدم
+ */
+export class Logger {
+  private static logDir = logDir;
+  private static logFile = logFile;
 
   /**
    * تنسيق الرسالة وتضمين الوقت والنوع والسياق
@@ -40,8 +48,11 @@ export class Logger {
    * الكتابة التراكمية في ملف السجلات
    */
   private static writeToFile(formattedMsg: string) {
+    if (typeof window !== "undefined") return;
     try {
-      fs.appendFileSync(Logger.logFile, formattedMsg + "\n", "utf-8");
+      if (Logger.logFile && fs && typeof fs.appendFileSync === "function") {
+        fs.appendFileSync(Logger.logFile, formattedMsg + "\n", "utf-8");
+      }
     } catch (err) {
       // تجاهل الخطأ في حال تعذر الكتابة المباشرة على القرص
     }

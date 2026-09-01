@@ -130,7 +130,7 @@ interface LogisticsOperationsCenterProps {
   handleBuyStaffSlot?: (count: number) => void;
 }
 
-const STAGES_FLOW = [
+export const STAGES_FLOW = [
   { id: 'packing', label: '1. التجهيز والتحضير', shortLabel: 'التجهيز', icon: Layers, desc: 'تجهيز المعدات والأدوات بالمستودع' },
   { id: 'dispatch', label: '2. الانطلاق والنقل', shortLabel: 'الانطلاق', icon: Truck, desc: 'تحميل الشاحنات وانطلاق الفريق' },
   { id: 'staging', label: '3. الوصول والتركيب', shortLabel: 'التركيب', icon: Wrench, desc: 'الوصول للقاعة وتنسيق الموقع' },
@@ -138,6 +138,145 @@ const STAGES_FLOW = [
   { id: 'live_exec', label: '5. التشغيل الحي', shortLabel: 'التشغيل', icon: Sparkles, desc: 'بدء الفعالية وتقديم الخدمة المباشرة' },
   { id: 'teardown', label: '6. الفك والإخلاء', shortLabel: 'الإخلاء', icon: PackageCheck, desc: 'فك المعدات والجرد والعودة للمستودع' },
 ];
+
+export const getLogisticsStorageKey = (providerName: string) => `LOGISTICS_DISPATCH_TASKS_V2_${(providerName || '').replace(/\s+/g, '_')}`;
+
+export const getDefaultLogisticsTasks = (currentProviderName: string, currentProviderId?: string): LogisticsDispatchTask[] => {
+  const today = new Date().toISOString().split('T')[0];
+  return [
+    {
+      id: 'DSP-26-0000000001',
+      serviceRequestId: 101,
+      serviceName: 'بوفيه الضيافة الملكية المتكامل والقهوة العربية',
+      customerName: 'الأستاذ عبد العزيز الشمري',
+      customerPhone: '0551234567',
+      venueName: 'قاعة اللؤلؤة الكبرى للمناسبات',
+      venueCity: 'الرياض',
+      venueAddress: 'طريق الملك فهد، حي النخيل',
+      eventDate: today,
+      eventStartTime: '19:30',
+      targetSetupTime: '17:00',
+      currentStage: 'staging',
+      stageTimestamps: {
+        packingAt: '14:30',
+        dispatchAt: '15:15',
+        stagingAt: '16:05'
+      },
+      crew: [
+        { roleTitle: 'المشرف الميداني العام', name: 'أحمد السعيد', phone: '0541122334', isRegisteredStaff: true, dutyStatus: 'on_site', checkInTime: '16:05' },
+        { roleTitle: 'كبير صبابي القهوة', name: 'سالم الدوسري', phone: '0559988776', isRegisteredStaff: false, dutyStatus: 'on_site', checkInTime: '16:10' },
+        { roleTitle: 'طاقم الضيافة (4 أفراد)', name: 'طاقم النخبة 1', isRegisteredStaff: false, dutyStatus: 'on_site' },
+        { roleTitle: 'سائق شاحنة التوريد', name: 'عمر القرني', phone: '0503344556', isRegisteredStaff: true, dutyStatus: 'on_site' }
+      ],
+      equipment: [
+        { id: 'EQ-01', name: 'أطقم دلال القهوة التراثية المذهبة (12 دلة)', category: 'hospitality', quantity: 12, unit: 'حبة', barcode: 'BAR-DL-001', status: 'on_site_verified' },
+        { id: 'EQ-02', name: 'فناجيل كريستال فاخرة وصواني تقديم', category: 'hospitality', quantity: 150, unit: 'حبة', status: 'on_site_verified' },
+        { id: 'EQ-03', name: 'سخانات بوفيه ستانلس ستيل ملكية', category: 'hospitality', quantity: 8, unit: 'جهاز', status: 'on_site_verified' },
+        { id: 'EQ-04', name: 'طاولات تقديم متحركة قابلة للطي', category: 'decor', quantity: 4, unit: 'طاولة', status: 'checked_out' }
+      ],
+      dressCodeUniform: 'الثوب السعودي الرسمي + السديري المذهب وشارة اللوجو المعتمدة',
+      specialInstructions: 'التنسيق مع مشرف القاعة فور الوصول، وتقديم القهوة ابتداءً من الساعة 18:30 في مجلس الرجال.',
+      etaMinutes: 0,
+      distanceKm: 14.5,
+      priority: 'urgent',
+      providerName: currentProviderName,
+      providerId: currentProviderId,
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'DSP-26-0000000002',
+      serviceRequestId: 102,
+      serviceName: 'هندسة الإضاءة الذكية ومؤثرات الليزر والضباب',
+      customerName: 'د. سارة الهاشم',
+      customerPhone: '0507654321',
+      venueName: 'قصر التاج الملكي',
+      venueCity: 'الرياض',
+      venueAddress: 'حي الملقا، شارع الأمير أنس',
+      eventDate: today,
+      eventStartTime: '20:30',
+      targetSetupTime: '17:30',
+      currentStage: 'dispatch',
+      stageTimestamps: {
+        packingAt: '15:00',
+        dispatchAt: '16:20'
+      },
+      crew: [
+        { roleTitle: 'مهندس الإضاءة والتحكم', name: 'م. فهد العنزي', phone: '0567788990', isRegisteredStaff: true, dutyStatus: 'en_route' },
+        { roleTitle: 'فني تركيب أجهزة الليزر', name: 'خالد المطيري', phone: '0533344112', isRegisteredStaff: false, dutyStatus: 'en_route' },
+        { roleTitle: 'مساعد فني', name: 'طارق الزهراني', isRegisteredStaff: false, dutyStatus: 'en_route' }
+      ],
+      equipment: [
+        { id: 'EQ-10', name: 'وحدات رأس متحرك Moving Head Beam 230W', category: 'lighting', quantity: 8, unit: 'جهاز', barcode: 'BAR-LT-010', status: 'checked_out' },
+        { id: 'EQ-11', name: 'أجهزة ليزر جرافيكس متعددة الألوان 5W', category: 'lighting', quantity: 2, unit: 'جهاز', barcode: 'BAR-LT-011', status: 'checked_out' },
+        { id: 'EQ-12', name: 'ماكينة ضباب أرضي Low Fog مع ثلج جاف', category: 'lighting', quantity: 2, unit: 'جهاز', status: 'checked_out' },
+        { id: 'EQ-13', name: 'وحدة تحكم DMX KingKong 1024', category: 'audio', quantity: 1, unit: 'جهاز', barcode: 'BAR-MX-001', status: 'checked_out' }
+      ],
+      dressCodeUniform: 'تيشيرت أسود تكتيكي مريح مع شارة هوية المزود الرسمية',
+      specialInstructions: 'اختبار مؤثرات الزفة قبل دخول العروس بنصف ساعة، والتأكد من تمديدات الأمان الكهربائية.',
+      etaMinutes: 25,
+      distanceKm: 21.0,
+      priority: 'high',
+      providerName: currentProviderName,
+      providerId: currentProviderId,
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'DSP-26-0000000003',
+      serviceRequestId: 103,
+      serviceName: 'التوثيق الفوتوغرافي والفيديو السينمائي مع طائرة درون',
+      customerName: 'المهندس رائد العتيبي',
+      customerPhone: '0543322110',
+      venueName: 'منتجع واحة اليمامة',
+      venueCity: 'الدرعية',
+      venueAddress: 'طريق الملك خالد، الدرعية التاريخية',
+      eventDate: today,
+      eventStartTime: '21:00',
+      targetSetupTime: '18:30',
+      currentStage: 'packing',
+      stageTimestamps: {
+        packingAt: '15:45'
+      },
+      crew: [
+        { roleTitle: 'المصور السينمائي الرئيسي', name: 'ياسر القحطاني', phone: '0598877665', isRegisteredStaff: true, dutyStatus: 'assigned' },
+        { roleTitle: 'طيار درون مرخص', name: 'بندر الشهري', phone: '0561122998', isRegisteredStaff: true, dutyStatus: 'assigned' },
+        { roleTitle: 'مصورة فوتوغرافية (قسم النساء)', name: 'نورة السالم', phone: '0554433221', isRegisteredStaff: false, dutyStatus: 'assigned' }
+      ],
+      equipment: [
+        { id: 'EQ-20', name: 'كاميرا سينمائية Sony FX6 + عدسات Prime', category: 'photography', quantity: 2, unit: 'طقم', barcode: 'BAR-CAM-001', status: 'in_warehouse' },
+        { id: 'EQ-21', name: 'طائرة درون DJI Mavic 3 Pro Cine', category: 'photography', quantity: 1, unit: 'طائرة', barcode: 'BAR-DRN-001', status: 'in_warehouse' },
+        { id: 'EQ-22', name: 'مانع اهتزاز Gimbal DJI RS3 Pro', category: 'photography', quantity: 2, unit: 'جهاز', status: 'in_warehouse' },
+        { id: 'EQ-23', name: 'أطقم إضاءة محمولة Aputure 600d + Softbox', category: 'lighting', quantity: 3, unit: 'طقم', status: 'in_warehouse' }
+      ],
+      dressCodeUniform: 'بدلة سمارت كاجوال سوداء أنيقة مع حزام أدوات الكاميرا المعتمد',
+      specialInstructions: 'التركيز على لقطات استقبال كبار الشخصيات، وتفريغ بطاقات الذاكرة فوراً على قرص صلب احتياطي.',
+      etaMinutes: 45,
+      distanceKm: 32.0,
+      priority: 'normal',
+      providerName: currentProviderName,
+      providerId: currentProviderId,
+      createdAt: new Date().toISOString()
+    }
+  ];
+};
+
+export const getIncompleteLogisticsCount = (providerName: string, providerId?: string, userRole: string = 'provider'): number => {
+  try {
+    const key = getLogisticsStorageKey(providerName);
+    const saved = localStorage.getItem(key);
+    const tasks: LogisticsDispatchTask[] = saved ? JSON.parse(saved) : getDefaultLogisticsTasks(providerName, providerId);
+    
+    const providerTasks = tasks.filter(t => {
+      if (userRole === 'admin') return true;
+      const matchesName = t.providerName === providerName || !t.providerName;
+      const matchesId = !providerId || !t.providerId || String(t.providerId) === String(providerId);
+      return matchesName || matchesId;
+    });
+
+    return providerTasks.filter(t => t.currentStage !== 'completed').length;
+  } catch (e) {
+    return 0;
+  }
+};
 
 export const LogisticsOperationsCenter: React.FC<LogisticsOperationsCenterProps> = ({
   userRole,
@@ -156,124 +295,10 @@ export const LogisticsOperationsCenter: React.FC<LogisticsOperationsCenterProps>
   handleBuyStaffSlot
 }) => {
   // 1. Initial Storage & Seed Tasks for this provider
-  const STORAGE_KEY = `LOGISTICS_DISPATCH_TASKS_V2_${currentProviderName.replace(/\s+/g, '_')}`;
+  const STORAGE_KEY = useMemo(() => getLogisticsStorageKey(currentProviderName), [currentProviderName]);
 
   const defaultInitialTasks: LogisticsDispatchTask[] = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return [
-      {
-        id: 'DSP-26-0000000001',
-        serviceRequestId: 101,
-        serviceName: 'بوفيه الضيافة الملكية المتكامل والقهوة العربية',
-        customerName: 'الأستاذ عبد العزيز الشمري',
-        customerPhone: '0551234567',
-        venueName: 'قاعة اللؤلؤة الكبرى للمناسبات',
-        venueCity: 'الرياض',
-        venueAddress: 'طريق الملك فهد، حي النخيل',
-        eventDate: today,
-        eventStartTime: '19:30',
-        targetSetupTime: '17:00',
-        currentStage: 'staging',
-        stageTimestamps: {
-          packingAt: '14:30',
-          dispatchAt: '15:15',
-          stagingAt: '16:05'
-        },
-        crew: [
-          { roleTitle: 'المشرف الميداني العام', name: 'أحمد السعيد', phone: '0541122334', isRegisteredStaff: true, dutyStatus: 'on_site', checkInTime: '16:05' },
-          { roleTitle: 'كبير صبابي القهوة', name: 'سالم الدوسري', phone: '0559988776', isRegisteredStaff: false, dutyStatus: 'on_site', checkInTime: '16:10' },
-          { roleTitle: 'طاقم الضيافة (4 أفراد)', name: 'طاقم النخبة 1', isRegisteredStaff: false, dutyStatus: 'on_site' },
-          { roleTitle: 'سائق شاحنة التوريد', name: 'عمر القرني', phone: '0503344556', isRegisteredStaff: true, dutyStatus: 'on_site' }
-        ],
-        equipment: [
-          { id: 'EQ-01', name: 'أطقم دلال القهوة التراثية المذهبة (12 دلة)', category: 'hospitality', quantity: 12, unit: 'حبة', barcode: 'BAR-DL-001', status: 'on_site_verified' },
-          { id: 'EQ-02', name: 'فناجيل كريستال فاخرة وصواني تقديم', category: 'hospitality', quantity: 150, unit: 'حبة', status: 'on_site_verified' },
-          { id: 'EQ-03', name: 'سخانات بوفيه ستانلس ستيل ملكية', category: 'hospitality', quantity: 8, unit: 'جهاز', status: 'on_site_verified' },
-          { id: 'EQ-04', name: 'طاولات تقديم متحركة قابلة للطي', category: 'decor', quantity: 4, unit: 'طاولة', status: 'checked_out' }
-        ],
-        dressCodeUniform: 'الثوب السعودي الرسمي + السديري المذهب وشارة اللوجو المعتمدة',
-        specialInstructions: 'التنسيق مع مشرف القاعة فور الوصول، وتقديم القهوة ابتداءً من الساعة 18:30 في مجلس الرجال.',
-        etaMinutes: 0,
-        distanceKm: 14.5,
-        priority: 'urgent',
-        providerName: currentProviderName,
-        providerId: currentProviderId,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'DSP-26-0000000002',
-        serviceRequestId: 102,
-        serviceName: 'هندسة الإضاءة الذكية ومؤثرات الليزر والضباب',
-        customerName: 'د. سارة الهاشم',
-        customerPhone: '0507654321',
-        venueName: 'قصر التاج الملكي',
-        venueCity: 'الرياض',
-        venueAddress: 'حي الملقا، شارع الأمير أنس',
-        eventDate: today,
-        eventStartTime: '20:30',
-        targetSetupTime: '17:30',
-        currentStage: 'dispatch',
-        stageTimestamps: {
-          packingAt: '15:00',
-          dispatchAt: '16:20'
-        },
-        crew: [
-          { roleTitle: 'مهندس الإضاءة والتحكم', name: 'م. فهد العنزي', phone: '0567788990', isRegisteredStaff: true, dutyStatus: 'en_route' },
-          { roleTitle: 'فني تركيب أجهزة الليزر', name: 'خالد المطيري', phone: '0533344112', isRegisteredStaff: false, dutyStatus: 'en_route' },
-          { roleTitle: 'مساعد فني', name: 'طارق الزهراني', isRegisteredStaff: false, dutyStatus: 'en_route' }
-        ],
-        equipment: [
-          { id: 'EQ-10', name: 'وحدات رأس متحرك Moving Head Beam 230W', category: 'lighting', quantity: 8, unit: 'جهاز', barcode: 'BAR-LT-010', status: 'checked_out' },
-          { id: 'EQ-11', name: 'أجهزة ليزر جرافيكس متعددة الألوان 5W', category: 'lighting', quantity: 2, unit: 'جهاز', barcode: 'BAR-LT-011', status: 'checked_out' },
-          { id: 'EQ-12', name: 'ماكينة ضباب أرضي Low Fog مع ثلج جاف', category: 'lighting', quantity: 2, unit: 'جهاز', status: 'checked_out' },
-          { id: 'EQ-13', name: 'وحدة تحكم DMX KingKong 1024', category: 'audio', quantity: 1, unit: 'جهاز', barcode: 'BAR-MX-001', status: 'checked_out' }
-        ],
-        dressCodeUniform: 'تيشيرت أسود تكتيكي مريح مع شارة هوية المزود الرسمية',
-        specialInstructions: 'اختبار مؤثرات الزفة قبل دخول العروس بنصف ساعة، والتأكد من تمديدات الأمان الكهربائية.',
-        etaMinutes: 25,
-        distanceKm: 21.0,
-        priority: 'high',
-        providerName: currentProviderName,
-        providerId: currentProviderId,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'DSP-26-0000000003',
-        serviceRequestId: 103,
-        serviceName: 'التوثيق الفوتوغرافي والفيديو السينمائي مع طائرة درون',
-        customerName: 'المهندس رائد العتيبي',
-        customerPhone: '0543322110',
-        venueName: 'منتجع واحة اليمامة',
-        venueCity: 'الدرعية',
-        venueAddress: 'طريق الملك خالد، الدرعية التاريخية',
-        eventDate: today,
-        eventStartTime: '21:00',
-        targetSetupTime: '18:30',
-        currentStage: 'packing',
-        stageTimestamps: {
-          packingAt: '15:45'
-        },
-        crew: [
-          { roleTitle: 'المصور السينمائي الرئيسي', name: 'ياسر القحطاني', phone: '0598877665', isRegisteredStaff: true, dutyStatus: 'assigned' },
-          { roleTitle: 'طيار درون مرخص', name: 'بندر الشهري', phone: '0561122998', isRegisteredStaff: true, dutyStatus: 'assigned' },
-          { roleTitle: 'مصورة فوتوغرافية (قسم النساء)', name: 'نورة السالم', phone: '0554433221', isRegisteredStaff: false, dutyStatus: 'assigned' }
-        ],
-        equipment: [
-          { id: 'EQ-20', name: 'كاميرا سينمائية Sony FX6 + عدسات Prime', category: 'photography', quantity: 2, unit: 'طقم', barcode: 'BAR-CAM-001', status: 'in_warehouse' },
-          { id: 'EQ-21', name: 'طائرة درون DJI Mavic 3 Pro Cine', category: 'photography', quantity: 1, unit: 'طائرة', barcode: 'BAR-DRN-001', status: 'in_warehouse' },
-          { id: 'EQ-22', name: 'مانع اهتزاز Gimbal DJI RS3 Pro', category: 'photography', quantity: 2, unit: 'جهاز', status: 'in_warehouse' },
-          { id: 'EQ-23', name: 'أطقم إضاءة محمولة Aputure 600d + Softbox', category: 'lighting', quantity: 3, unit: 'طقم', status: 'in_warehouse' }
-        ],
-        dressCodeUniform: 'بدلة سمارت كاجوال سوداء أنيقة مع حزام أدوات الكاميرا المعتمد',
-        specialInstructions: 'التركيز على لقطات استقبال كبار الشخصيات، وتفريغ بطاقات الذاكرة فوراً على قرص صلب احتياطي.',
-        etaMinutes: 45,
-        distanceKm: 32.0,
-        priority: 'normal',
-        providerName: currentProviderName,
-        providerId: currentProviderId,
-        createdAt: new Date().toISOString()
-      }
-    ];
+    return getDefaultLogisticsTasks(currentProviderName, currentProviderId);
   }, [currentProviderName, currentProviderId]);
 
   const [tasks, setTasks] = useState<LogisticsDispatchTask[]>(() => {
@@ -289,6 +314,7 @@ export const LogisticsOperationsCenter: React.FC<LogisticsOperationsCenterProps>
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      window.dispatchEvent(new Event('logisticsTasksUpdated'));
     } catch (e) {
       console.error('Failed to save logistics tasks', e);
     }

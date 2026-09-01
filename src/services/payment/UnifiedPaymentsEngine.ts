@@ -19,6 +19,7 @@ import { generateRevenueNumber, generateExpenseNumber, generateInvoiceNumber, ge
 export { generateExpenseNumber };
 import { Logger } from '../logger.service.js';
 import { Op } from 'sequelize';
+import { RefundOrchestrator } from '../finance/RefundOrchestrator.js';
 
 export interface CreatePaymentSnapshotInput {
   paymentId: string;
@@ -28,6 +29,9 @@ export interface CreatePaymentSnapshotInput {
   commissionRate: number; // e.g. 0.10
   gatewayFeeRate?: number;
   gatewayFlatFeeHalalas?: number;
+  verifiedEventId?: string | null;
+  gatewayEventId?: string | null;
+  externalPaymentReference?: string | null;
 }
 
 export interface RefundQuoteInput {
@@ -43,12 +47,24 @@ export class UnifiedPaymentsEngine {
   private static readonly RULES_VERSION = 'V2.5.0';
 
   /**
-   * 1. Capture Payment & Freeze Immutable Transaction Snapshot (ADR-004)
-   * Converts SAR to Halalas and creates immutable SplitTransaction records.
+   * 1. Immutable Financial Capture Core Execution
+   * Creates immutable SplitTransaction records, double-entry journals, and settlement instructions
+   * strictly bound to VerifiedPaymentEvent, GatewayEvent, and ExternalPaymentReference.
    */
-  static async processPaymentCapture(input: CreatePaymentSnapshotInput, options?: any) {
+  static async executeImmutableCapture(input: CreatePaymentSnapshotInput, options?: any) {
     const transaction = options?.transaction;
-    const { paymentId, bookingId, providerId, grossAmountHalalas, commissionRate, gatewayFeeRate = 0.02, gatewayFlatFeeHalalas = 100 } = input;
+    const { 
+      paymentId, 
+      bookingId, 
+      providerId, 
+      grossAmountHalalas, 
+      commissionRate, 
+      gatewayFeeRate = 0.02, 
+      gatewayFlatFeeHalalas = 100,
+      verifiedEventId = null,
+      gatewayEventId = null,
+      externalPaymentReference = null
+    } = input;
 
     const grossSar = grossAmountHalalas / 100;
     const calcs = FinancialEngine.calculate({
@@ -64,7 +80,7 @@ export class UnifiedPaymentsEngine {
     const commissionVatHalalas = Math.round(calcs.commissionVat * 100);
     const providerShareHalalas = Math.round(calcs.providerShare * 100);
 
-    // Create SplitTransaction Snapshots
+    // Create SplitTransaction Snapshots bound to verifiedEventId
     const splits = await Promise.all([
       // Platform Commission Share
       SplitTransaction.create({
@@ -79,6 +95,9 @@ export class UnifiedPaymentsEngine {
         refundable: true,
         feeSource: 'platform',
         ruleVersion: this.RULES_VERSION,
+        verifiedEventId,
+        gatewayEventId,
+        externalPaymentReference,
         metadata: { commissionBaseHalalas, commissionVatHalalas }
       }, { transaction }),
 
@@ -94,7 +113,10 @@ export class UnifiedPaymentsEngine {
         status: 'held', // Pending event completion
         refundable: true,
         feeSource: 'provider',
-        ruleVersion: this.RULES_VERSION
+        ruleVersion: this.RULES_VERSION,
+        verifiedEventId,
+        gatewayEventId,
+        externalPaymentReference
       }, { transaction }),
 
       // Gateway Fee
@@ -109,7 +131,10 @@ export class UnifiedPaymentsEngine {
         status: 'paid',
         refundable: false,
         feeSource: 'gateway',
-        ruleVersion: this.RULES_VERSION
+        ruleVersion: this.RULES_VERSION,
+        verifiedEventId,
+        gatewayEventId,
+        externalPaymentReference
       }, { transaction })
     ]);
 
@@ -119,6 +144,9 @@ export class UnifiedPaymentsEngine {
       referenceId: paymentId,
       referenceType: 'payment_capture',
       description: `تحصيل مبلغ حجز #${bookingId} وتثبيت اللقطة المالية`,
+      verifiedEventId,
+      gatewayEventId,
+      externalPaymentReference,
       entries: [
         { walletType: 'gateway_fee', type: 'debit', amount: grossAmountHalalas, description: 'تحصيل إجمالي عبر بوابة الدفع' },
         { walletType: 'provider', providerId, type: 'credit', amount: providerShareHalalas, description: 'حصة المزود المعلقة (الضمان المحجوز)', targetBalance: 'pending', status: 'pending' },
@@ -162,19 +190,31 @@ export class UnifiedPaymentsEngine {
       currency: 'SAR',
       eligibleAt,
       status: beneficiary.kycStatus === 'active' ? 'pending_eligibility' : 'on_hold',
-      holdReason: beneficiary.kycStatus === 'active' ? null : 'بانتظار اكتمال توثيق KYB والآيبان للمزود'
+      holdReason: beneficiary.kycStatus === 'active' ? null : 'بانتظار اكتمال توثيق KYB والآيبان للمزود',
+      verifiedEventId,
+      gatewayEventId,
+      externalPaymentReference
     }, { transaction });
 
     Logger.financial(`Payment captured & snapshot created for payment #${paymentId}`, {
       grossAmountHalalas,
       providerShareHalalas,
-      instructionNo
+      instructionNo,
+      verifiedEventId
     });
 
     return {
       splits,
       settlementInstruction: settlementInst
     };
+  }
+
+  /**
+   * Capture Payment & Freeze Immutable Transaction Snapshot (ADR-004)
+   * Protected execution pipeline delegating to executeImmutableCapture.
+   */
+  static async processPaymentCapture(input: CreatePaymentSnapshotInput, options?: any) {
+    return await this.executeImmutableCapture(input, options);
   }
 
   /**
@@ -186,6 +226,9 @@ export class UnifiedPaymentsEngine {
     referenceId: string;
     referenceType: string;
     description: string;
+    verifiedEventId?: string | null;
+    gatewayEventId?: string | null;
+    externalPaymentReference?: string | null;
     entries: Array<{
       walletType: 'provider' | 'platform_revenue' | 'platform_vat' | 'gateway_fee';
       providerId?: number | null;
@@ -214,7 +257,10 @@ export class UnifiedPaymentsEngine {
       totalDebit,
       totalCredit,
       balanced: true,
-      postedBy: 'SYSTEM_FINANCIAL_ENGINE'
+      postedBy: 'SYSTEM_FINANCIAL_ENGINE',
+      verifiedEventId: data.verifiedEventId || null,
+      gatewayEventId: data.gatewayEventId || null,
+      externalPaymentReference: data.externalPaymentReference || null
     }, { transaction });
 
     for (const entryData of data.entries) {
@@ -239,7 +285,7 @@ export class UnifiedPaymentsEngine {
    */
   static async updateSettlementStatus(
     instructionNo: string,
-    targetStatus: 'scheduled' | 'on_hold' | 'release_requested' | 'processing' | 'paid' | 'cancelled' | 'reversed',
+    targetStatus: 'scheduled' | 'on_hold' | 'release_requested' | 'processing' | 'paid' | 'cancelled' | 'reversed' | 'manual_review',
     reason?: string,
     options?: any
   ) {
@@ -254,219 +300,50 @@ export class UnifiedPaymentsEngine {
       throw new Error(`Settlement instruction #${instructionNo} not found.`);
     }
 
-    // State Machine Transitions Validation
-    const validTransitions: Record<string, string[]> = {
-      'draft': ['pending_eligibility', 'cancelled'],
-      'pending_eligibility': ['scheduled', 'on_hold', 'cancelled'],
-      'scheduled': ['on_hold', 'release_requested', 'cancelled'],
-      'on_hold': ['pending_eligibility', 'scheduled', 'cancelled'],
-      'release_requested': ['processing', 'on_hold', 'cancelled'],
-      'processing': ['paid', 'failed', 'on_hold'],
-      'paid': ['reversed', 'partially_reversed'],
-      'failed': ['scheduled', 'on_hold', 'cancelled']
-    };
-
-    const allowed = validTransitions[inst.status] || [];
-    if (!allowed.includes(targetStatus)) {
-      throw new Error(`Invalid Settlement State Transition from '${inst.status}' to '${targetStatus}'. Allowed: ${allowed.join(', ')}`);
-    }
-
-    inst.status = targetStatus;
-    if (targetStatus === 'on_hold') {
-      inst.holdReason = reason || 'تعليق إداري مالي مؤقت';
-    } else if (targetStatus === 'paid') {
-      inst.paidAt = new Date();
-    } else if (targetStatus === 'release_requested') {
-      inst.releasedAt = new Date();
-    }
-
-    inst.version += 1;
-    await inst.save({ transaction });
+    const { SettlementStateMachine } = await import('../payout/SettlementStateMachine.js');
+    const updated = await SettlementStateMachine.transition(
+      inst,
+      targetStatus as any,
+      {
+        actor: options?.actor || 'SYSTEM_PAYMENT_ENGINE',
+        reason,
+        payoutId: inst.payoutId
+      },
+      { transaction }
+    );
 
     Logger.financial(`Settlement instruction #${instructionNo} updated to ${targetStatus}`, { reason });
 
-    return inst;
+    return updated;
   }
 
   /**
-   * 4. Decoupled Refund Calculator & Allocation Engine (ADR-005 & Section 6)
-   * Single Source of Truth for all refund calculations and executions.
+   * 4. Decoupled Refund Calculator & Allocation Engine (ADR-005 & Canonical Flow)
+   * Delegates directly to the Sovereign Canonical Refund Orchestrator.
    */
   static async calculateAndAllocateRefund(input: RefundQuoteInput, options?: any) {
-    const transaction = options?.transaction;
     const { paymentId, refundAmountHalalas, reason, cancelledBy } = input;
-    let cancellationFeeHalalas = input.cancellationFeeHalalas || 0;
+    const cancellationFeeHalalas = input.cancellationFeeHalalas || 0;
 
-    let splits = await SplitTransaction.findAll({ where: { paymentId }, transaction });
-    if (splits.length === 0 && !isNaN(Number(paymentId))) {
-      splits = await SplitTransaction.findAll({ where: { bookingId: Number(paymentId) }, transaction });
-    }
-
-    const providerSplit = splits.find(s => s.role === 'provider');
-    const platformSplit = splits.find(s => s.role === 'platform');
-
-    const settlement = await SettlementInstruction.findOne({ 
-      where: { [Op.or]: [{ paymentId }, { splitTransactionId: providerSplit?.id || 0 }] }, 
-      transaction 
-    });
-
-    const isPostPayout = settlement?.status === 'paid';
-    const isSplitHeld = providerSplit?.status === 'held';
-
-    let customerRefundHalalas = Math.max(0, refundAmountHalalas - cancellationFeeHalalas);
-    let providerDeductionHalalas = 0;
-    let platformReversalHalalas = 0;
-    let platformVatReversalHalalas = 0;
-    let platformRevenueReversalHalalas = 0;
-
-    const commRate = platformSplit?.percentage || 0.10;
-
-    if (cancelledBy === 'provider') {
-      // 1. Provider fault: Provider bears full gross refund to customer. Platform retains commission.
-      providerDeductionHalalas = refundAmountHalalas;
-      customerRefundHalalas = refundAmountHalalas;
-      cancellationFeeHalalas = 0;
-      platformReversalHalalas = 0;
-      platformRevenueReversalHalalas = 0;
-      platformVatReversalHalalas = 0;
-    } else if (cancelledBy === 'customer') {
-      // 2. Customer cancellation: Deduct cancellation fee if applicable.
-      // Platform reverses commission proportionally on the gross refunded amount.
-      platformReversalHalalas = Math.round(refundAmountHalalas * commRate);
-      platformVatReversalHalalas = Math.round(platformReversalHalalas * (15 / 115));
-      platformRevenueReversalHalalas = platformReversalHalalas - platformVatReversalHalalas;
-      providerDeductionHalalas = refundAmountHalalas - platformReversalHalalas;
-    } else {
-      // 3. Force Majeure or Admin cancellation: Full unpenalized refund.
-      customerRefundHalalas = refundAmountHalalas;
-      cancellationFeeHalalas = 0;
-      platformReversalHalalas = Math.round(refundAmountHalalas * commRate);
-      platformVatReversalHalalas = Math.round(platformReversalHalalas * (15 / 115));
-      platformRevenueReversalHalalas = platformReversalHalalas - platformVatReversalHalalas;
-      providerDeductionHalalas = refundAmountHalalas - platformReversalHalalas;
-    }
-
-    const currentYear = new Date().getFullYear();
-    const countRefunds = await RefundAllocation.count({
-      where: { createdAt: { [Op.gte]: new Date(`${currentYear}-01-01T00:00:00.000Z`) } },
-      transaction
-    });
-    const refundId = `RFD-${String(currentYear).slice(-2)}-${String(countRefunds + 1).padStart(10, '0')}`;
-
-    const allocation = await RefundAllocation.create({
-      refundId,
+    const result = await RefundOrchestrator.requestAndExecuteRefund({
       paymentId,
-      bookingId: splits[0]?.bookingId || 0,
-      providerId: providerSplit?.providerId || null,
-      grossRefundAmount: refundAmountHalalas,
-      customerRefundAmount: customerRefundHalalas,
-      providerDeductionAmount: providerDeductionHalalas,
-      platformCommissionReversal: platformReversalHalalas,
-      cancellationFee: cancellationFeeHalalas,
-      postPayoutRefund: isPostPayout,
-      expectedDueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 business days expected settlement due date
-      status: 'allocated'
-    }, { transaction });
-
-    // Handle Settlement Instruction adjustment if pre-payout
-    if (settlement && !isPostPayout && settlement.status !== 'cancelled') {
-      if (customerRefundHalalas >= settlement.amount) {
-        settlement.status = 'cancelled';
-        settlement.holdReason = 'إلغاء واسترداد كامل للحجز';
-      } else {
-        settlement.amount -= customerRefundHalalas;
-      }
-      await settlement.save({ transaction });
-    }
-
-    // Prepare strictly balanced Double-Entry Journal Entries (Total Debits === Total Credits)
-    const journalEntries: Array<{
-      walletType: 'provider' | 'platform_revenue' | 'platform_vat' | 'gateway_fee';
-      providerId?: number | null;
-      type: 'debit' | 'credit';
-      amount: number; // In Halalas
-      description: string;
-      targetBalance?: 'available' | 'pending';
-      status?: 'pending' | 'completed' | 'failed';
-    }> = [];
-
-    // DEBITS:
-    // 1. Provider Share Reversal (Debit from provider's pending or available balance)
-    if (providerDeductionHalalas > 0) {
-      journalEntries.push({
-        walletType: 'provider',
-        providerId: providerSplit?.providerId || undefined,
-        type: 'debit',
-        amount: providerDeductionHalalas,
-        description: isSplitHeld ? 'خصم حصة المزود من الرصيد المعلق المحجوز (الضمان)' : 'خصم حصة المزود المستردة (التزام مالي/ذمم)',
-        targetBalance: isSplitHeld ? 'pending' : 'available'
-      });
-    }
-
-    // 2. Platform Net Revenue Reversal (Debit to reduce earned revenue)
-    if (platformRevenueReversalHalalas > 0) {
-      journalEntries.push({
-        walletType: 'platform_revenue',
-        type: 'debit',
-        amount: platformRevenueReversalHalalas,
-        description: 'عكس صافي عمولة المنصة الخاضعة للضريبة'
-      });
-    }
-
-    // 3. Platform VAT Reversal (Debit to reduce VAT liability)
-    if (platformVatReversalHalalas > 0) {
-      journalEntries.push({
-        walletType: 'platform_vat',
-        type: 'debit',
-        amount: platformVatReversalHalalas,
-        description: 'عكس ضريبة القيمة المضافة المحصلة'
-      });
-    }
-
-    // CREDITS:
-    // 1. Bank / Gateway Clearing Cash Outflow (Credit to gateway clearing / bank account for customer remittance)
-    if (customerRefundHalalas > 0) {
-      journalEntries.push({
-        walletType: 'gateway_fee',
-        type: 'credit',
-        amount: customerRefundHalalas,
-        description: 'صرف مبلغ الاسترداد الفعلي للعميل عبر البوابة / الحساب البنكي'
-      });
-    }
-
-    // 2. Cancellation Fee Retained by Platform (Credit to platform revenue if customer cancellation fee applied)
-    if (cancellationFeeHalalas > 0) {
-      journalEntries.push({
-        walletType: 'platform_revenue',
-        type: 'credit',
-        amount: cancellationFeeHalalas,
-        description: 'إيراد رسوم إلغاء مستقطعة من مبلغ الاسترداد'
-      });
-    }
-
-    // Post Double-Entry Reversal Journal with strict balance verification
-    await this.postDoubleEntryJournal({
-      journalNo: await generateExpenseNumber(),
-      referenceId: refundId,
-      referenceType: 'refund_execution',
-      description: `قيد استرداد حجز #${splits[0]?.bookingId || paymentId} (${reason})`,
-      entries: journalEntries
-    }, { transaction });
-
-    if (providerSplit) {
-      providerSplit.status = isSplitHeld ? 'reversed' : 'refunded';
-      await providerSplit.save({ transaction });
-    }
-
-    allocation.status = 'posted';
-    await allocation.save({ transaction });
+      bookingId: !isNaN(Number(paymentId)) ? Number(paymentId) : undefined,
+      cancelledBy,
+      reason,
+      customRefundPercent: undefined,
+      gatewayAmountHalalas: Math.max(0, refundAmountHalalas - cancellationFeeHalalas),
+      preferredRefundMethod: 'gateway',
+      idempotencyKey: `REFUND-${paymentId}-${Date.now()}`
+    }, options);
 
     return {
-      refundId,
-      allocation,
-      isPostPayout,
-      customerRefundSar: customerRefundHalalas / 100,
-      providerDeductionSar: providerDeductionHalalas / 100
+      refundId: result.refundId,
+      allocation: result.refund,
+      snapshot: result.snapshot,
+      journal: result.journal,
+      isPostPayout: result.snapshot.isPostPayout,
+      customerRefundSar: result.snapshot.refundedCustomerAmount / 100,
+      providerDeductionSar: result.snapshot.providerDeduction / 100
     };
   }
 

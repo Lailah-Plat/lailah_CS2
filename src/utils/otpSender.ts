@@ -4,8 +4,6 @@
  * تدعم بوابات التقنيات السعودية (Taqnyat)، تويليو (Twilio)، وخدمة البريد (Nodemailer)، مع نظام شبييه محاكاة أوتوماتيكي عند غياب المفتاح.
  */
 
-import nodemailer from 'nodemailer';
-
 /**
  * خيارات خيارات إرسال رمز التحقق
  */
@@ -193,6 +191,8 @@ export async function sendOtpEmail(emailAddress: string, code: string, subject: 
   if (smtpHost && smtpUser && smtpPass) {
     try {
       console.log(`[OTP Email] استخدام خادم SMTP: ${smtpHost}:${smtpPort}`);
+      const nodemailerModule = await import('nodemailer');
+      const nodemailer = nodemailerModule.default || nodemailerModule;
       const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: parseInt(smtpPort || '587'),

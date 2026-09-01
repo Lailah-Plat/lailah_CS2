@@ -1,4 +1,5 @@
 import { IFinanceRepository } from "../../modules/finance/finance.repository.js";
+import { FinancialEngine } from "./FinancialEngine.js";
 
 export class RefundService {
   /**
@@ -53,8 +54,19 @@ export class RefundService {
         cashBalance: 0,
       }
     );
-    wallet.cashBalance += hb.amount;
+    wallet.cashBalance = Number(wallet.cashBalance || 0) + Number(hb.amount);
     await wallet.save();
+
+    // تسجيل القيد في دفتر الأستاذ العام
+    await FinancialEngine.postLedgerEntry({
+      walletType: 'platform_vat',
+      referenceId: `FM-HB-${hb.id}`,
+      referenceType: 'force_majeure_conversion',
+      type: 'debit',
+      amount: hb.amount,
+      description: `تحويل رصيد قوة قاهرة #${hb.id} لمحفظة العميل النقدية (${hb.customerEmail})`,
+      status: 'completed'
+    });
 
     return { heldBalance: hb, wallet };
   }

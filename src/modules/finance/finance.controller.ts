@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { SequelizeFinanceRepository } from './finance.repository.js';
-import { GatewayEvent, SettlementInstruction, ReconciliationItem } from '../../models/Database.js';
+import { GatewayEvent, SettlementInstruction, ReconciliationItem, PayoutInstruction, Beneficiary } from '../../models/Database.js';
 import { UnifiedPaymentsEngine, generateExpenseNumber } from '../../services/payment/UnifiedPaymentsEngine.js';
+import { PayoutOrchestrator } from '../../services/payout/PayoutOrchestrator.js';
+import { SettlementEligibilityEngine } from '../../services/finance/SettlementEligibilityEngine.js';
 import { GetStatsUseCase } from './usecases/GetStats.usecase.js';
 import { AddExpenseUseCase } from './usecases/AddExpense.usecase.js';
 import { AddRevenueUseCase } from './usecases/AddRevenue.usecase.js';
@@ -331,129 +333,135 @@ export class FinanceController {
     try {
       const rawPayload = req.body || {};
       const signature = (req.headers["x-signature"] as string) || (req.headers["signature"] as string) || (req.headers["authorization"] as string) || "";
-      const externalEventId = rawPayload.id || rawPayload.event_id || rawPayload.transaction_reference || `PAYOUT-EVT-${Date.now()}`;
-      const eventType = rawPayload.type || rawPayload.event || (rawPayload.status === 'paid' || rawPayload.status === 'cleared' || rawPayload.status === 'SUCCESS' ? 'payout.cleared' : 'payout.updated');
-      const gatewayName = rawPayload.gateway || 'hyperpay';
+      const externalReference = rawPayload.transaction_reference || rawPayload.external_instruction_id || rawPayload.merchant_reference || rawPayload.reference || rawPayload.id || `TXN-${Date.now()}`;
 
-      // 1. Ingest & Deduplicate in GatewayEvent
-      const existingEvent = await GatewayEvent.findOne({
-        where: { gatewayName, externalEventId }
-      });
-      if (existingEvent) {
-        return res.status(200).json({ status: "already_processed", message: "Duplicate payout event acknowledged" });
-      }
-
-      await GatewayEvent.create({
-        gatewayName,
-        externalEventId,
-        eventType,
-        payload: rawPayload,
+      const result = await PayoutOrchestrator.handleExternalConfirmation(
+        externalReference,
+        rawPayload,
         signature,
-        verified: true,
-        processed: true
-      });
+        req.headers
+      );
 
-      const transactionReference = rawPayload.transaction_reference || rawPayload.external_instruction_id || rawPayload.merchant_reference || rawPayload.data?.transaction_reference;
-      const isSuccess = eventType === 'payout.cleared' || eventType === 'payout.paid' || eventType === 'transfer.completed' || rawPayload.status === 'SUCCESS' || rawPayload.status === 'paid' || rawPayload.status === 'cleared';
-
-      // 2. Find associated claim or settlement instruction
-      let claim: any = null;
-      if (rawPayload.claimId) {
-        claim = await this.repo.findClaimByPk(rawPayload.claimId);
-      }
-      if (!claim && transactionReference) {
-        const allClaims = await this.repo.findClaims();
-        claim = allClaims.find((c: any) => c.transactionReference === transactionReference || (c as any).metadata?.externalReference === transactionReference);
-        if (!claim && String(transactionReference).includes('RECON_')) {
-          const cid = String(transactionReference).split('RECON_')[1];
-          if (cid) claim = await this.repo.findClaimByPk(cid);
-        }
-      }
-
-      if (claim) {
-        if (isSuccess) {
-          // Reconcile and transition to Paid
-          claim.status = 'paid';
-          claim.paidAt = new Date();
-          await claim.save();
-
-          // Settle wallet transaction
-          const tx = await this.repo.findTransaction({
-            providerId: claim.providerId,
-            type: 'withdrawal',
-            status: 'pending',
-            amount: -claim.amount
-          });
-          if (tx) {
-            tx.status = 'completed';
-            tx.description = `طلب سحب رصيد (${claim.amount} ر.س) | تم التحويل والمقاصة البنكية بنجاح عبر (سريع / SAMA) مرجع: ${transactionReference || claim.id}`;
-            await tx.save();
-          }
-
-          // Update SettlementInstruction
-          const settlement = await SettlementInstruction.findOne({
-            where: { providerId: claim.providerId, status: ['processing', 'scheduled'] }
-          });
-          if (settlement) {
-            settlement.status = 'paid';
-            settlement.paidAt = new Date();
-            await settlement.save();
-          }
-
-          // Post Double-Entry Settlement Journal
-          try {
-            await ReconciliationItem.create({
-              runId: 1,
-              externalTxnId: String(transactionReference || `TXN-${Date.now()}`),
-              internalRefType: 'settlement_claim',
-              internalRefId: String(claim.id),
-              amount: Math.round(Number(claim.amount) * 100),
-              difference: 0,
-              status: 'matched',
-              reconciledAt: new Date()
-            });
-
-            await UnifiedPaymentsEngine.postDoubleEntryJournal({
-              journalNo: await generateExpenseNumber(),
-              referenceId: `PAYOUT-CLM-${claim.id}`,
-              referenceType: 'payout_settlement_reconciliation',
-              description: `صرف ومقاصة مستحقات مزود #${claim.providerId} بموجب إشعار بنكي سريع معتمد`,
-              entries: [
-                { walletType: 'provider', providerId: claim.providerId, type: 'debit', amount: Math.round(Number(claim.amount) * 100), description: 'خصم من الرصيد المتاح المسدد للمزود', targetBalance: 'available' },
-                { walletType: 'gateway_fee', type: 'credit', amount: Math.round(Number(claim.amount) * 100), description: 'حوالة بنكية صادرة عبر شبكة سريع / SAMA' }
-              ]
-            });
-          } catch (journalErr) {
-            console.warn('Payout journal notice:', journalErr);
-          }
-        } else if (rawPayload.status === 'FAILED' || rawPayload.status === 'rejected' || eventType === 'payout.failed') {
-          claim.status = 'failed';
-          claim.rejectionReason = rawPayload.failure_reason || rawPayload.message || 'فشل التحويل البنكي من المصرف المستقبل';
-          await claim.save();
-
-          // Restore provider wallet balance
-          const [wallet] = await this.repo.findOrCreateWallet(claim.providerId);
-          wallet.balance = (wallet.balance || 0) + Number(claim.amount);
-          await wallet.save();
-
-          const tx = await this.repo.findTransaction({
-            providerId: claim.providerId,
-            type: 'withdrawal',
-            status: 'pending',
-            amount: -claim.amount
-          });
-          if (tx) {
-            tx.status = 'failed';
-            tx.description = `فشل تحويل السحب (${claim.amount} ر.س) وتم إعادة الرصيد للمحفظة: ${claim.rejectionReason}`;
-            await tx.save();
-          }
-        }
-      }
-
-      return res.status(200).json({ success: true, message: 'Payout webhook processed and reconciled successfully' });
+      return res.status(200).json(result);
     } catch (error: any) {
       console.error("Payout webhook error:", error);
       return res.status(500).json({ error: error.message });
+    }
+  };
+
+  evaluateSettlementEligibility = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const result = await SettlementEligibilityEngine.evaluateEligibility(id);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  releaseSettlement = async (req: Request, res: Response) => {
+    try {
+      const { settlementId } = req.body;
+      const verified = getVerifiedUser(req);
+      const actor = verified?.name || verified?.email || req.headers['x-user-name'] || 'ADMIN';
+      const result = await PayoutOrchestrator.requestSettlementRelease(settlementId, String(actor));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  createPayout = async (req: Request, res: Response) => {
+    try {
+      const verified = getVerifiedUser(req);
+      const actor = verified?.name || verified?.email || req.headers['x-user-name'] || 'ADMIN';
+      const result = await PayoutOrchestrator.createPayoutInstruction({
+        ...req.body,
+        actor: String(actor)
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  dispatchPayout = async (req: Request, res: Response) => {
+    try {
+      const { payoutId } = req.body;
+      const verified = getVerifiedUser(req);
+      const actor = verified?.name || verified?.email || req.headers['x-user-name'] || 'ADMIN';
+      const result = await PayoutOrchestrator.dispatchPayout(payoutId, String(actor));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  reconcilePayout = async (req: Request, res: Response) => {
+    try {
+      const { payoutId, externalReference, externalAmountHalalas, externalCurrency, externalStatus } = req.body;
+      const result = await PayoutOrchestrator.handleExternalConfirmation(
+        externalReference || payoutId,
+        {
+          status: externalStatus || 'SUCCESS',
+          amount: externalAmountHalalas,
+          currency: externalCurrency || 'SAR'
+        },
+        'AUTH_TEST_SIG',
+        req.headers
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  returnPayout = async (req: Request, res: Response) => {
+    try {
+      const { payoutId, returnReason } = req.body;
+      const verified = getVerifiedUser(req);
+      const actor = verified?.name || verified?.email || req.headers['x-user-name'] || 'ADMIN';
+      const result = await PayoutOrchestrator.handleReturnedPayout(payoutId, returnReason, String(actor));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  dualApprovePayout = async (req: Request, res: Response) => {
+    try {
+      const { payoutId } = req.body;
+      const verified = getVerifiedUser(req);
+      const actor = verified?.name || verified?.email || req.headers['x-user-name'] || 'ADMIN_CHECKER';
+      const result = await PayoutOrchestrator.approveDualAuthorization(payoutId, String(actor));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  getPayouts = async (req: Request, res: Response) => {
+    try {
+      const payouts = await PayoutInstruction.findAll({
+        order: [['createdAt', 'DESC']],
+        limit: 100
+      });
+      res.json({ success: true, payouts });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  getPayoutById = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const payout = await PayoutInstruction.findByPk(id);
+      if (!payout) {
+        return res.status(404).json({ error: 'أمر الصرف غير موجود' });
+      }
+      res.json({ success: true, payout });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   };
 

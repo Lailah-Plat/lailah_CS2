@@ -282,14 +282,17 @@ const router = createBrowserRouter([
 
 import {ThemeProvider} from './context/ThemeContext';
 import {CalendarProvider} from './context/CalendarContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider>
-      <CalendarProvider>
-        <RouterProvider router={router} />
-        <ProviderRealtimeChatNotifier />
-      </CalendarProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <CalendarProvider>
+          <RouterProvider router={router} />
+          <ProviderRealtimeChatNotifier />
+        </CalendarProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

@@ -1551,6 +1551,64 @@ export async function syncDatabase() {
       console.warn("PendingProfileUpdate migration warning:", err.message || err);
     }
 
+    // Dynamic migration for SplitTransaction, SettlementInstruction, LedgerJournal, FinancialClaims
+    try {
+      const splitTableInfo: any = await queryInterface.describeTable('split_transactions').catch(() => null);
+      if (splitTableInfo) {
+        if (!splitTableInfo.verifiedEventId) {
+          await queryInterface.addColumn('split_transactions', 'verifiedEventId', { type: DataTypes.UUID, allowNull: true });
+        }
+        if (!splitTableInfo.gatewayEventId) {
+          await queryInterface.addColumn('split_transactions', 'gatewayEventId', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!splitTableInfo.externalPaymentReference) {
+          await queryInterface.addColumn('split_transactions', 'externalPaymentReference', { type: DataTypes.STRING, allowNull: true });
+        }
+      }
+
+      const settlementTableInfo: any = await queryInterface.describeTable('settlement_instructions').catch(() => null);
+      if (settlementTableInfo) {
+        if (!settlementTableInfo.verifiedEventId) {
+          await queryInterface.addColumn('settlement_instructions', 'verifiedEventId', { type: DataTypes.UUID, allowNull: true });
+        }
+        if (!settlementTableInfo.gatewayEventId) {
+          await queryInterface.addColumn('settlement_instructions', 'gatewayEventId', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!settlementTableInfo.externalPaymentReference) {
+          await queryInterface.addColumn('settlement_instructions', 'externalPaymentReference', { type: DataTypes.STRING, allowNull: true });
+        }
+      }
+
+      const ledgerTableInfo: any = await queryInterface.describeTable('ledger_journals').catch(() => null);
+      if (ledgerTableInfo) {
+        if (!ledgerTableInfo.verifiedEventId) {
+          await queryInterface.addColumn('ledger_journals', 'verifiedEventId', { type: DataTypes.UUID, allowNull: true });
+        }
+        if (!ledgerTableInfo.gatewayEventId) {
+          await queryInterface.addColumn('ledger_journals', 'gatewayEventId', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!ledgerTableInfo.externalPaymentReference) {
+          await queryInterface.addColumn('ledger_journals', 'externalPaymentReference', { type: DataTypes.STRING, allowNull: true });
+        }
+      }
+
+      const claimsTableInfo: any = await queryInterface.describeTable('financial_claims').catch(() => null);
+      if (claimsTableInfo) {
+        if (!claimsTableInfo.transactionReference) {
+          await queryInterface.addColumn('financial_claims', 'transactionReference', { type: DataTypes.STRING, allowNull: true });
+        }
+      }
+
+      const refundAllocTableInfo: any = await queryInterface.describeTable('refund_allocations').catch(() => null);
+      if (refundAllocTableInfo) {
+        if (!refundAllocTableInfo.executionStatus) {
+          await queryInterface.addColumn('refund_allocations', 'executionStatus', { type: DataTypes.STRING, defaultValue: 'REQUESTED' });
+        }
+      }
+    } catch (err: any) {
+      console.warn("Payment architecture migration check warning:", err.message || err);
+    }
+
   } catch (err: any) {
     console.warn("Database dynamic pre-migration check warning:", err.message || err);
   }
