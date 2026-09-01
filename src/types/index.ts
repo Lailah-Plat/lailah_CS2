@@ -127,8 +127,50 @@ export interface Booking {
   paymentMethod?: string;
   appliedPromotionSnapshot?: AppliedPromotionSnapshot;
   contractSnapshot?: ContractSnapshot;
+  attachedReceipts?: SupplementaryReceiptVoucher[];
+  storeAddonOrders?: any[];
+  pricingSnapshot?: any;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface SupplementaryReceiptVoucher {
+  id: string | number;
+  voucherNumber: string; // Format: BKG-YY-XXXXXXXXXX or REC-YY-XXXXXXXXXX
+  bookingId: string | number;
+  bookingNumber: string;
+  orderDate: string;
+  eventDate: string;
+  venueId: string | number;
+  venueName: string;
+  providerId: string | number;
+  providerName: string;
+  customerId: string | number;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    category?: string;
+  }>;
+  subtotal: number;
+  vatAmount: number;
+  totalAmount: number;
+  paymentMethod: string;
+  paymentStatus: 'paid' | 'pending';
+  contractAmended: boolean;
+  pricingSnapshot?: any;
+  notificationsDispatched?: {
+    inApp: boolean;
+    email: boolean;
+    sms: boolean;
+    whatsapp: boolean;
+  };
+  createdAt: string;
 }
 
 export interface Invoice {

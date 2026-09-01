@@ -639,14 +639,14 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                   </div>
                 </div>
 
-                {/* 4️⃣ مجموعة التسويق والترويج والمتاجر (الميزات #24 إلى #25) */}
+                {/* 4️⃣ مجموعة التسويق والترويج والمتاجر (الميزات #24 إلى #26) */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <div className="text-xs font-black text-slate-700 flex items-center justify-between border-b border-slate-100 pb-2">
                     <span className="flex items-center gap-1.5 text-rose-700">
                       <ShoppingBag className="w-4 h-4" />
                       4️⃣ مجموعة التسويق والترويج والمتاجر
                     </span>
-                    <span className="text-[10px] bg-rose-50 text-rose-800 font-bold px-2 py-0.5 rounded">الميزات 24 - 25</span>
+                    <span className="text-[10px] bg-rose-50 text-rose-800 font-bold px-2 py-0.5 rounded">الميزات 24 - 26</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
@@ -677,21 +677,35 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                         <span className="text-[10px] text-slate-500">عرض وبيع مستلزمات الحفلات والمنتجات الفورية المرافقة لحجوزات المكان</span>
                       </div>
                     </label>
+
+                    {/* 26 */}
+                    <label className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200 md:col-span-2 bg-amber-50/50">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesPostBookingAddons || false} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesPostBookingAddons: e.target.checked})} 
+                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-amber-950 block">26. الطلبات اللاحقة لمتجر المستلزمات (Post-Booking Addons)</span>
+                        <span className="text-[10px] text-slate-500">تمكين العميل من إضافة مستلزمات ومنتجات جديدة للحجز المؤكد لاحقاً وفق المهلة المحددة للمنشأة</span>
+                      </div>
+                    </label>
                   </div>
                 </div>
 
-                {/* 🏷️ ثالثاً: حقول تمييز وعرض الباقة التسويقية (#26 إلى #27) */}
+                {/* 🏷️ ثالثاً: حقول تمييز وعرض الباقة التسويقية (#27 إلى #28) */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <div className="text-xs font-black text-slate-800 flex items-center justify-between border-b border-slate-200 pb-2">
                     <span className="flex items-center gap-1.5 text-amber-800">
                       <Sparkles className="w-4 h-4 text-amber-500" />
                       ثالثاً: حقول تمييز وعرض الباقة التسويقية
                     </span>
-                    <span className="text-[10px] bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded">الحقول 26 - 27</span>
+                    <span className="text-[10px] bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded">الحقول 27 - 28</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    {/* 26 */}
+                    {/* 27 */}
                     <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-amber-400">
                       <input 
                         type="checkbox" 
@@ -700,15 +714,15 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                         className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500" 
                       />
                       <div>
-                        <span className="font-bold text-slate-900 block">26. تمييز كـ "الباقة الأكثر طلباً"</span>
+                        <span className="font-bold text-slate-900 block">27. تمييز كـ "الباقة الأكثر طلباً"</span>
                         <span className="text-[10px] text-slate-500">إبراز الباقة بشارة ملونة وبارزة في واجهة مقارنة الباقات</span>
                       </div>
                     </label>
 
-                    {/* 27 */}
+                    {/* 28 */}
                     <div className="p-2.5 rounded-xl bg-white border border-slate-200">
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        27. نص شارة التمييز التسويقية المخصصة
+                        28. نص شارة التمييز التسويقية المخصصة
                       </label>
                       <input 
                         type="text" 

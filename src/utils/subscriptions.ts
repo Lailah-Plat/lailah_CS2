@@ -64,6 +64,7 @@ export const DEFAULT_SUBSCRIPTIONS = [
     // 4️⃣ التسويق والمتاجر
     includesMarketingAgency: false,
     includesMiniProductsStore: false,
+    includesPostBookingAddons: false,
     // سمات إضافية وتوافقية
     hasSupport: false,
     includesAdvancedStats: false,
@@ -120,6 +121,7 @@ export const DEFAULT_SUBSCRIPTIONS = [
     // 4️⃣ التسويق والمتاجر
     includesMarketingAgency: false,
     includesMiniProductsStore: false,
+    includesPostBookingAddons: false,
     // سمات إضافية وتوافقية
     hasSupport: true,
     includesAdvancedStats: true,
@@ -176,6 +178,7 @@ export const DEFAULT_SUBSCRIPTIONS = [
     // 4️⃣ التسويق والمتاجر
     includesMarketingAgency: true,
     includesMiniProductsStore: true,
+    includesPostBookingAddons: true,
     // سمات إضافية وتوافقية
     hasSupport: true,
     includesAdvancedStats: true,
