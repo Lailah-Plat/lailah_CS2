@@ -46,7 +46,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Initialize DB in the background to avoid blocking server port binding
   (async () => {
@@ -507,7 +507,7 @@ async function startServer() {
   // JSON Error Handler for API routes to prevent HTML error fallbacks
   app.use(errorMiddleware);
 
-  // Vite middleware for development
+  // Vite middleware for development vs Production Static Serving
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -515,10 +515,24 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    const distPath = path.resolve(process.cwd(), 'dist');
+    const publicPath = path.resolve(process.cwd(), 'public');
+    
+    // Serve production build assets
+    app.use(express.static(distPath, { maxAge: '1d' }));
+    // Also serve public directory assets if present
+    if (fs.existsSync(publicPath)) {
+      app.use(express.static(publicPath, { maxAge: '1d' }));
+    }
+
+    // SPA fallback: Return index.html for all frontend navigation requests
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send('ملفات التطبيق غير متوفرة. يرجى تشغيل npm run build لإنشاء ملفات الواجهة الأمامية.');
+      }
     });
   }
 
