@@ -11,15 +11,25 @@ const CalendarContext = createContext<CalendarContextType | undefined>(undefined
 
 export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [calendarType, setCalendarTypeState] = useState<CalendarType>(() => {
-    const saved = localStorage.getItem('calendar_type');
-    return (saved as CalendarType) || 'gregorian';
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('calendar_type');
+        return (saved as CalendarType) || 'gregorian';
+      }
+    } catch {}
+    return 'gregorian';
   });
 
   const setCalendarType = (type: CalendarType) => {
     setCalendarTypeState(type);
-    localStorage.setItem('calendar_type', type);
-    // Dispatch even for non-react components if needed
-    window.dispatchEvent(new CustomEvent('calendarTypeChanged', { detail: type }));
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('calendar_type', type);
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('calendarTypeChanged', { detail: type }));
+      }
+    } catch {}
   };
 
   const toggleCalendarType = () => {
