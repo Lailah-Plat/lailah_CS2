@@ -2,17 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, Store, ShoppingBag, Plus, Minus, Check, Sparkles, 
   Tag, ShieldCheck, ChevronLeft, ArrowRight, Utensils,
-  Wine, Armchair, Coffee, Package, Info, Calculator, Layers,
-  Receipt, AlertTriangle, Send, BellRing, MessageSquare, CheckCircle2, Clock
+  Wine, Armchair, Coffee, Package, Info, Calculator, Layers
 } from 'lucide-react';
 import {
   DynamicStoreCategory,
   getStoredCategories,
   checkBookingPostOrderEligibility
 } from '../data/storeCategoriesConfig';
-import { processPostBookingStoreOrder } from '../services/postBookingOrderService';
-import { SupplementaryReceiptModal } from './modals/SupplementaryReceiptModal';
-import { SupplementaryReceiptVoucher } from '../types/index';
 
 export interface VenueProductItem {
   id: string;
@@ -46,7 +42,6 @@ export interface VenueProductsStoreModalProps {
   venueId?: string | number;
   eventDate?: string;
   isPostBooking?: boolean;
-  booking?: any; // The linked booking object if in post-booking flow
   hallBasePrice: number;
   periodName?: string;
   servicesList: VenueServiceItem[];
@@ -56,7 +51,6 @@ export interface VenueProductsStoreModalProps {
   selectedProducts: SelectedProductCart;
   onChangeProductQuantity: (productId: string, newQty: number) => void;
   onConfirmAndSave?: () => void;
-  onOrderCompleted?: (voucher: SupplementaryReceiptVoucher) => void;
 }
 
 export const DEFAULT_VENUE_PRODUCTS: VenueProductItem[] = [
@@ -165,7 +159,6 @@ export function VenueProductsStoreModal({
   venueId,
   eventDate,
   isPostBooking,
-  booking,
   hallBasePrice = 15000,
   periodName = 'فترة مسائي',
   servicesList = [],
@@ -174,8 +167,7 @@ export function VenueProductsStoreModal({
   productsList = DEFAULT_VENUE_PRODUCTS,
   selectedProducts = {},
   onChangeProductQuantity,
-  onConfirmAndSave,
-  onOrderCompleted
+  onConfirmAndSave
 }: VenueProductsStoreModalProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'services' | 'financial'>('products');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -204,11 +196,6 @@ export function VenueProductsStoreModal({
     }
     return checkBookingPostOrderEligibility(eventDate, venueId ? String(venueId) : undefined);
   }, [eventDate, venueId]);
-
-  const [isProcessingOrder, setIsProcessingOrder] = useState(false);
-  const [createdVoucher, setCreatedVoucher] = useState<SupplementaryReceiptVoucher | null>(null);
-  const [showVoucherModal, setShowVoucherModal] = useState(false);
-  const [orderSuccessNotice, setOrderSuccessNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -243,92 +230,7 @@ export function VenueProductsStoreModal({
     }))
   ];
 
-  const handlePostBookingCheckout = async () => {
-    if (totalSelectedProductsCount === 0 && selectedServices.length === 0) {
-      alert('يرجى اختيار صنف واحد على الأقل من المتجر للمتابعة.');
-      return;
-    }
-
-    if (!postBookingEligibility.isAllowed) {
-      alert(postBookingEligibility.reason || 'الطلبات اللاحقة غير متاحة لهذا الحجز حالياً.');
-      return;
-    }
-
-    setIsProcessingOrder(true);
-    try {
-      // Gather item objects
-      const itemsList = [];
-      for (const [pId, qty] of Object.entries(selectedProducts)) {
-        if (qty > 0) {
-          const item = productsList.find(p => p.id === pId);
-          if (item) {
-            itemsList.push({
-              id: item.id,
-              name: item.name,
-              quantity: qty,
-              unitPrice: item.price,
-              totalPrice: qty * item.price,
-              category: item.category
-            });
-          }
-        }
-      }
-
-      for (const sId of selectedServices) {
-        const srv = servicesList.find(s => s.id === sId);
-        if (srv) {
-          itemsList.push({
-            id: srv.id,
-            name: srv.name,
-            quantity: 1,
-            unitPrice: srv.price,
-            totalPrice: srv.price,
-            category: 'service'
-          });
-        }
-      }
-
-      const dummyBooking = booking || {
-        id: venueId || 'bk-demo-101',
-        bookingNumber: `BKG-26-${String(venueId || '0000000001').padStart(10, '0')}`,
-        hallId: venueId,
-        hall: venueName,
-        hallName: venueName,
-        date: eventDate || new Date().toISOString().split('T')[0],
-        total: hallBasePrice,
-        customerName: 'العميل الكريم',
-        customerPhone: '0555555555',
-        customerEmail: 'client@laylah.app'
-      };
-
-      const result = await processPostBookingStoreOrder({
-        booking: dummyBooking,
-        items: itemsList,
-        paymentMethod: 'بطاقة مدى / ائتمانية (سداد إلكتروني فوري)'
-      });
-
-      setCreatedVoucher(result.voucher);
-      setOrderSuccessNotice(result.message);
-      setShowVoucherModal(true);
-
-      if (onOrderCompleted) {
-        onOrderCompleted(result.voucher);
-      }
-      if (onConfirmAndSave) {
-        onConfirmAndSave();
-      }
-    } catch (err: any) {
-      alert('حدث خطأ أثناء معالجة الطلب: ' + (err.message || err));
-    } finally {
-      setIsProcessingOrder(false);
-    }
-  };
-
   const handleSaveAndClose = () => {
-    if (isPostBooking) {
-      handlePostBookingCheckout();
-      return;
-    }
     if (onConfirmAndSave) {
       onConfirmAndSave();
     }
@@ -814,39 +716,14 @@ export function VenueProductsStoreModal({
 
             {/* Bottom Actions Buttons */}
             <div className="space-y-2 pt-2 border-t border-slate-200 shrink-0">
-              {isPostBooking ? (
-                <button
-                  type="button"
-                  disabled={isProcessingOrder || !postBookingEligibility.isAllowed || totalStoreOnlyPrice <= 0}
-                  onClick={handleSaveAndClose}
-                  className={`w-full py-3 sm:py-3.5 px-4 font-black rounded-2xl shadow-md hover:shadow-lg transition-all text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer ${
-                    !postBookingEligibility.isAllowed || totalStoreOnlyPrice <= 0
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-amber-500/20'
-                  }`}
-                >
-                  {isProcessingOrder ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
-                      <span>جارٍ إصدار سند القبض وإرسال الإشعارات...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Receipt className="w-4 h-4" />
-                      <span>سداد وإصدار سند قبض ملحق ({totalStoreOnlyPrice.toLocaleString()} ر.س)</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSaveAndClose}
-                  className="w-full py-3 sm:py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-2xl shadow-md hover:shadow-lg transition-all text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>حفظ واعتماد الحساب ({grandTotal.toLocaleString()} ر.س)</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleSaveAndClose}
+                className="w-full py-3 sm:py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-2xl shadow-md hover:shadow-lg transition-all text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>حفظ واعتماد الحساب ({grandTotal.toLocaleString()} ر.س)</span>
+              </button>
 
               <button
                 type="button"
@@ -862,18 +739,6 @@ export function VenueProductsStoreModal({
         </div>
 
       </div>
-
-      {/* Supplementary Receipt Modal */}
-      {showVoucherModal && (
-        <SupplementaryReceiptModal
-          isOpen={showVoucherModal}
-          onClose={() => {
-            setShowVoucherModal(false);
-            onClose();
-          }}
-          voucher={createdVoucher}
-        />
-      )}
     </div>
   );
 }

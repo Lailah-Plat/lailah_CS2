@@ -27,13 +27,8 @@ import {
   FileText,
   CreditCard,
   Building,
-  Info,
-  Receipt,
-  ExternalLink
+  Info
 } from 'lucide-react';
-import { getSupplementaryReceiptsForBooking } from '../services/postBookingOrderService';
-import { SupplementaryReceiptModal } from './modals/SupplementaryReceiptModal';
-import { SupplementaryReceiptVoucher } from '../types/index';
 
 const html2canvasSafe = async (element: HTMLElement, options?: any) => {
   const originalGetComputedStyle = window.getComputedStyle;
@@ -426,24 +421,6 @@ export default function BookingInvoice(props: InvoiceProps) {
       grandTotal
     };
   }, [currentItems, vatRate, isVatExempt]);
-
-  // Supplementary Receipts attached to this booking
-  const [attachedReceipts, setAttachedReceipts] = useState<SupplementaryReceiptVoucher[]>(() => {
-    return getSupplementaryReceiptsForBooking(props.bookingId || '');
-  });
-  const [selectedReceiptForModal, setSelectedReceiptForModal] = useState<SupplementaryReceiptVoucher | null>(null);
-
-  useEffect(() => {
-    const handleReceiptCreated = () => {
-      setAttachedReceipts(getSupplementaryReceiptsForBooking(props.bookingId || ''));
-    };
-    window.addEventListener('supplementaryReceiptCreated', handleReceiptCreated);
-    window.addEventListener('storage', handleReceiptCreated);
-    return () => {
-      window.removeEventListener('supplementaryReceiptCreated', handleReceiptCreated);
-      window.removeEventListener('storage', handleReceiptCreated);
-    };
-  }, [props.bookingId]);
 
   // Export handlers
   const handlePrint = () => {
@@ -1264,52 +1241,6 @@ export default function BookingInvoice(props: InvoiceProps) {
           </table>
         </div>
 
-        {/* ----------------- ATTACHED SUPPLEMENTARY RECEIPTS SECTION ----------------- */}
-        {attachedReceipts && attachedReceipts.length > 0 && (
-          <div className="mb-8 p-4 bg-amber-50/60 border border-amber-200 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold">
-                  <Receipt className="w-3.5 h-3.5" />
-                </div>
-                <h4 className="text-xs font-black text-slate-900">سندات القبض المالية الملحقة بالعقد (Supplementary Receipts)</h4>
-              </div>
-              <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2.5 py-0.5 rounded-full">
-                {attachedReceipts.length} سند قبض معتمد
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {attachedReceipts.map((rcpt) => (
-                <div
-                  key={rcpt.id}
-                  onClick={() => setSelectedReceiptForModal(rcpt)}
-                  className="p-3 bg-white rounded-xl border border-amber-200/80 hover:border-amber-400 transition-all flex items-center justify-between cursor-pointer shadow-2xs group"
-                >
-                  <div className="space-y-0.5">
-                    <span className="font-mono font-bold text-xs text-slate-900 group-hover:text-amber-600 block">
-                      {rcpt.voucherNumber}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block">
-                      {rcpt.items?.length || 0} صنف مستلزمات • {new Date(rcpt.orderDate).toLocaleDateString('ar-SA')}
-                    </span>
-                  </div>
-
-                  <div className="text-left flex items-center gap-2">
-                    <div>
-                      <span className="font-mono font-black text-xs text-amber-600 block">
-                        {rcpt.totalAmount.toLocaleString()} ر.س
-                      </span>
-                      <span className="text-[9px] text-emerald-600 font-bold block">مسدد وموثق ✅</span>
-                    </div>
-                    <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-600" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* ----------------- FINANCIAL SUMMARY & ZATCA QR ----------------- */}
         <div className="mb-8 bg-slate-50/70 border border-slate-150 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
           
@@ -1448,15 +1379,6 @@ export default function BookingInvoice(props: InvoiceProps) {
         </div>
         <AdBanner placement="أسفل الفاتورة وتأكيد الحجز" layout="card" className="w-full" />
       </div>
-
-      {/* Supplementary Receipt Modal */}
-      {selectedReceiptForModal && (
-        <SupplementaryReceiptModal
-          isOpen={!!selectedReceiptForModal}
-          onClose={() => setSelectedReceiptForModal(null)}
-          voucher={selectedReceiptForModal}
-        />
-      )}
     </div>
   );
 }
