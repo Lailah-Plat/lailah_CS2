@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
+import { formatBookingId, formatServiceRequestId, formatInvoiceId } from '../utils/idUtils';
 import { AdBanner } from './AdBanner';
 import { 
   Printer, 
@@ -29,7 +29,10 @@ import {
   Building,
   Info,
   Receipt,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  X,
+  Send
 } from 'lucide-react';
 import { getSupplementaryReceiptsForBooking } from '../services/postBookingOrderService';
 import { SupplementaryReceiptModal } from './modals/SupplementaryReceiptModal';
@@ -126,11 +129,15 @@ const html2canvasSafe = async (element: HTMLElement, options?: any) => {
 };
 
 interface InvoiceProps {
-  bookingId: string;
-  issueDate: string;
+  bookingId: string | number;
+  bookingNumber?: string;
+  invoiceNumber?: string;
+  requestNumber?: string;
+  referenceNumber?: string;
+  issueDate?: string;
   providerName: string;
   providerAddress: string;
-  providerVatNo: string;
+  providerVatNo?: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -164,8 +171,27 @@ interface InvoiceProps {
 }
 
 export default function BookingInvoice(props: InvoiceProps) {
+  // Check user role from localStorage to enforce strict multi-tenancy & access control
+  const currentUserRole = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('currentUser') || localStorage.getItem('user');
+      if (!stored) return '';
+      const parsed = JSON.parse(stored);
+      return (parsed.role || parsed.type || '').toLowerCase();
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  // Interactive control panel/playground MUST BE HIDDEN for clients, customers, providers, or when hideControlPanel is requested
+  const shouldHideControlPanel = props.hideControlPanel !== undefined 
+    ? props.hideControlPanel 
+    : !isAdmin;
+
   // -------------------------------------------------------------
-  // Dynamic Playground State for Interactive Customer Previews
+  // Dynamic State for Invoice Display & Exports
   // -------------------------------------------------------------
   const [invoiceType, setInvoiceType] = useState<'hall' | 'service'>(
     props.initialInvoiceType || (props.checkInDate ? 'hall' : 'service')
@@ -180,7 +206,11 @@ export default function BookingInvoice(props: InvoiceProps) {
   const [isThermalView, setIsThermalView] = useState<boolean>(false);
   const [guestCount, setGuestCount] = useState<number>(props.guests || 180);
   const [directOrderName, setDirectOrderName] = useState<string>('خدمة ضيافة واستقبال فاخرة (VIP Catering & Host)');
-  const [logoWidth, setLogoWidth] = useState<number>(props.fixedLogoSize ? 124 : 123.62);
+  
+  // Fixed Logo Dimensions: 220.26 × 285.08 px strictly specified
+  const FIXED_LOGO_WIDTH = 220.26;
+  const FIXED_LOGO_HEIGHT = 285.08;
+  const [logoWidth, setLogoWidth] = useState<number>(FIXED_LOGO_WIDTH);
 
   // Provider editable details
   const [providerName, setProviderName] = useState<string>(props.providerName || 'قاعة ليلة رويال للافراح');
@@ -196,6 +226,9 @@ export default function BookingInvoice(props: InvoiceProps) {
   const [customerVatNo, setCustomerVatNo] = useState<string>(props.customerVatNo || '');
   const [showPartiesEditor, setShowPartiesEditor] = useState<boolean>(false);
   const [printDateTime, setPrintDateTime] = useState<string>('');
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [isGeneratingImg, setIsGeneratingImg] = useState<boolean>(false);
 
   useEffect(() => {
     const updatePrintTime = () => {
@@ -229,9 +262,7 @@ export default function BookingInvoice(props: InvoiceProps) {
     if (props.guests !== undefined) {
       setGuestCount(props.guests);
     }
-    if (props.fixedLogoSize) {
-      setLogoWidth(124);
-    }
+    setLogoWidth(FIXED_LOGO_WIDTH);
   }, [
     props.providerName,
     props.providerAddress,
@@ -283,71 +314,48 @@ export default function BookingInvoice(props: InvoiceProps) {
     return String(new Date().getFullYear()).substring(2);
   }, [props.issueDate]);
 
-  // Serialized invoice ID formatting (INV-YYXXXXXXX)
-  const formattedInvoiceId = useMemo(() => {
-    let sequenceNumber = 1;
-    const currentIdStr = String(props.bookingId || '');
-
-    if (props.allBookings && props.allBookings.length > 0) {
-      // Helper to extract year suffix from a booking record
-      const getBookingYearSuffix = (b: any): string => {
-        const dateStr = b.date || b.startDate || b.issueDate || '';
-        try {
-          const cleanStr = String(dateStr).replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 1632));
-          const parts = cleanStr.split(/[-/.]/);
-          const yearPart = parts.find((p: string) => p.trim().length === 4);
-          if (yearPart) {
-            return yearPart.trim().substring(2);
-          }
-          const parsed = new Date(cleanStr);
-          if (!isNaN(parsed.getTime())) {
-            return String(parsed.getFullYear()).substring(2);
-          }
-        } catch (e) {}
-        return invoiceYearSuffix;
-      };
-
-      // Filter other bookings to find those belonging to the same calendar year
-      const sameYearBookings = props.allBookings.filter((b: any) => {
-        return getBookingYearSuffix(b) === invoiceYearSuffix;
-      });
-
-      // Sort same-year bookings sequentially by date and then by numeric ID
-      const sortedBookings = [...sameYearBookings].sort((a: any, b: any) => {
-        const dateA = new Date(a.date || a.startDate || 0).getTime();
-        const dateB = new Date(b.date || b.startDate || 0).getTime();
-        if (dateA !== dateB) return dateA - dateB;
-        const idA = parseInt(String(a.id || '').replace(/[^0-9]/g, '')) || 0;
-        const idB = parseInt(String(b.id || '').replace(/[^0-9]/g, '')) || 0;
-        return idA - idB;
-      });
-
-      // Find the index of the current booking in the sorted yearly sequence
-      const foundIndex = sortedBookings.findIndex((b: any) => String(b.id) === currentIdStr);
-      if (foundIndex !== -1) {
-        sequenceNumber = foundIndex + 1;
-      } else {
-        const cleanId = String(props.bookingId).replace(/[^0-9]/g, '');
-        sequenceNumber = parseInt(cleanId) || 1;
-      }
-    } else {
-      const cleanId = String(props.bookingId).replace(/[^0-9]/g, '');
-      sequenceNumber = parseInt(cleanId) || 1;
-    }
-
-    const paddedSeq = String(sequenceNumber).padStart(10, '0');
-    return `INV-${invoiceYearSuffix}${paddedSeq}`;
-  }, [props.bookingId, props.allBookings, invoiceYearSuffix]);
-
   // Unified Booking/Service ID conforming to AGENTS.md rules
   const formattedBookingOrServiceId = useMemo(() => {
-    const cleanId = String(props.bookingId).replace(/\D/g, '') || '1';
+    if (props.bookingNumber) {
+      return formatBookingId(props.bookingNumber);
+    }
+    if (props.requestNumber) {
+      return formatServiceRequestId(props.requestNumber);
+    }
+    if (props.referenceNumber) {
+      return props.referenceNumber;
+    }
+    const rawId = String(props.bookingId || '');
+    if (/^BKG-\d{2}-\d{10}$/.test(rawId) || /^SRV-\d{2}-\d{10}$/.test(rawId)) {
+      return rawId;
+    }
+    const cleanId = rawId.replace(/\D/g, '') || '1';
     if (invoiceType === 'hall') {
       return formatBookingId(cleanId);
     } else {
       return formatServiceRequestId(cleanId);
     }
-  }, [props.bookingId, invoiceType]);
+  }, [props.bookingId, props.bookingNumber, props.requestNumber, props.referenceNumber, invoiceType]);
+
+  // Serialized invoice ID formatting (INV-YYXXXXXXXXXX - strictly conforming to AGENTS.md rule: INV-YY followed by 10 digits without hyphen)
+  const formattedInvoiceId = useMemo(() => {
+    if (props.invoiceNumber) {
+      return formatInvoiceId(props.invoiceNumber);
+    }
+    if (props.bookingNumber) {
+      return formatInvoiceId(props.bookingNumber);
+    }
+    const rawId = String(props.bookingId || '');
+    if (/^INV-\d{12}$/.test(rawId)) {
+      return rawId;
+    }
+    if (/^BKG-\d{2}-\d{10}$/.test(rawId) || /^SRV-\d{2}-\d{10}$/.test(rawId)) {
+      return formatInvoiceId(rawId);
+    }
+    // Clean numeric ID
+    const cleanId = rawId.replace(/\D/g, '') || '1';
+    return formatInvoiceId(cleanId);
+  }, [props.bookingId, props.invoiceNumber, props.bookingNumber]);
 
   // Dynamic Hijri Date based on Gregorian Issue Date using native Intl API
   const hijriDate = useMemo(() => {
@@ -392,7 +400,12 @@ export default function BookingInvoice(props: InvoiceProps) {
   const vatRate = isVatExempt ? 0 : 0.15;
 
   const currentItems = useMemo(() => {
-    // If testing Service type
+    // If real items are provided in props, use them!
+    if (props.items && props.items.length > 0) {
+      return props.items;
+    }
+    
+    // Default demo fallback when no items provided
     if (invoiceType === 'service') {
       const basePrice = 2800;
       return [
@@ -401,8 +414,7 @@ export default function BookingInvoice(props: InvoiceProps) {
       ];
     }
     
-    // Default Hall type with potential extras
-    const originalFirstPrice = props.items?.[0]?.price || 12000;
+    const originalFirstPrice = 12000;
     return [
       { 
         name: `حجز ${providerName || 'قاعة ليلة الذهبية'} - باقة التميز المتكاملة`, 
@@ -413,11 +425,20 @@ export default function BookingInvoice(props: InvoiceProps) {
       { name: 'خدمة كوشة ملكية وتصميم مخصص للستائر والورد', quantity: 1, price: 1800, total: 1800 },
       { name: 'ترقية باقة الضيافة (شوكولاتة فاخرة وعصائر طازجة)', quantity: 1, price: 1200, total: 1200 }
     ];
-  }, [invoiceType, directOrderName, props.items, providerName, vatRate]);
+  }, [props.items, invoiceType, directOrderName, providerName]);
 
   const financialSummary = useMemo(() => {
-    // Prices registered in the platform are fully inclusive of VAT (15%). No double tax added on top.
-    const grandTotal = currentItems.reduce((acc, item) => acc + item.total, 0);
+    // If explicit grandTotal and subtotal are provided in props, prioritize them
+    if (props.grandTotal !== undefined && props.grandTotal > 0 && props.subtotal !== undefined) {
+      return {
+        subtotal: props.subtotal,
+        vatAmount: props.vatAmount !== undefined ? props.vatAmount : (props.grandTotal - props.subtotal),
+        grandTotal: props.grandTotal
+      };
+    }
+
+    // Otherwise calculate from currentItems (15% VAT inclusive)
+    const grandTotal = currentItems.reduce((acc, item) => acc + (item.total || (item.price * item.quantity)), 0);
     const subtotal = isVatExempt ? grandTotal : (grandTotal / (1 + vatRate));
     const vatAmount = grandTotal - subtotal;
     return {
@@ -425,7 +446,7 @@ export default function BookingInvoice(props: InvoiceProps) {
       vatAmount,
       grandTotal
     };
-  }, [currentItems, vatRate, isVatExempt]);
+  }, [props.grandTotal, props.subtotal, props.vatAmount, currentItems, vatRate, isVatExempt]);
 
   // Supplementary Receipts attached to this booking
   const [attachedReceipts, setAttachedReceipts] = useState<SupplementaryReceiptVoucher[]>(() => {
@@ -455,26 +476,42 @@ export default function BookingInvoice(props: InvoiceProps) {
       const element = document.getElementById('tax-invoice-canvas');
       if (!element) return;
       
+      setIsGeneratingPdf(true);
       triggerToast('جاري إنشاء وتحميل ملف PDF الفاتورة...');
       
-      const canvas = await html2canvasSafe(element, { scale: 2, useCORS: true });
+      // Ensure all Arabic fonts and web fonts are fully rendered
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+      
+      const canvas = await html2canvasSafe(element, { 
+        scale: 2.5, 
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        letterRendering: true
+      });
+      
       const imgData = canvas.toDataURL('image/png');
       
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: isThermalView ? [80, (canvas.height * 80) / canvas.width] : 'a4'
+        format: isThermalView ? [80, Math.max(140, (canvas.height * 80) / canvas.width)] : 'a4'
       });
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`laylah-invoice-${formattedInvoiceId}.pdf`);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      pdf.save(`laylah-tax-invoice-${formattedInvoiceId}.pdf`);
       triggerToast('تم تحميل الفاتورة بصيغة PDF بنجاح!');
     } catch (err) {
       console.error('Error generating PDF', err);
-      triggerToast('فشل في استخراج PDF. يرجى المحاولة لاحقاً.');
+      triggerToast('فشل في استخراج PDF. يرجى استخدام زر طباعة الفاتورة كخيار بديل.');
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -483,44 +520,85 @@ export default function BookingInvoice(props: InvoiceProps) {
       const element = document.getElementById('tax-invoice-canvas');
       if (!element) return;
       
-      triggerToast('جاري توليد الصورة الموحدة للمستند...');
+      setIsGeneratingImg(true);
+      triggerToast('جاري توليد الصورة الموحدة للمستند بدقة عالية...');
       
-      const canvas = await html2canvasSafe(element, { scale: 2, useCORS: true });
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+
+      const canvas = await html2canvasSafe(element, { 
+        scale: 2.5, 
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        letterRendering: true
+      });
+      
       const link = document.createElement('a');
-      link.download = `laylah-invoice-${formattedInvoiceId}.png`;
+      link.download = `laylah-tax-invoice-${formattedInvoiceId}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       triggerToast('تم تحميل صورة الفاتورة بنجاح!');
     } catch (err) {
       console.error('Error generating Image', err);
       triggerToast('فشل استخراج الصورة.');
+    } finally {
+      setIsGeneratingImg(false);
     }
   };
 
-  const handleShare = async () => {
+  const getShareDetails = () => {
     const shareUrl = window.location.href;
-    const text = `فاتورة ضريبية مبسطة صادرة من منصة ليلة برقم: ${formattedInvoiceId} بمبلغ ${financialSummary.grandTotal.toFixed(2)} ر.س. للتحقق: ${shareUrl}`;
+    const shareText = `فاتورة ضريبية موحدة صادرة من منصة ليلة برقم: ${formattedInvoiceId} بمبلغ إجمالي ${financialSummary.grandTotal.toFixed(2)} ر.س.\nللتحقق والاستعراض: ${shareUrl}`;
+    return { shareUrl, shareText };
+  };
+
+  const handleShare = async () => {
+    const { shareUrl, shareText } = getShareDetails();
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'الفاتورة الضريبية الموحدة - ليلة',
-          text: text,
+          title: `الفاتورة الضريبية الموحدة - ${formattedInvoiceId}`,
+          text: shareText,
           url: shareUrl,
         });
         triggerToast('تمت مشاركة الفاتورة بنجاح!');
-      } catch (err) {
-        console.log('Share canceled or failed', err);
-      }
-    } else {
-      // Fallback copy to clipboard
-      try {
-        await navigator.clipboard.writeText(text);
-        triggerToast('تم نسخ تفاصيل الفاتورة ورابط التحقق إلى الحافظة!');
-      } catch (err) {
-        triggerToast('ميزة المشاركة المباشرة غير مدعومة.');
+        return;
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.log('Share canceled or failed, opening fallback modal', err);
+        } else {
+          return;
+        }
       }
     }
+    // Fallback: Open modal
+    setIsShareModalOpen(true);
+  };
+
+  const handleCopyLink = async () => {
+    const { shareUrl } = getShareDetails();
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      triggerToast('تم نسخ رابط الفاتورة إلى الحافظة بنجاح!');
+    } catch {
+      triggerToast('تعذر نسخ الرابط تلقائياً.');
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const { shareText } = getShareDetails();
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(waUrl, '_blank');
+  };
+
+  const handleEmailShare = () => {
+    const { shareText } = getShareDetails();
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(`فاتورة ضريبية موحدة - منصة ليلة (${formattedInvoiceId})`)}&body=${encodeURIComponent(shareText)}`;
+    window.location.href = mailtoUrl;
   };
 
   return (
@@ -536,7 +614,7 @@ export default function BookingInvoice(props: InvoiceProps) {
       {/* -------------------------------------------------------------
           PLAYGROUND CONTROLLER PANEL OR SECURE CLIENT TOOLBAR (Hidden in Print)
          ------------------------------------------------------------- */}
-      {props.hideControlPanel ? (
+      {shouldHideControlPanel ? (
         <div className="bg-slate-950 text-slate-100 rounded-3xl p-6 md:p-8 mb-8 shadow-2xl border border-slate-800/80 print:hidden transition-all duration-300 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -548,26 +626,26 @@ export default function BookingInvoice(props: InvoiceProps) {
                 <span className="text-xs font-black uppercase tracking-widest font-mono">Laylah Secure Invoice Client</span>
               </div>
               <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-3 tracking-tight">
-                الفاتورة الضريبية الموحدة لطلبكم
+                الفاتورة الضريبية الموحدة
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                يمكنكم استعراض الفاتورة الضريبية الموحدة المتوافقة مع متطلبات هيئة الزكاة والضريبة والجمارك (ZATCA) وطباعتها أو حفظها.
+                فاتورة ضريبية معتمدة ومتوافقة مع متطلبات هيئة الزكاة والضريبة والجمارك (ZATCA).
               </p>
             </div>
 
             {/* Print, Save PDF, Save Image, Share, and Thermal/A4 Toggle */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {/* Select Format Toggle */}
               <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
                 <button 
                   onClick={() => setIsThermalView(false)}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${!isThermalView ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${!isThermalView ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                 >
                   طراز A4
                 </button>
                 <button 
                   onClick={() => setIsThermalView(true)}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${isThermalView ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${isThermalView ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
                 >
                   حراري 80mm
                 </button>
@@ -575,27 +653,39 @@ export default function BookingInvoice(props: InvoiceProps) {
 
               <button 
                 onClick={handlePrint} 
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl flex items-center gap-2 text-xs font-black transition-all shadow-lg active:scale-95"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl flex items-center gap-2 text-xs font-black transition-all shadow-lg active:scale-95 cursor-pointer"
+                title="طباعة الفاتورة أو حفظها من نافذة الطباعة"
               >
                 <Printer className="w-4 h-4" /> طباعة الفاتورة 🖨️
               </button>
+
               <button 
                 onClick={handleDownloadPdf} 
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95"
+                disabled={isGeneratingPdf}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="تصدير وحفظ الفاتورة كملف PDF عالي الجودة"
               >
-                <Download className="w-4 h-4" /> حفظ PDF
+                {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Download className="w-4 h-4 text-amber-400" />}
+                <span>حفظ PDF</span>
               </button>
+
               <button 
                 onClick={handleDownloadImage} 
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95"
+                disabled={isGeneratingImg}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95 disabled:opacity-50 cursor-pointer"
+                title="تصدير الفاتورة كصورة PNG عالية الدقة"
               >
-                <ImageIcon className="w-4 h-4" /> حفظ صورة
+                {isGeneratingImg ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <ImageIcon className="w-4 h-4 text-emerald-400" />}
+                <span>حفظ صورة</span>
               </button>
+
               <button 
                 onClick={handleShare} 
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-2 text-xs font-bold transition-all border border-slate-700/60 active:scale-95 cursor-pointer"
+                title="مشاركة الفاتورة عبر واتساب أو البريد أو نسخ الرابط"
               >
-                <Share2 className="w-4 h-4" /> مشاركة الفاتورة
+                <Share2 className="w-4 h-4 text-blue-400" />
+                <span>مشاركة الفاتورة</span>
               </button>
             </div>
           </div>
@@ -1012,28 +1102,28 @@ export default function BookingInvoice(props: InvoiceProps) {
             </div>
           </div>
 
-          {/* Center: Brand Signature Identity (Logo) */}
-          <div className={`${isThermalView ? 'order-first' : 'w-full md:w-[25%] flex flex-col items-center justify-center'} self-center`}>
+          {/* Center: Brand Signature Identity (Logo - Fixed strictly to 220.26 × 285.08 px) */}
+          <div className={`${isThermalView ? 'order-first' : 'w-full md:w-[30%] flex flex-col items-center justify-center'} self-center text-center`}>
             {props.platformData?.logoUrl ? (
               <img 
                 src={props.platformData.logoUrl} 
                 alt="Logo" 
-                className={`${isThermalView ? 'h-14' : ''} object-contain`} 
-                style={isThermalView ? {} : (props.fixedLogoSize ? { width: '124px', height: '160px' } : { width: `${logoWidth}px`, height: `${logoWidth * 1.29428895}px` })}
+                className={`${isThermalView ? 'h-14' : ''} object-contain mx-auto`} 
+                style={isThermalView ? {} : { width: '220.26px', height: '285.08px', maxWidth: '220.26px', maxHeight: '285.08px' }}
               />
             ) : (
               <div 
-                className="flex flex-col items-center transition-transform duration-200"
-                style={isThermalView ? {} : (props.fixedLogoSize ? { transform: 'scale(1.0)', transformOrigin: 'center' } : { transform: `scale(${logoWidth / 123.62})`, transformOrigin: 'center' })}
+                className="flex flex-col items-center justify-center transition-transform duration-200 mx-auto"
+                style={isThermalView ? {} : { width: '220.26px', height: '285.08px', maxWidth: '220.26px', maxHeight: '285.08px' }}
               >
-                <div className="w-16 h-16 bg-slate-900 text-amber-500 rounded-2xl flex items-center justify-center font-black text-2xl shadow-md border border-slate-800">
+                <div className="w-20 h-20 bg-slate-900 text-amber-500 rounded-2xl flex items-center justify-center font-black text-3xl shadow-md border border-slate-800">
                   ل
                 </div>
-                <span className="text-xl font-black text-slate-900 tracking-tighter mt-2 font-sans">
+                <span className="text-2xl font-black text-slate-900 tracking-tighter mt-3 font-sans">
                   ليلة <span className="text-amber-500">Laylah</span>
                 </span>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                  Premium Events
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                  Unified Tax Invoice
                 </span>
               </div>
             )}
@@ -1457,6 +1547,105 @@ export default function BookingInvoice(props: InvoiceProps) {
           voucher={selectedReceiptForModal}
         />
       )}
+
+      {/* Share Modal Dialog */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-[120] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 print:hidden animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative overflow-hidden" dir="rtl">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Share2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">مشاركة الفاتورة الضريبية</h3>
+                  <p className="text-xs text-slate-500 font-medium">اختر وسيلة المشاركة أو انسخ الرابط المباشر</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Share Options */}
+            <div className="grid grid-cols-2 gap-3 my-5">
+              <button
+                onClick={handleWhatsAppShare}
+                className="flex items-center justify-center gap-2.5 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition-all active:scale-98"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>عبر واتساب</span>
+              </button>
+              <button
+                onClick={handleEmailShare}
+                className="flex items-center justify-center gap-2.5 p-3 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold transition-all active:scale-98"
+              >
+                <Mail className="w-4 h-4 text-blue-600" />
+                <span>عبر البريد</span>
+              </button>
+            </div>
+
+            {/* Copy Link Section */}
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+              <label className="text-[11px] font-bold text-slate-500 mb-1.5 block">رابط الفاتورة المباشر:</label>
+              <div className="flex items-center gap-2 bg-white rounded-xl p-1.5 border border-slate-200">
+                <input
+                  type="text"
+                  readOnly
+                  value={window.location.href}
+                  className="bg-transparent text-xs text-slate-600 w-full px-2 outline-none font-mono text-left select-all"
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-black flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>نسخ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Footer Close */}
+            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global CSS for Print and Arabic High-Quality Text Rendering */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #tax-invoice-canvas {
+            box-shadow: none !important;
+            border: none !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+        }
+        #tax-invoice-canvas {
+          font-feature-settings: "kern" 1, "liga" 1;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+        }
+      `}} />
     </div>
   );
 }

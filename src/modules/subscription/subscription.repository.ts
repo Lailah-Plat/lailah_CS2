@@ -1,4 +1,4 @@
-import { SubscriptionPlan, ProviderSubscription, ProviderFeatureOverride } from '../../models/SubscriptionModels.js';
+import { SubscriptionPlan, ProviderSubscription, ProviderFeatureOverride, migrateSubscriptionTables } from '../../models/SubscriptionModels.js';
 import { User } from '../../models/UserModels.js';
 
 export interface ISubscriptionRepository {
@@ -61,28 +61,69 @@ export class SequelizeSubscriptionRepository implements ISubscriptionRepository 
   }
 
   async findActiveSubscriptionByProviderId(providerId: number): Promise<ProviderSubscription | null> {
-    return ProviderSubscription.findOne({
-      where: { providerId, status: 'active' },
-      order: [['id', 'DESC']]
-    });
+    try {
+      return await ProviderSubscription.findOne({
+        where: { providerId, status: 'active' },
+        order: [['id', 'DESC']]
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('no such column')) {
+        await migrateSubscriptionTables();
+        return ProviderSubscription.findOne({
+          where: { providerId, status: 'active' },
+          order: [['id', 'DESC']]
+        });
+      }
+      throw err;
+    }
   }
 
   async findOverridesByProviderId(providerId: number): Promise<ProviderFeatureOverride[]> {
-    return ProviderFeatureOverride.findAll({
-      where: { providerId }
-    });
+    try {
+      return await ProviderFeatureOverride.findAll({
+        where: { providerId }
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('no such column')) {
+        await migrateSubscriptionTables();
+        return ProviderFeatureOverride.findAll({
+          where: { providerId }
+        });
+      }
+      throw err;
+    }
   }
 
   async findAllOverrides(): Promise<ProviderFeatureOverride[]> {
-    return ProviderFeatureOverride.findAll({
-      order: [['id', 'DESC']]
-    });
+    try {
+      return await ProviderFeatureOverride.findAll({
+        order: [['id', 'DESC']]
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('no such column')) {
+        await migrateSubscriptionTables();
+        return ProviderFeatureOverride.findAll({
+          order: [['id', 'DESC']]
+        });
+      }
+      throw err;
+    }
   }
 
   async findAllSubscriptions(): Promise<ProviderSubscription[]> {
-    return ProviderSubscription.findAll({
-      order: [['id', 'DESC']]
-    });
+    try {
+      return await ProviderSubscription.findAll({
+        order: [['id', 'DESC']]
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('no such column')) {
+        await migrateSubscriptionTables();
+        return ProviderSubscription.findAll({
+          order: [['id', 'DESC']]
+        });
+      }
+      throw err;
+    }
   }
 
   async findUserById(idOrEmailOrName: any): Promise<User | null> {

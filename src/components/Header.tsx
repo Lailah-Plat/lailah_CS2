@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   Eye,
   Megaphone,
+  Radio,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { providers } from "../data/mockData";
@@ -34,6 +35,7 @@ import FavoriteCompareManager from "./FavoriteCompareManager";
 import { useTheme } from "../context/ThemeContext";
 import { getActiveProviderCapabilities, getPlanCapabilities } from "../utils/capabilityEngine";
 import { AdBanner } from "./AdBanner";
+import { getCurrentUser, canAccessAdminDashboard, canAccessOperationsCenter } from "../utils/permissionUtils";
 
 export default function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -91,6 +93,12 @@ export default function Header() {
     } catch {
       return "customer";
     }
+  });
+  const [hasOperationsAccess, setHasOperationsAccess] = useState<boolean>(() => {
+    return canAccessOperationsCenter(getCurrentUser());
+  });
+  const [hasDashboardAccess, setHasDashboardAccess] = useState<boolean>(() => {
+    return canAccessAdminDashboard(getCurrentUser());
   });
   const [platformData, setPlatformData] = useState<any>({});
   const location = useLocation();
@@ -745,8 +753,14 @@ export default function Header() {
           }
         }
         setUserRole(normalized);
+
+        const u = getCurrentUser();
+        setHasOperationsAccess(canAccessOperationsCenter(u));
+        setHasDashboardAccess(canAccessAdminDashboard(u));
       } catch {
         setUserRole("customer");
+        setHasOperationsAccess(false);
+        setHasDashboardAccess(false);
       }
     };
 
@@ -1505,31 +1519,63 @@ export default function Header() {
                             </div>
                           </div>
 
-                          {/* 1. ADMIN USER PORTAL OPTIONS */}
-                          {userRole === "admin" && (
+                          {/* 1. ADMIN & OPERATIONS USER PORTAL OPTIONS */}
+                          {(userRole === "admin" || hasDashboardAccess || hasOperationsAccess) && (
                             <>
-                              {/* Prominent Admin Control Dashboard Link */}
-                              <div className="px-3 pb-2.5 border-b border-slate-100 mb-2">
-                                <Link
-                                  to="/dashboard"
-                                  onClick={() => setIsUserMenuOpen(false)}
-                                  className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white shadow-md border border-blue-700 hover:from-blue-800 hover:to-indigo-800 transition-all group"
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="p-2 bg-amber-500 text-slate-950 rounded-lg shrink-0 group-hover:scale-105 transition-transform shadow">
-                                      <ShieldCheck className="w-4 h-4" />
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs font-black text-white flex items-center gap-1">
-                                        <span>لوحة تحكم الإدارة</span>
-                                        <span className="text-[9px] bg-amber-400 text-blue-950 px-1.5 py-0.2 rounded font-black">Admin</span>
+                              {/* Prominent Operations Center Link - strictly for authorized users */}
+                              {hasOperationsAccess && (
+                                <div className="px-3 pb-2 border-b border-slate-100 mb-2">
+                                  <Link
+                                    to="/operations"
+                                    id="user-menu-operations-center-link"
+                                    onClick={() => setIsUserMenuOpen(false)}
+                                    className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white shadow-md border border-indigo-700/80 hover:from-indigo-950 hover:to-slate-900 transition-all group"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="p-2 bg-indigo-500/30 text-cyan-300 border border-indigo-400/40 rounded-lg shrink-0 group-hover:scale-105 transition-transform shadow">
+                                        <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
                                       </div>
-                                      <div className="text-[9px] text-blue-200 mt-0.5 font-medium">الرقابة السيادية والاعتمادات</div>
+                                      <div className="text-right">
+                                        <div className="text-xs font-black text-white flex items-center gap-1.5">
+                                          <span>مركز العمليات السياقي</span>
+                                          <span className="text-[9px] bg-cyan-400 text-slate-950 px-1.5 py-0.2 rounded font-black">
+                                            Ops
+                                          </span>
+                                        </div>
+                                        <div className="text-[9px] text-indigo-200 mt-0.5 font-medium">
+                                          الاستثناءات والرقابة التشغيلية الحية
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <ChevronLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform shrink-0" />
-                                </Link>
-                              </div>
+                                    <ChevronLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-1 transition-transform shrink-0" />
+                                  </Link>
+                                </div>
+                              )}
+
+                              {/* Prominent Admin Control Dashboard Link */}
+                              {hasDashboardAccess && (
+                                <div className="px-3 pb-2.5 border-b border-slate-100 mb-2">
+                                  <Link
+                                    to="/dashboard"
+                                    onClick={() => setIsUserMenuOpen(false)}
+                                    className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white shadow-md border border-blue-700 hover:from-blue-800 hover:to-indigo-800 transition-all group"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="p-2 bg-amber-500 text-slate-950 rounded-lg shrink-0 group-hover:scale-105 transition-transform shadow">
+                                        <ShieldCheck className="w-4 h-4" />
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-xs font-black text-white flex items-center gap-1">
+                                          <span>لوحة تحكم الإدارة</span>
+                                          <span className="text-[9px] bg-amber-400 text-blue-950 px-1.5 py-0.2 rounded font-black">Admin</span>
+                                        </div>
+                                        <div className="text-[9px] text-blue-200 mt-0.5 font-medium">الرقابة السيادية والاعتمادات</div>
+                                      </div>
+                                    </div>
+                                    <ChevronLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform shrink-0" />
+                                  </Link>
+                                </div>
+                              )}
 
                               {/* Provider Portals Preview Section for Admin */}
                               <div className="px-3 pb-2 space-y-1 border-b border-slate-100 mb-2">
@@ -2139,20 +2185,42 @@ export default function Header() {
                     </div>
                   </div>
 
-                  {/* ADMIN USER MOBILE */}
-                  {userRole === "admin" && (
+                  {/* ADMIN & OPERATIONS USER MOBILE */}
+                  {(userRole === "admin" || hasDashboardAccess || hasOperationsAccess) && (
                     <div className="space-y-2 mb-3">
-                      <Link
-                        to="/dashboard"
-                        onClick={() => setIsMenuOpen(false)}
-                        className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-black text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-600 shadow-md"
-                      >
-                        <ShieldCheck className="w-5 h-5 text-blue-950" />
-                        <div className="flex flex-col text-right">
-                          <span>لوحة تحكم الإدارة</span>
-                          <span className="text-[10px] font-medium text-blue-950/80">الرقابة السيادية والاعتمادات</span>
-                        </div>
-                      </Link>
+                      {hasOperationsAccess && (
+                        <Link
+                          to="/operations"
+                          id="mobile-user-menu-operations-center-link"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-black text-white bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 border border-indigo-700/80 shadow-md"
+                        >
+                          <div className="p-1.5 bg-indigo-500/30 text-cyan-300 rounded-lg">
+                            <Radio className="w-5 h-5 text-cyan-400 animate-pulse" />
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <div className="flex items-center gap-1.5">
+                              <span>مركز العمليات السياقي</span>
+                              <span className="text-[9px] bg-cyan-400 text-slate-950 px-1.5 py-0.2 rounded font-black">Ops</span>
+                            </div>
+                            <span className="text-[10px] font-medium text-indigo-200">الاستثناءات والرقابة التشغيلية الحية</span>
+                          </div>
+                        </Link>
+                      )}
+
+                      {hasDashboardAccess && (
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-black text-slate-950 bg-gradient-to-r from-amber-400 to-amber-500 border border-amber-600 shadow-md"
+                        >
+                          <ShieldCheck className="w-5 h-5 text-blue-950" />
+                          <div className="flex flex-col text-right">
+                            <span>لوحة تحكم الإدارة</span>
+                            <span className="text-[10px] font-medium text-blue-950/80">الرقابة السيادية والاعتمادات</span>
+                          </div>
+                        </Link>
+                      )}
 
                       <div className="bg-white/5 p-2 rounded-xl border border-white/10 space-y-1">
                         <p className="px-2 text-[10px] font-bold text-amber-400/90 mb-1">معاينة بوابات المزودين:</p>

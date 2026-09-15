@@ -22,7 +22,9 @@ import {
   Store, 
   Lock, 
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard,
+  Clock
 } from 'lucide-react';
 
 interface SubscriptionModalsProps {
@@ -689,6 +691,89 @@ export const SubscriptionModals: React.FC<SubscriptionModalsProps> = ({
                       <div>
                         <span className="font-bold text-amber-950 block">26. الطلبات اللاحقة لمتجر المستلزمات (Post-Booking Addons)</span>
                         <span className="text-[10px] text-slate-500">تمكين العميل من إضافة مستلزمات ومنتجات جديدة للحجز المؤكد لاحقاً وفق المهلة المحددة للمنشأة</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 5️⃣ مجموعة استحقاقات سياسات الحجز والدفع والتحكم التشغيلي (P1.9) */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <div className="text-xs font-black text-slate-700 flex items-center justify-between border-b border-slate-100 pb-2">
+                    <span className="flex items-center gap-1.5 text-emerald-700">
+                      <CreditCard className="w-4 h-4" />
+                      5️⃣ استحقاقات سياسات الحجز والدفع والتحكم بالمهل التشغيلية (P1.9)
+                    </span>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded">السياسات والمهل</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs">
+                    {/* Instant Confirmation */}
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-emerald-50/40 border border-emerald-200 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesInstantConfirmation ?? true} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesInstantConfirmation: e.target.checked})} 
+                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-emerald-950 block">1. الحجز الفوري المؤكد (INSTANT_CONFIRMATION)</span>
+                        <span className="text-[10px] text-emerald-800">السياسة الافتراضية للمنصة — تأكيد ودفع فوري مباشر</span>
+                      </div>
+                    </label>
+
+                    {/* Approval Before Payment */}
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-amber-50/40 border border-amber-200 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesApprovalBeforePayment ?? true} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesApprovalBeforePayment: e.target.checked})} 
+                        className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-amber-950 block">2. الموافقة قبل الدفع (APPROVAL_BEFORE_PAYMENT)</span>
+                        <span className="text-[10px] text-amber-800">السياسة الأكثر أماناً — مراجعة المزود أولاً ثم إصدار رابط السداد</span>
+                      </div>
+                    </label>
+
+                    {/* Payment Before Approval */}
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-blue-50/40 border border-blue-200 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesPaymentBeforeApproval || false} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesPaymentBeforeApproval: e.target.checked})} 
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-blue-950 block">3. الدفع الفوري مع تعليق التأكيد (PAYMENT_BEFORE_APPROVAL)</span>
+                        <span className="text-[10px] text-blue-800">سداد فوري محتجز لحين مراجعة المزود، مع استرداد آلي عند الرفض</span>
+                      </div>
+                    </label>
+
+                    {/* Authorize Then Capture */}
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-purple-50/40 border border-purple-200 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesAuthorizeThenCapture || false} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesAuthorizeThenCapture: e.target.checked})} 
+                        className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-purple-950 block">4. التفويض وحجز المبلغ المؤقت (AUTHORIZE_THEN_CAPTURE)</span>
+                        <span className="text-[10px] text-purple-800">حجز المبلغ على بطاقة العميل والخصم النهائي فور قبول المزود</span>
+                      </div>
+                    </label>
+
+                    {/* Provider Response Deadline Control */}
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer md:col-span-2">
+                      <input 
+                        type="checkbox" 
+                        checked={subscriptionForm.includesProviderResponseDeadlineControl || false} 
+                        onChange={e => setSubscriptionForm({...subscriptionForm, includesProviderResponseDeadlineControl: e.target.checked})} 
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 mt-0.5" 
+                      />
+                      <div>
+                        <span className="font-bold text-slate-800 block">5. تحكم المزود في مهلة مراجعة الطلبات (Provider Response Deadline Control)</span>
+                        <span className="text-[10px] text-slate-500">تمكين المزود من اختيار مهلة المراجعة (ساعة واحدة، 3، 7، 12، 24 ساعة) بدلاً من الإعداد السيادي الافتراضي للمنصة</span>
                       </div>
                     </label>
                   </div>

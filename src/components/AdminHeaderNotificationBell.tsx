@@ -451,6 +451,13 @@ export const AdminHeaderNotificationBell: React.FC<AdminHeaderNotificationBellPr
 
           {/* Footer */}
           <div className="p-3 bg-slate-50 dark:bg-slate-900 text-center border-t border-slate-200 dark:border-slate-800 space-y-2">
+            <a
+              href="/operations"
+              className="w-full py-2 bg-gradient-to-r from-amber-600 via-slate-900 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-amber-200 font-extrabold text-xs rounded-xl border border-amber-600/50 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>⚡</span>
+              <span>مركز العمليات والاستثناءات التشغيلية الموحد (Operations Center)</span>
+            </a>
             <button
               onClick={() => handleActionClick('urgent_alerts')}
               className="w-full py-2 bg-gradient-to-r from-red-900 via-slate-900 to-red-950 hover:from-red-800 hover:to-red-900 text-red-200 font-extrabold text-xs rounded-xl border border-red-800/60 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"

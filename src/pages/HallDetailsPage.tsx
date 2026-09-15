@@ -495,34 +495,12 @@ export default function HallDetailsPage() {
 
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [processingGateway, setProcessingGateway] = useState<string | null>(null);
+  const [createdBookingData, setCreatedBookingData] = useState<any>(null);
 
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setBookingError(null);
-    
-    let activeGatewayKey = 'moyasar';
-    try {
-      const stored = localStorage.getItem('ADMIN_ENABLED_GATEWAYS');
-      const enabled = stored ? JSON.parse(stored) : {
-        moyasar: true, hyperpay: false, paytabs: false, geidea: false, tabby_api: true, tamara_api: true
-      };
-      
-      if (paymentMethod === 'tabby') activeGatewayKey = 'tabby_api';
-      else if (paymentMethod === 'tamara') activeGatewayKey = 'tamara_api';
-      else {
-        const standardKeys = ['moyasar', 'hyperpay', 'paytabs', 'geidea'];
-        const activeStandard = standardKeys.find(k => enabled[k]);
-        activeGatewayKey = activeStandard || localStorage.getItem('ADMIN_ACTIVE_GATEWAY') || 'moyasar';
-      }
-    } catch (e) {
-      activeGatewayKey = localStorage.getItem('ADMIN_ACTIVE_GATEWAY') || 'moyasar';
-    }
-
-    const gatewaysMap: Record<string, string> = {
-      moyasar: 'مُيسر (Moyasar)', hyperpay: 'هايبر باي (HyperPay)', paytabs: 'بي تابس (PayTabs)',
-      geidea: 'جيديا (Geidea)', tabby_api: 'تابي (Tabby)', tamara_api: 'تمارا (Tamara)'
-    };
-    const selectedGateway = gatewaysMap[activeGatewayKey] || 'مُيسر (Moyasar)';
+    setPaymentProcessing(true);
 
     const srvs = services.map(s => {
       const sId = parseInt(s.replace(/\D/g, '')) || 1;
@@ -533,6 +511,26 @@ export default function HallDetailsPage() {
     const chosenPkg = bType === 'packages' 
       ? (currentHall.packagesList?.find((p: any) => p.id === selectedPackageId) || currentHall.packagesList?.[0]) 
       : null;
+
+    const activePolicy = currentHall.bookingPaymentPolicy || 'APPROVAL_BEFORE_PAYMENT';
+    
+    // Status resolution based on active sovereign policy
+    let initialStatus = 'pending';
+    let initialPaymentStatus = 'UNPAID';
+
+    if (activePolicy === 'INSTANT_CONFIRMATION') {
+      initialStatus = 'confirmed';
+      initialPaymentStatus = 'مدفوع';
+    } else if (activePolicy === 'PAYMENT_BEFORE_APPROVAL') {
+      initialStatus = 'pending';
+      initialPaymentStatus = 'محجوز في الضمان';
+    } else if (activePolicy === 'AUTHORIZE_THEN_CAPTURE') {
+      initialStatus = 'pending';
+      initialPaymentStatus = 'مفوض';
+    } else {
+      initialStatus = 'pending';
+      initialPaymentStatus = 'غير مسدد';
+    }
 
     const bookingPayload = {
       customerName,
@@ -545,7 +543,10 @@ export default function HallDetailsPage() {
       guests: parseInt(guests) || 50,
       services: srvs,
       amount: bookingDetails.total,
-      paymentStatus: paymentMethod === 'bank_transfer' ? 'pending' : 'مدفوع',
+      totalAmount: bookingDetails.total,
+      status: initialStatus,
+      paymentStatus: initialPaymentStatus,
+      bookingPaymentPolicy: activePolicy,
       bookingType: bType,
       packageName: chosenPkg ? chosenPkg.name : null,
       selectedAddons: JSON.stringify(services),
@@ -557,36 +558,26 @@ export default function HallDetailsPage() {
       paymentMethod: paymentMethod
     };
 
-    const processPaymentAndBook = async () => {
-      try {
-        const response = await fetch('/api/bookings/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bookingPayload)
-        });
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'فشلت عملية إكمال الحجز والدفع.');
-        }
-
-        window.dispatchEvent(new Event('booking_updated'));
-        setIsBookingSuccess(true);
-      } catch (err: any) {
-        console.error('Error creating booking:', err);
-        setBookingError(err.message || 'حدث خطأ غير متوقع أثناء معالجة عملية الحجز والدفع.');
+    try {
+      const response = await fetch('/api/bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingPayload)
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'فشلت عملية إرسال طلب الحجز.');
       }
-    };
 
-    if (paymentMethod !== 'bank_transfer') {
-      setProcessingGateway(selectedGateway);
-      setPaymentProcessing(true);
-      setTimeout(() => {
-        setPaymentProcessing(false);
-        processPaymentAndBook();
-      }, 2500);
-    } else {
-      processPaymentAndBook();
+      setCreatedBookingData(data.booking || data.data || data);
+      window.dispatchEvent(new Event('booking_updated'));
+      setPaymentProcessing(false);
+      setIsBookingSuccess(true);
+    } catch (err: any) {
+      console.error('Error creating booking request:', err);
+      setPaymentProcessing(false);
+      setBookingError(err.message || 'حدث خطأ غير متوقع أثناء إرسال طلب الحجز.');
     }
   };
 
@@ -1088,35 +1079,173 @@ export default function HallDetailsPage() {
               </p>
             </section>
 
-            {/* POLICIES & CONTRACT TERMS (السياسات والعقد) */}
+            {/* POLICIES & CONTRACT TERMS (السياسات والعقد - مرحلة P2.x) */}
             <section id="policies-section" className="space-y-6 py-2">
-              {/* قواعد المكان */}
+              
+              {/* 1. معلومات وسياسات الحجز والدفع الأساسية */}
               <div className="space-y-3">
                 <h3 className="text-xl font-black text-blue-950 border-r-4 border-amber-500 pr-3 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-amber-500" /> قواعد المكان
+                  <ShieldCheck className="w-5 h-5 text-amber-500" /> معلومات وسياسات الحجز الأساسية
                 </h3>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                  <ul className="list-disc pr-4 space-y-1.5 text-xs md:text-sm text-slate-700 font-medium leading-relaxed">
-                    {Array.isArray(currentHall.rules) ? currentHall.rules.map((rule, i) => (
-                      <li key={i}>{rule}</li>
-                    )) : (currentHall.rules || 'مراعاة أوقات دخول وخروج طاقم الخدمة. الحفاظ على سلامة أجهزة الصوت والإضاءة. منع الألعاب النارية داخل الصالات المغلقة.').split('\n').map((rule, i) => (
-                      <li key={i}>{rule}</li>
-                    ))}
-                  </ul>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* سياسة الدفع وتأكيد الحجز */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 block">نوع سياسة الحجز المعتمدة</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-blue-950">
+                        {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                          ? '⚡ التأكيد الفوري والحجز المباشر'
+                          : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                          ? '🛡️ إيداع بالضمان الأمني قبل المراجعة'
+                          : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                          ? '💳 حجز وتفويض أمني مؤقت (Pre-Auth)'
+                          : '📨 موافقة المزود قبل السداد (المسار المعتمد)'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                        ? 'يتم سداد الحجز وتأكيده مباشرة وفورياً دون انتظار موافقة يدوية.'
+                        : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                        ? 'يُحفظ المبلغ في حساب الضمان للمنصة ويسترد فورياً وتلقائياً إذا اعتذر المزود.'
+                        : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                        ? 'تفويض أمني على البطاقة، ولا يُخصم المبلغ فعلياً إلا بعد قبول المزود.'
+                        : 'يُرسل الطلب للمزود للمراجعة أولاً، وبمجرد الموافقة تُفتح نافذة السداد لتأكيد الحجز.'}
+                    </p>
+                  </div>
+
+                  {/* مهل الاستجابة والتعامل */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 block">المهل الزمنية للطلب</span>
+                    <div className="text-xs text-slate-700 space-y-1 font-medium">
+                      <div className="flex items-center justify-between">
+                        <span>مهلة رد المزود:</span>
+                        <span className="font-bold text-blue-950">
+                          {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION' ? 'فوري ومباشر ⚡' : 'خلال 24 ساعة كحد أقصى'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>مهلة سداد العميل بعد الموافقة:</span>
+                        <span className="font-bold text-blue-950">24 ساعة من تاريخ القبول</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* العربون وتأكيد الموعد */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 block">العربون لتثبيت الحجز</span>
+                    <p className="text-xs text-slate-700 font-bold">
+                      عربون تأكيد بنسبة 25% من إجمالي قيمة العقد لتثبيت التاريخ والموعد.
+                    </p>
+                  </div>
+
+                  {/* التأمين المسترد */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-1">
+                    <span className="text-[11px] font-bold text-slate-500 block">مبلغ التأمين المسترد</span>
+                    <p className="text-xs text-slate-700 font-bold">
+                      +{Number(currentHall.securityDeposit || 1000).toLocaleString()} ر.س مستردة بالكامل فور انتهاء المناسبة وتسليم المنشأة بحالتها الطبيعية.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* شروط العقد */}
-              <div className="space-y-3">
+              {/* 2. الشروط الخاصة بمزود القاعة / المكان */}
+              <div className="space-y-4 pt-2">
                 <h3 className="text-xl font-black text-blue-950 border-r-4 border-amber-500 pr-3 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" /> شروط العقد
+                  <Shield className="w-5 h-5 text-amber-500" /> الشروط الخاصة بمزود القاعة
                 </h3>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                  <p className="text-xs md:text-sm text-slate-700 leading-relaxed font-medium">
-                    {currentHall.contractTerms || 'يتم اقتطاع عربون تأكيد بنسبة 25% لحجز التاريخ. يضاف مبلغ تأمين مسترد بقيمة 1,000 ر.س يعاد بالكامل فور انتهاء المناسبة وتسليم القاعة بحالتها الطبيعية.'}
-                  </p>
+
+                {/* قواعد المكان الخاصة */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>قواعد المكان والتشغيل</span>
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                    {(() => {
+                      const rulesList = Array.isArray(currentHall.rules)
+                        ? currentHall.rules.filter((r: string) => r && r.trim().length > 0)
+                        : (typeof currentHall.rules === 'string' && currentHall.rules.trim().length > 0)
+                        ? currentHall.rules.split('\n').map((r: string) => r.trim()).filter((r: string) => r.length > 0)
+                        : [];
+
+                      if (rulesList.length > 0) {
+                        return (
+                          <ul className="list-disc pr-4 space-y-1.5 text-xs md:text-sm text-slate-700 font-medium leading-relaxed">
+                            {rulesList.map((rule: string, i: number) => (
+                              <li key={i}>{rule}</li>
+                            ))}
+                          </ul>
+                        );
+                      }
+                      return (
+                        <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium italic">
+                          لم يحدد المزود شروطًا إضافية لهذا البند، وتطبق شروط وأحكام وسياسات منصة ليلة المعتمدة.
+                        </p>
+                      );
+                    })()}
+                  </div>
                 </div>
+
+                {/* شروط العقد الخاصة بالمزود */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>شروط العقد والالتزامات</span>
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                    {currentHall.contractTerms && currentHall.contractTerms.trim().length > 0 ? (
+                      <p className="text-xs md:text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-line">
+                        {currentHall.contractTerms}
+                      </p>
+                    ) : (
+                      <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium italic">
+                        لم يحدد المزود شروطًا إضافية لهذا البند، وتطبق شروط وأحكام وسياسات منصة ليلة المعتمدة.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* سياسة الإلغاء والاسترجاع للمزود */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>سياسة الإلغاء والاسترجاع</span>
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                    {currentHall.cancellationPolicy && currentHall.cancellationPolicy.trim().length > 0 ? (
+                      <p className="text-xs md:text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-line">
+                        {currentHall.cancellationPolicy}
+                      </p>
+                    ) : currentHall.cancellationPeriod ? (
+                      <p className="text-xs md:text-sm text-slate-700 leading-relaxed font-medium">
+                        إمكانية الإلغاء والاسترداد المالي وفق مهلة مزود المنشأة حتى {currentHall.cancellationPeriod} يوم قبل موعد المناسبة.
+                      </p>
+                    ) : (
+                      <p className="text-xs md:text-sm text-slate-600 leading-relaxed font-medium italic">
+                        لم يحدد المزود شروطًا إضافية لهذا البند، وتطبق شروط وأحكام وسياسات منصة ليلة المعتمدة.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* إحالة عامة إلى سياسات وشروط المنصة */}
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span className="text-xs font-bold text-blue-950">
+                      تخضع جميع الحجوزات والتعاملات لسياسات الحماية وشروط الاستخدام المعتمدة في منصة ليلة.
+                    </span>
+                  </div>
+                  <Link 
+                    to="/terms" 
+                    target="_blank"
+                    className="text-xs font-black text-amber-700 hover:text-amber-800 underline underline-offset-4 flex items-center gap-1 shrink-0"
+                  >
+                    <span>الاطلاع على الشروط والسياسات العامة</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
               </div>
+
             </section>
 
             {/* PROVIDER INFO CARD (معلومات المزود) */}
@@ -1968,12 +2097,48 @@ export default function HallDetailsPage() {
               {!isBookingSuccess ? (
                 <>
                   <div className="w-full md:w-3/5 p-8 border-b md:border-b-0 md:border-l border-slate-100">
-                    <h2 className="text-2xl font-bold text-blue-950 mb-2">إتمام عملية الدفع</h2>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-2xl font-bold text-blue-950">
+                        {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                          ? 'إتمام الحجز الفوري والدفع الأمني ⚡'
+                          : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                          ? 'سداد الحجز في حساب الضمان الأمني 🛡️'
+                          : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                          ? 'تفويض المبلغ وحجز الموعد 💳'
+                          : 'إرسال طلب الحجز إلى المزود 📨'}
+                      </h2>
+                    </div>
                     
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 mt-6">
-                      <p className="text-amber-800 text-sm font-bold flex items-start gap-2">
-                        <Info className="w-5 h-5 flex-shrink-0" />
-                        هذا الحجز مبدأي ولا يعد مؤكدا حتى يتم الموافقة عليه من مزود الخدمة لتأكيد عملية الحجز.
+                    <div className={`border rounded-xl p-4 mb-4 mt-2 ${
+                      currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                        : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                        ? 'bg-blue-50 border-blue-200 text-blue-950'
+                        : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                        ? 'bg-purple-50 border-purple-200 text-purple-950'
+                        : 'bg-amber-50 border-amber-200 text-amber-950'
+                    }`}>
+                      <p className="text-xs font-bold leading-relaxed flex items-start gap-2">
+                        <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <span>
+                          {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION' ? (
+                            <>
+                              <strong>الحجز الفوري المؤكد:</strong> يتم سداد وتأكيد الحجز فورياً ومباشرة عبر البوابة المصرفية الآمنة مع إصدار الفاتورة وتثبيت الموعد دون انتظار موافقة يدوية.
+                            </>
+                          ) : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL' ? (
+                            <>
+                              <strong>حساب الضمان الأمني (Escrow):</strong> يتم سداد وحجز المبلغ في حساب الضمان للمنصة بانتظار مراجعة المزود. في حال اعتذار المزود، يُسترد كامل المبلغ لمحفظتك/بطاقتك فورياً.
+                            </>
+                          ) : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE' ? (
+                            <>
+                              <strong>التفويض الأمني (Pre-Auth):</strong> يتم حجز تفويض أمني مؤقت على بطاقتك الائتمانية دون سحب المبلغ، ولن يتم التحصيل الفعلي إلا بعد قبول المزود للحجز رسمياً.
+                            </>
+                          ) : (
+                            <>
+                              <strong>القاعدة الذهبية للحجز المالي (الموافقة أولاً):</strong> لن يتم خصم أو تحصيل أي مبالغ مالية الآن. يتم إرسال طلب الحجز إلى مزود القاعة للمراجعة والقبول، وبمجرد موافقة المزود ستُفتح لك نافذة الدفع الأمني بمهلة 24 ساعة لتأكيد الحجز رسمياً.
+                            </>
+                          )}
+                        </span>
                       </p>
                     </div>
 
@@ -1981,14 +2146,20 @@ export default function HallDetailsPage() {
                       <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 mb-6 flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
                         <div className="flex-1">
-                          <p className="font-extrabold text-sm text-red-850">تعذر إكمال الحجز والعملية</p>
+                          <p className="font-extrabold text-sm text-red-850">تعذر إرسال طلب الحجز</p>
                           <p className="text-xs text-red-600 mt-1 leading-relaxed">{bookingError}</p>
                         </div>
                       </div>
                     )}
 
                     <form onSubmit={handleSubmitBooking}>
-                      <h4 className="font-bold text-slate-800 mb-4">طريقة الدفع</h4>
+                      <h4 className="font-bold text-slate-800 mb-3 text-sm">
+                        {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION' || currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                          ? 'اختر وسيلة الدفع للسداد:'
+                          : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                          ? 'اختر البطاقة لحجز التفويض الأمني:'
+                          : 'طريقة الدفع المفضلة (عند قبول المزود للطلب):'}
+                      </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                         {[
                           { key: 'mada', name: 'مدى' },
@@ -2002,7 +2173,7 @@ export default function HallDetailsPage() {
                         ].filter(gw => 
                           paymentSettings[gw.key]
                         ).map(gw => (
-                          <label key={gw.key} className={`border rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-all ${paymentMethod === gw.key ? 'border-amber-500 bg-amber-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                          <label key={gw.key} className={`border rounded-xl p-3 flex flex-col items-center justify-center cursor-pointer transition-all ${paymentMethod === gw.key ? 'border-amber-500 bg-amber-50 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`}>
                             <input type="radio" name="payment" value={gw.key} className="hidden" checked={paymentMethod === gw.key} onChange={() => setPaymentMethod(gw.key)} />
                             <CreditCard className={`w-6 h-6 mb-2 ${paymentMethod === gw.key ? 'text-amber-500' : 'text-slate-400'}`} />
                             <span className="text-xs font-bold text-slate-700 text-center">{gw.name}</span>
@@ -2010,111 +2181,65 @@ export default function HallDetailsPage() {
                         ))}
                       </div>
 
-                      <h4 className="font-bold text-slate-800 mb-4">بيانات الدفع</h4>
-                      <div className="space-y-4">
-                        {(paymentMethod === 'mada' || paymentMethod === 'creditMax') && (
-                          <>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 mb-1">الاسم على البطاقة</label>
-                              <input required type="text" className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors" placeholder="الاسم الكامل" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 mb-1">رقم البطاقة</label>
-                              <input required type="text" className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors text-left" placeholder="0000 0000 0000 0000" dir="ltr" />
-                            </div>
-                            <div className="flex gap-4">
-                              <div className="flex-1">
-                                <label className="block text-xs font-bold text-slate-500 mb-1">تاريخ الانتهاء</label>
-                                <input required type="text" className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors text-left" placeholder="MM/YY" dir="ltr" />
-                              </div>
-                              <div className="flex-1">
-                                <label className="block text-xs font-bold text-slate-500 mb-1">الرمز السري (CVC)</label>
-                                <input required type="text" className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors text-left" placeholder="123" dir="ltr" maxLength={3} />
-                              </div>
-                            </div>
-                          </>
-                        )}
-                        {paymentMethod === 'apple' && (
-                          <div className="flex justify-center items-center p-6 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                            <button type="submit" className="bg-black text-white hover:bg-gray-800 font-bold py-3 px-8 rounded-full shadow-lg transition-colors flex items-center justify-center gap-2 w-full max-w-sm cursor-pointer">
-                               الدفع بواسطة Apple Pay
-                            </button>
-                          </div>
-                        )}
-                        {paymentMethod === 'google_pay' && (
-                          <div className="flex justify-center items-center p-6 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-                            <button type="submit" className="bg-black text-white hover:bg-gray-800 font-bold py-3 px-8 rounded-full shadow-lg transition-colors flex items-center justify-center gap-2 w-full max-w-sm cursor-pointer">
-                               الدفع بواسطة Google Pay
-                            </button>
-                          </div>
-                        )}
-                        {(paymentMethod === 'tabby' || paymentMethod === 'tamara') && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 font-sans">
-                            <div className="flex items-start gap-3">
-                              <div className="bg-amber-100 text-amber-700 p-2 rounded-lg shrink-0 mt-0.5 animate-pulse">
-                                <Info className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <h5 className="font-extrabold text-slate-900 text-sm">شراء الآن والدفع لاحقاً مع {paymentMethod === 'tabby' ? 'تابي (Tabby)' : 'تمارا (Tamara)'}</h5>
-                                <p className="text-xs text-slate-500 mt-1">قسم فاتورتك بكل سهولة إلى 4 دفعات شهرية ميسرة بدون أي رسوم مخفية أو فوائد إضافية.</p>
-                              </div>
-                            </div>
-                            <div className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-slate-100 text-sm font-extrabold text-slate-700">
-                              <span>قيمة الدفعة الواحدة:</span>
-                              <span className="text-amber-600">{(bookingDetails.total / 4).toFixed(2)} ر.س / شهرياً</span>
-                            </div>
-                          </div>
-                        )}
-                        {paymentMethod === 'stc' && (
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">رقم الجوال المسجل في STC Pay</label>
-                            <input 
-                              required 
-                              type="tel" 
-                              maxLength={10}
-                              minLength={10}
-                              pattern="05[0-9]{8}"
-                              className="w-full border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 transition-colors text-left" 
-                              placeholder="05XXXXXXXX" 
-                              dir="ltr" 
-                            />
-                          </div>
-                        )}
-                        {paymentMethod === 'bank_transfer' && (
-                          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-4">
-                            <div>
-                               <p className="text-xs text-slate-500 mb-1">اسم البنك:</p>
-                               <p className="font-bold text-slate-800">مصرف الراجحي</p>
-                            </div>
-                            <div>
-                               <p className="text-xs text-slate-500 mb-1">اسم الحساب:</p>
-                               <p className="font-bold text-slate-800">{currentHall.provider}</p>
-                            </div>
-                            <div>
-                               <p className="text-xs text-slate-500 mb-1">رقم الآيبان (IBAN):</p>
-                               <p className="font-bold text-slate-800 text-left bg-white p-2 rounded border border-slate-200" dir="ltr">SA00 0000 0000 0000 0000 0000</p>
-                            </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-500 mb-1">إرفاق إيصال التحويل</label>
-                              <input required type="file" accept="image/*,.pdf" className="w-full border border-slate-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:border-amber-500 transition-colors text-sm" />
-                            </div>
-                          </div>
-                        )}
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs text-slate-600">
+                        <div className="flex items-center justify-between font-bold text-slate-800">
+                          <span>اسم مقدم الطلب:</span>
+                          <span>{customerName}</span>
+                        </div>
+                        <div className="flex items-center justify-between font-bold text-slate-800">
+                          <span>رقم الجوال:</span>
+                          <span dir="ltr">{customerPhone}</span>
+                        </div>
+                        <div className="flex items-center justify-between font-bold text-slate-800">
+                          <span>سياسة الحجز المعتمدة:</span>
+                          <span className="text-blue-900 font-extrabold">
+                            {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                              ? 'حجز فوري ومباشر ⚡'
+                              : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                              ? 'إيداع بالضمان الأمني 🛡️'
+                              : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                              ? 'تفويض أمني مؤقت 💳'
+                              : 'موافقة المزود قبل السداد 📨'}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                      {/* Terms and Policies Confirmation Box */}
+                      <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/20 space-y-2 mt-4">
+                        <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-700 leading-relaxed font-medium">
+                          <input 
+                            type="checkbox" 
+                            required 
+                            defaultChecked 
+                            className="w-4 h-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 mt-0.5 shrink-0" 
+                          />
+                          <span>
+                            أقر باطلاعي وموافقتي التامة على <strong>الشروط والسياسات الخاصة بمزود المنشأة</strong> و<strong>شروط وأحكام وسياسات منصة ليلة المعتمدة</strong>.
+                          </span>
+                        </label>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3 mt-6">
                         <button 
                           disabled={paymentProcessing} 
                           type="submit" 
-                          className="flex-1 bg-blue-950 hover:bg-blue-900 flex justify-center items-center gap-2 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                          className="flex-1 bg-blue-950 hover:bg-blue-900 flex justify-center items-center gap-2 text-white py-4 rounded-xl font-bold text-base shadow-lg hover:shadow-xl transition-all cursor-pointer"
                         >
                           {paymentProcessing ? (
                             <>
-                              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              <span>معالجة الدفع عبر {processingGateway}...</span>
+                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>جاري معالجة الطلب...</span>
                             </>
                           ) : (
-                            <span>تأكيد والدفع الآن</span>
+                            <span>
+                              {currentHall.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                                ? 'إتمام السداد وتأكيد الحجز الفوري ⚡'
+                                : currentHall.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                                ? 'سداد المبلغ وإرسال الطلب للضمان 🛡️'
+                                : currentHall.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                                ? 'تفويض المبلغ وإرسال الطلب 💳'
+                                : 'إرسال طلب الحجز إلى المزود 📨'}
+                            </span>
                           )}
                         </button>
                         
@@ -2126,9 +2251,9 @@ export default function HallDetailsPage() {
                             setIsBookingSuccess(false);
                             setBookingError(null);
                           }} 
-                          className="px-6 py-4 border border-slate-200 text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-xl font-bold transition-all text-center cursor-pointer"
+                          className="px-6 py-4 border border-slate-200 text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-xl font-bold transition-all text-center cursor-pointer text-sm"
                         >
-                          إلغاء الحجز
+                          إلغاء
                         </button>
                       </div>
                     </form>
@@ -2220,8 +2345,10 @@ export default function HallDetailsPage() {
               ) : (
                 <div className="p-8 w-full">
                    <BookingInvoice
-                      bookingId={Math.floor(100 + Math.random() * 900).toString()}
-                      issueDate={new Date().toLocaleDateString('ar-SA')}
+                      bookingId={createdBookingData?.bookingNumber || createdBookingData?.id?.toString() || '1'}
+                      bookingNumber={createdBookingData?.bookingNumber}
+                      invoiceNumber={createdBookingData?.invoiceNumber}
+                      issueDate={createdBookingData?.createdAt ? new Date(createdBookingData.createdAt).toLocaleDateString('ar-SA') : new Date().toLocaleDateString('ar-SA')}
                       providerName={currentHall.provider}
                       providerAddress={`${currentHall.city} - ${currentHall.location}`}
                       providerVatNo="300000000000003"
@@ -2269,6 +2396,8 @@ export default function HallDetailsPage() {
                       grandTotal={bookingDetails.total}
                       paymentMethod={paymentMethod}
                       status="paid"
+                      hideControlPanel={true}
+                      fixedLogoSize={true}
                    />
                 </div>
               )}

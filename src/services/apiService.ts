@@ -511,11 +511,97 @@ export const apiService = {
     return res.json();
   },
 
+  /** دالة عامة لجلب البيانات (GET) */
+  async get(endpoint: string) {
+    return fetchWithRetry(endpoint, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
+  /** جلب السجل الزمني للحجز */
+  async getBookingTimeline(id: number | string) {
+    return fetchWithRetry(`/api/bookings/${id}/timeline`, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
+  /** جلب السجل الزمني لطلب الخدمة المساندة */
+  async getSupportRequestTimeline(id: number | string) {
+    return fetchWithRetry(`/api/bookings/support-requests/${id}/timeline`, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
   /** تنقية أساليب تفعيل النظام */
   async cleanActivationStatus() {
     return fetchWithRetry('/api/bookings/system/clean-activation-status', 3, 1000, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
+    });
+  },
+
+  // --- P2.2 التوفر والحجز المؤقت ومنع الحجز المزدوج ---
+  /** جلب توفر القاعة بالفترات (صباحية، مسائية، يوم كامل) */
+  async getAvailability(hallId: number | string, date: string) {
+    return fetchWithRetry(`/api/bookings/availability?hallId=${hallId}&date=${date}`, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
+  /** حجز فترة مؤقتاً (Acquire Atomic Period Hold) */
+  async acquireHold(payload: { hallId: number | string; date: string; period: string; userId?: number | string; sessionId?: string }) {
+    const res = await fetch('/api/bookings/holds/acquire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'فشل حجز الفترة مؤقتاً');
+    }
+    return data;
+  },
+
+  /** التحقق من حالة الحجز المؤقت */
+  async verifyHold(holdToken: string, hallId: number | string, date: string, period: string) {
+    return fetchWithRetry(`/api/bookings/holds/verify?holdToken=${holdToken}&hallId=${hallId}&date=${date}&period=${period}`, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
+  /** تحرير الحجز المؤقت يدوياً */
+  async releaseHold(holdToken: string) {
+    return fetchWithRetry('/api/bookings/holds/release', 3, 1000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ holdToken })
+    });
+  },
+
+  /** جلب التواريخ والفترات المحظورة */
+  async getBlockedDates(params?: { entityId?: number | string; entityType?: string; providerId?: number | string }) {
+    const query = new URLSearchParams();
+    if (params?.entityId) query.append('entityId', String(params.entityId));
+    if (params?.entityType) query.append('entityType', params.entityType);
+    if (params?.providerId) query.append('providerId', String(params.providerId));
+    return fetchWithRetry(`/api/bookings/blocked-dates?${query.toString()}`, 3, 1000, {
+      method: 'GET'
+    });
+  },
+
+  /** إضافة تاريخ أو فترة محظورة */
+  async createBlockedDate(payload: any) {
+    return fetchWithRetry('/api/bookings/blocked-dates', 3, 1000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  /** إلغاء حظر تاريخ */
+  async deleteBlockedDate(id: number | string) {
+    return fetchWithRetry(`/api/bookings/blocked-dates/${id}`, 3, 1000, {
+      method: 'DELETE'
     });
   }
 };

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { FinanceController } from './finance.controller.js';
 import { PaymentThresholdsController } from './paymentThresholds.controller.js';
 import { PaymentTokensController } from './paymentTokens.controller.js';
+import { requireEntitlement } from '../../middleware/entitlement.middleware.js';
 
 const router = Router();
 const controller = new FinanceController();
@@ -68,8 +69,8 @@ router.post('/settlements/approve', controller.approveSettlement);
 router.get('/ledger', controller.getLedgerEntries);
 
 // AI & Document export systems
-router.post('/forecast-ai', controller.forecastAI);
-router.post('/generate-pdf', controller.generatePDF);
+router.post('/forecast-ai', requireEntitlement('financial_forecast_ai'), controller.forecastAI);
+router.post('/generate-pdf', requireEntitlement('can_export_financials'), controller.generatePDF);
 
 // Customer wallet management
 router.get('/customer-wallets', controller.getCustomerWallets);

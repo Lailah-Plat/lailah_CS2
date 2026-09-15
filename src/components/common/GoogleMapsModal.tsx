@@ -10,8 +10,8 @@ import {
 import { X, MapPin, Search, Check, AlertTriangle, Compass, ShieldAlert, FileSpreadsheet, RefreshCw, Layers } from 'lucide-react';
 
 const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
   '';
 
 const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY';

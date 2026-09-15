@@ -288,7 +288,22 @@ export default function StaffManagement({
           halls: { read: true, create: true, update: true, delete: true },
           bookings: { read: true, create: true, update: true, delete: true },
           financials: { read: true, create: true, update: true, delete: true },
+          operations: { read: true, create: true, update: true, delete: true },
           settings: { read: true, create: true, update: true, delete: true }
+        }
+      },
+      {
+        id: 'operations_officer',
+        name: 'مسؤول عمليات ولوجستيات (Operations Officer)',
+        description: 'إدارة مركز العمليات السياقي، معالجة الاستثناءات، ومراقبة SLA والتدخل السريع.',
+        color: 'cyan',
+        isSystem: true,
+        permissions: {
+          halls: { read: true, create: false, update: true, delete: false },
+          bookings: { read: true, create: false, update: true, delete: false },
+          financials: { read: true, create: false, update: false, delete: false },
+          operations: { read: true, create: true, update: true, delete: false },
+          settings: { read: false, create: false, update: false, delete: false }
         }
       },
       {
@@ -1686,6 +1701,7 @@ export default function StaffManagement({
                           { key: 'halls', label: 'إدارة القاعات والصالات', desc: 'استعراض وإضافة وتعديل بيانات القاعات والخدمات المساندة' },
                           { key: 'bookings', label: 'محرك الحجوزات والتعاقدات', desc: 'تأكيد وقبول وإلغاء الحجوزات وإصدار الفواتير الأولية' },
                           { key: 'financials', label: 'المالية والتقارير والزكاة', desc: 'الاطلاع على الإيرادات والمصروفات والربط الضريبي' },
+                          { key: 'operations', label: 'مركز العمليات والاستثناءات ⚡', desc: 'معالجة الحالات الحرجة، الاستثناءات التشغيلية، ومراقبة SLA' },
                           { key: 'settings', label: 'إعدادات المنصة والهندسة', desc: 'تغيير الإعدادات العامة والربط البرمجي وقواعد النظام' },
                         ].map((cat) => {
                           const currentRolePerms = selectedRoleObj.permissions?.[cat.key] || { read: false, create: false, update: false, delete: false };

@@ -10,12 +10,13 @@ import {
   ProviderFeatureOverride, 
   SubscriptionPlan 
 } from '../../models/SubscriptionModels.js';
+import { effectiveEntitlementService } from '../../services/entitlement/effectiveEntitlementService.js';
+import { requireEntitlement } from '../../middleware/entitlement.middleware.js';
 
 export const storeRouter = Router();
 
 /**
- * Helper to check provider entitlement on backend
- * Checks Admin Grants/Overrides, Active Subscriptions, Plan Features, and Addons.
+ * Helper to check provider entitlement on backend via unified EffectiveEntitlementService
  */
 export async function isProviderEntitledToStore(providerIdOrName: string): Promise<{ 
   isEntitled: boolean; 
@@ -27,80 +28,20 @@ export async function isProviderEntitledToStore(providerIdOrName: string): Promi
     const pKey = String(providerIdOrName || '').trim();
     if (!pKey) return { isEntitled: false, source: 'none' };
 
-    // 0. Superadmin / System Admin Bypass
+    // Superadmin / System Admin Bypass
     const pKeyLower = pKey.toLowerCase();
     if (pKeyLower === 'admin' || pKeyLower === 'superadmin' || pKeyLower.includes('إدارة')) {
       return { isEntitled: true, source: 'admin_grant', planName: 'إدارة النظام السيادية' };
     }
 
-    // 1. Check Admin Overrides (Direct Grants or Revocations)
-    const override = await ProviderFeatureOverride.findOne({
-      where: { featureKey: 'mini_products_store' }
-    });
-    if (override) {
-      const matchId = String(override.providerId) === pKey;
-      const matchEmail = override.providerEmail && override.providerEmail.toLowerCase() === pKeyLower;
-      if (matchId || matchEmail) {
-        if (override.value !== 'false' && (!override.expiresAt || new Date(override.expiresAt) > new Date())) {
-          return { isEntitled: true, source: 'admin_grant', notes: override.notes || 'منح إداري مباشر' };
-        } else {
-          return { isEntitled: false, source: 'admin_revoke', notes: 'معطل صراحة بواسطة الإدارة' };
-        }
-      }
-    }
-
-    // 2. Check Provider Active Subscriptions
-    const sub = await ProviderSubscription.findOne({
-      where: { status: 'active' }
-    });
-    if (sub) {
-      const matchId = String(sub.providerId) === pKey;
-      const matchEmail = sub.providerEmail && sub.providerEmail.toLowerCase() === pKeyLower;
-      if (matchId || matchEmail) {
-        const planName = (sub.planName || '').toLowerCase();
-        const subNotes = (sub.notes || '').toLowerCase();
-
-        // A) Included in Tier
-        if (
-          planName.includes('pro') || 
-          planName.includes('الاحترافية') || 
-          planName.includes('التميز') ||
-          planName.includes('الذهبية') ||
-          subNotes.includes('mini_products_store')
-        ) {
-          return { isEntitled: true, source: 'plan', planName: sub.planName || 'الباقة الاحترافية' };
-        }
-
-        // B) Check SubscriptionPlan features if planId exists
-        if (sub.planId) {
-          const plan = await SubscriptionPlan.findByPk(sub.planId);
-          if (plan) {
-            try {
-              const features = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || {});
-              if (features.mini_products_store === true || features.includesMiniProductsStore === true || features.includesMiniStore === true) {
-                return { isEntitled: true, source: 'plan', planName: plan.name };
-              }
-            } catch (e) {}
-          }
-        }
-      }
-    }
-
-    // 3. Fallback check for all plans
-    const allPlans = await SubscriptionPlan.findAll();
-    for (const plan of allPlans) {
-      try {
-        const features = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || {});
-        if (features.mini_products_store === true || features.includesMiniProductsStore === true || features.includesMiniStore === true) {
-          if (sub && sub.planId === plan.id) {
-            return { isEntitled: true, source: 'plan', planName: plan.name };
-          }
-        }
-      } catch (e) {}
-    }
-
-    // If no active entitlement is found:
-    return { isEntitled: false, source: 'none', notes: 'الميزة غير مفعلة في باقة المزود الحالية' };
+    const pId = Number(pKey.replace(/\D/g, '')) || 1;
+    const check = await effectiveEntitlementService.checkFeature(pId, 'mini_products_store');
+    return {
+      isEntitled: check.allowed,
+      source: check.source || 'none',
+      planName: (check.details as any)?.planName || undefined,
+      notes: check.details?.notes || undefined
+    };
   } catch (err) {
     console.error('Error checking store entitlement on backend:', err);
     return { isEntitled: false, source: 'fallback' };
@@ -108,30 +49,9 @@ export async function isProviderEntitledToStore(providerIdOrName: string): Promi
 }
 
 /**
- * Middleware Guard: Requires Mini Store Entitlement for modifying products
+ * Middleware Guard: Requires Mini Store Entitlement using unified guard
  */
-export async function requireStoreEntitlement(req: Request, res: Response, next: Function) {
-  const providerId = req.body.providerId || req.query.providerId || req.headers['x-provider-id'] || 'PROV-1';
-  const role = req.headers['x-user-role'] || 'provider';
-
-  if (role === 'admin' || role === 'superadmin') {
-    return next();
-  }
-
-  const entitlement = await isProviderEntitledToStore(String(providerId));
-  if (!entitlement.isEntitled) {
-    return res.status(403).json({
-      success: false,
-      code: 'FEATURE_LOCKED',
-      error: 'عذراً، ميزة "متجر المنتجات والمستلزمات المصغر" غير مفعلة في باقة المزود الحالية. يتطلب الاشتراك في الباقة الاحترافية أو تفعيل الميزة كإضافة مستقلة لتعديل أو نشر المنتجات.',
-      featureKey: 'mini_products_store',
-      isEntitled: false,
-      source: entitlement.source
-    });
-  }
-
-  next();
-}
+export const requireStoreEntitlement = requireEntitlement('mini_products_store');
 
 // 1. Check Entitlement endpoint
 storeRouter.get('/entitlement/:providerId', async (req: Request, res: Response) => {

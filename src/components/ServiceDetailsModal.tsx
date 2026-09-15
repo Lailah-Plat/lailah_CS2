@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Star, MapPin, Globe, ShieldAlert, BadgeCheck, Sparkles, Award, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { X, Star, MapPin, Globe, ShieldAlert, BadgeCheck, Sparkles, Award, ShieldCheck, CheckCircle2, Info, ExternalLink } from 'lucide-react';
 import { EventService, getPartnerLevel, providers } from '../data/mockData';
 import { useTheme } from '../context/ThemeContext';
 import { ItemQrCodeButton } from './common/ItemQrCodeModal';
@@ -309,22 +309,75 @@ export default function ServiceDetailsModal({
               </div>
             )}
 
-            {/* Service Terms */}
-            {service.terms && (
-              <div className={`p-4 border rounded-2xl space-y-2 transition-colors ${
-                isDark 
-                  ? 'bg-slate-900/40 border-amber-500/10' 
-                  : 'bg-amber-500/5 border-amber-500/20'
-              }`}>
-                <h4 className="text-xs font-bold text-amber-505 flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 text-amber-500" />
-                  شروط وأحكام حجز الخدمة المساندة
-                </h4>
-                <p className={`text-xs leading-relaxed whitespace-pre-line transition-colors ${isDark ? 'text-slate-400' : 'text-slate-650'}`}>
+            {/* Essential Booking Information & Policies */}
+            <div className={`p-4 border rounded-2xl space-y-3 transition-colors ${
+              isDark 
+                ? 'bg-slate-900/60 border-slate-800 text-slate-300' 
+                : 'bg-slate-50 border-slate-200 text-slate-700'
+            }`}>
+              <h4 className="text-xs font-black text-blue-950 flex items-center gap-1.5 dark:text-amber-400">
+                <ShieldCheck className="w-4 h-4 text-amber-500" />
+                معلومات وسياسة حجز الخدمة المعتمدة
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">نوع السياسة المطبقة:</span>
+                  <span className="font-extrabold text-blue-950 dark:text-slate-200">
+                    {service.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                      ? '⚡ حجز فوري ومباشر'
+                      : service.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                      ? '🛡️ إيداع بالضمان الأمني'
+                      : service.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                      ? '💳 تفويض أمني مؤقت'
+                      : '📨 موافقة المزود قبل السداد'}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">مهلة الاستجابة:</span>
+                  <span className="font-extrabold text-blue-950 dark:text-slate-200">
+                    {service.bookingPaymentPolicy === 'INSTANT_CONFIRMATION' ? 'فوري ⚡' : 'خلال 24 ساعة كحد أقصى'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Provider Specific Service Terms (الشروط الخاصة بمزود الخدمة) */}
+            <div className={`p-4 border rounded-2xl space-y-2 transition-colors ${
+              isDark 
+                ? 'bg-slate-900/40 border-amber-500/10' 
+                : 'bg-amber-500/5 border-amber-500/20'
+            }`}>
+              <h4 className="text-xs font-bold text-amber-600 flex items-center gap-1.5 dark:text-amber-400">
+                <ShieldAlert className="w-4 h-4 text-amber-500" />
+                الشروط الخاصة بمزود الخدمة
+              </h4>
+              {service.terms && service.terms.trim().length > 0 ? (
+                <p className={`text-xs leading-relaxed whitespace-pre-line transition-colors ${isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
                   {service.terms}
                 </p>
-              </div>
-            )}
+              ) : (
+                <p className={`text-xs leading-relaxed italic transition-colors ${isDark ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+                  لم يحدد المزود شروطًا إضافية لهذا البند، وتطبق شروط وأحكام وسياسات منصة ليلة المعتمدة.
+                </p>
+              )}
+            </div>
+
+            {/* Platform Terms Reference Note */}
+            <div className="text-[11px] text-slate-500 flex items-center justify-between gap-2 px-1">
+              <span className="flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                تخضع كافة المعاملات لسياسات الحماية وشروط الاستخدام لمنصة ليلة.
+              </span>
+              <a 
+                href="/terms" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="font-bold text-amber-600 hover:underline flex items-center gap-0.5 shrink-0"
+              >
+                <span>الشروط العامة</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
 
           </div>
 

@@ -21,6 +21,10 @@ export class User extends Model {
   declare points: number;
   declare username?: string;
   declare showProviderToCustomers?: boolean;
+  declare defaultBookingPaymentPolicy?: string;
+  declare venueBookingPolicy?: string;
+  declare independentServiceBookingPolicy?: string;
+  declare providerResponseDeadlineHours?: number;
 }
 
 User.init({
@@ -57,7 +61,11 @@ User.init({
   image: { type: DataTypes.STRING, allowNull: true },
   points: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
   username: { type: DataTypes.STRING, allowNull: true },
-  showProviderToCustomers: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: true }
+  showProviderToCustomers: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: true },
+  defaultBookingPaymentPolicy: { type: DataTypes.STRING, defaultValue: 'INSTANT_CONFIRMATION', allowNull: true },
+  venueBookingPolicy: { type: DataTypes.STRING, defaultValue: 'INSTANT_CONFIRMATION', allowNull: true },
+  independentServiceBookingPolicy: { type: DataTypes.STRING, defaultValue: 'INSTANT_CONFIRMATION', allowNull: true },
+  providerResponseDeadlineHours: { type: DataTypes.INTEGER, defaultValue: 1, allowNull: true }
 }, {
   sequelize,
   modelName: 'User',
@@ -245,6 +253,42 @@ export async function syncUserModels() {
         allowNull: true
       });
       console.log(`Column showProviderToCustomers added successfully to ${User.tableName}.`);
+    }
+    if (!tableInfo.defaultBookingPaymentPolicy) {
+      console.log(`Adding defaultBookingPaymentPolicy column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'defaultBookingPaymentPolicy', {
+        type: DataTypes.STRING,
+        defaultValue: 'APPROVAL_BEFORE_PAYMENT',
+        allowNull: true
+      });
+      console.log(`Column defaultBookingPaymentPolicy added successfully to ${User.tableName}.`);
+    }
+    if (!tableInfo.venueBookingPolicy) {
+      console.log(`Adding venueBookingPolicy column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'venueBookingPolicy', {
+        type: DataTypes.STRING,
+        defaultValue: 'INSTANT_CONFIRMATION',
+        allowNull: true
+      });
+      console.log(`Column venueBookingPolicy added successfully to ${User.tableName}.`);
+    }
+    if (!tableInfo.independentServiceBookingPolicy) {
+      console.log(`Adding independentServiceBookingPolicy column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'independentServiceBookingPolicy', {
+        type: DataTypes.STRING,
+        defaultValue: 'INSTANT_CONFIRMATION',
+        allowNull: true
+      });
+      console.log(`Column independentServiceBookingPolicy added successfully to ${User.tableName}.`);
+    }
+    if (!tableInfo.providerResponseDeadlineHours) {
+      console.log(`Adding providerResponseDeadlineHours column to ${User.tableName}...`);
+      await queryInterface.addColumn(User.tableName, 'providerResponseDeadlineHours', {
+        type: DataTypes.INTEGER,
+        defaultValue: 1,
+        allowNull: true
+      });
+      console.log(`Column providerResponseDeadlineHours added successfully to ${User.tableName}.`);
     }
   } catch (err: any) {
     console.log("Could not check/add columns dynamically before sync (this is normal if table does not exist yet):", err.message || err);

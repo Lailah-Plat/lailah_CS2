@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Editor from 'react-simple-wysiwyg';
 import { TaxNumberInput, CrNumberInput } from '../common/ValidationInputs';
+import LegalCmsManager from './LegalCmsManager';
 
 export default function PlatformInfoSettings({ 
   platformData, 
@@ -730,30 +731,8 @@ export default function PlatformInfoSettings({
 
         {/* Tab 5: Legal Content */}
         {activeTab === 'legal' && (
-          <div className="space-y-8 animate-in fade-in duration-300">
-            <h4 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-6">
-              <FileText className="w-5 h-5 text-amber-500" />
-              المحتويات التعريفية والسياسات القانونية
-            </h4>
-            <div className="space-y-6">
-              {[
-                { id: 'aboutUs', label: 'من نحن' },
-                { id: 'privacyPolicy', label: 'سياسة الخصوصية' },
-                { id: 'termsAndConditions', label: 'الشروط والأحكام' },
-                { id: 'faq', label: 'الأسئلة الشائعة' },
-              ].map(field => (
-                <div key={field.id}>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">{field.label}</label>
-                  <div className="bg-slate-100 rounded-2xl p-1 border border-slate-200" dir="ltr">
-                    <Editor 
-                      value={platformData[field.id] || ''} 
-                      onChange={(e: any) => updateSetting(field.id, e.target.value)}
-                      className="bg-white min-h-[150px] text-right"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <LegalCmsManager showToast={showToast} />
           </div>
         )}
 

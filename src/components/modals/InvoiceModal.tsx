@@ -50,7 +50,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
         <div className="p-6 overflow-y-auto w-full max-w-[100%]">
           <BookingInvoice 
-            bookingId={invoiceBookingToPrint.id.toString()}
+            bookingId={invoiceBookingToPrint.bookingNumber || invoiceBookingToPrint.id.toString()}
+            bookingNumber={invoiceBookingToPrint.bookingNumber}
+            invoiceNumber={invoiceBookingToPrint.invoiceNumber}
+            requestNumber={invoiceBookingToPrint.requestNumber || invoiceBookingToPrint.serviceRequestId}
+            referenceNumber={invoiceBookingToPrint.referenceNumber}
             issueDate={invoiceBookingToPrint.date}
             providerName={isSupportRequest ? invoiceBookingToPrint.providerName : (invoiceBookingToPrint.hall || invoiceBookingToPrint.type)}
             providerAddress={!isSupportRequest ? (invoiceBookingToPrint.hallRegion || "غير محدد") : "غير محدد"}
@@ -86,6 +90,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             status={isSupportRequest ? (invoiceBookingToPrint.status === 'مكتمل' ? 'paid' : 'pending') : (invoiceBookingToPrint.paymentStatus === 'مدفوع' ? 'paid' : 'pending')}
             platformData={platformData}
             allBookings={bookings}
+            hideControlPanel={true}
+            fixedLogoSize={true}
           />
         </div>
       </div>

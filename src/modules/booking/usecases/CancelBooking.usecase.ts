@@ -5,6 +5,7 @@ import {
 } from '../booking.helpers.js';
 import { User, PlatformConfig } from '../../../models/UserModels.js';
 import { RefundOrchestrator } from '../../../services/finance/RefundOrchestrator.js';
+import { BookingStateMachine } from '../../../services/lifecycle/BookingStateMachine.js';
 
 export class CancelBookingUseCase {
   constructor(private repo: BookingRepository) {}
@@ -17,11 +18,11 @@ export class CancelBookingUseCase {
       throw error;
     }
 
-    if (booking.status === 'cancelled') {
+    if (booking.status === 'cancelled' || (booking as any).lifecycleStatus === 'CANCELLED') {
       return { message: 'الحجز ملغى بالفعل', booking };
     }
 
-    if (booking.status === 'completed') {
+    if (booking.status === 'completed' || (booking as any).lifecycleStatus === 'COMPLETED') {
       const error: any = new Error('عذراً، لا يمكن إلغاء الحجوزات المكتملة أو منتهية الصلاحية.');
       error.status = 400;
       throw error;
@@ -51,7 +52,7 @@ export class CancelBookingUseCase {
     let refundResult: any = null;
 
     // التنفيذ المالي الموحد عبر المحرك السيادي فقط عند إلغاء حجز مؤكد أو مدفوع
-    if (previousStatus === 'confirmed') {
+    if (previousStatus === 'confirmed' || (booking as any).paymentState === 'PAID' || booking.paymentStatus === 'مدفوع') {
       let reconciliationModel: 'hybrid' | 'binary' = 'hybrid';
       try {
         const config = await PlatformConfig.findByPk('SYSTEM_FINANCIAL_SETTINGS');
@@ -77,8 +78,13 @@ export class CancelBookingUseCase {
       });
     }
 
-    // تحديث الحالة التشغيلية للحجز
-    await booking.update({ status: 'cancelled' });
+    // تحديث الحالة التشغيلية ومحاور الحالة الثمانية للحجز عبر الآلة الحالة
+    await BookingStateMachine.transition(booking, 'CANCEL', {
+      actorId: req?.headers?.['x-user-id'] ? Number(req.headers['x-user-id']) : undefined,
+      actorRole: (req?.headers?.['x-user-role'] as string) || 'customer',
+      cancellationReason: req?.body?.reason || 'إلغاء الحجز من قبل العميل'
+    });
+
     await deductLoyaltyPointsForCancelledBooking(booking);
 
     const cashRefunded = refundResult?.snapshot?.refundedCustomerAmount ? (refundResult.snapshot.refundedCustomerAmount / 100) : 0;

@@ -751,6 +751,75 @@ GatewayCapability.init({
   partialRefund: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, { sequelize, modelName: 'GatewayCapability' });
 
+export class DomainEvent extends Model {
+  declare id: number;
+  declare eventId: string;
+  declare eventType: string;
+  declare aggregateType: 'Booking' | 'SupportServiceRequest' | 'Invoice' | 'Payment' | 'Settlement' | string;
+  declare aggregateId: number | string;
+  declare payload: string;
+  declare actorId: number | null;
+  declare actorRole: string | null;
+  declare stateSnapshot: string | null;
+  declare createdAt: Date;
+}
+
+DomainEvent.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  eventId: { type: DataTypes.STRING, allowNull: false, unique: true },
+  eventType: { type: DataTypes.STRING, allowNull: false },
+  aggregateType: { type: DataTypes.STRING, allowNull: false },
+  aggregateId: { type: DataTypes.STRING, allowNull: false },
+  payload: { type: DataTypes.TEXT, defaultValue: '{}' },
+  actorId: { type: DataTypes.INTEGER, allowNull: true },
+  actorRole: { type: DataTypes.STRING, allowNull: true },
+  stateSnapshot: { type: DataTypes.TEXT, allowNull: true }
+}, {
+  sequelize,
+  modelName: 'DomainEvent',
+  indexes: [
+    { fields: ['aggregateType', 'aggregateId'] },
+    { fields: ['eventType'] },
+    { fields: ['createdAt'] }
+  ]
+});
+
+export class LifecycleAuditLog extends Model {
+  declare id: number;
+  declare aggregateType: 'Booking' | 'SupportServiceRequest' | string;
+  declare aggregateId: number | string;
+  declare fromState: string;
+  declare toState: string;
+  declare action: string;
+  declare actorId: number | null;
+  declare actorRole: string | null;
+  declare reason: string | null;
+  declare metadata: string | null;
+  declare timestamp: Date;
+}
+
+LifecycleAuditLog.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  aggregateType: { type: DataTypes.STRING, allowNull: false },
+  aggregateId: { type: DataTypes.STRING, allowNull: false },
+  fromState: { type: DataTypes.STRING, allowNull: false },
+  toState: { type: DataTypes.STRING, allowNull: false },
+  action: { type: DataTypes.STRING, allowNull: false },
+  actorId: { type: DataTypes.INTEGER, allowNull: true },
+  actorRole: { type: DataTypes.STRING, allowNull: true },
+  reason: { type: DataTypes.TEXT, allowNull: true },
+  metadata: { type: DataTypes.TEXT, defaultValue: '{}' },
+  timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+}, {
+  sequelize,
+  modelName: 'LifecycleAuditLog',
+  indexes: [
+    { fields: ['aggregateType', 'aggregateId'] },
+    { fields: ['action'] },
+    { fields: ['timestamp'] }
+  ]
+});
+
 import { User } from './UserModels.js';
 import { ForceMajeureRequest, Booking, SupportServiceRequest, Service, Supplier, Hall } from './BookingModels.js';
 import { ProviderSubscription, ProviderFeatureOverride, SubscriptionPlan } from './SubscriptionModels.js';
@@ -1603,6 +1672,186 @@ export async function syncDatabase() {
       if (refundAllocTableInfo) {
         if (!refundAllocTableInfo.executionStatus) {
           await queryInterface.addColumn('refund_allocations', 'executionStatus', { type: DataTypes.STRING, defaultValue: 'REQUESTED' });
+        }
+      }
+
+      // Lifecycle Migration for Booking & SupportServiceRequest (P2.1)
+      const bookingTableInfo: any = await queryInterface.describeTable('Bookings').catch(() => null);
+      if (bookingTableInfo) {
+        if (!bookingTableInfo.bookingNumber) {
+          await queryInterface.addColumn('Bookings', 'bookingNumber', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!bookingTableInfo.lifecycleStatus) {
+          await queryInterface.addColumn('Bookings', 'lifecycleStatus', { type: DataTypes.STRING, defaultValue: 'REQUESTED' });
+        }
+        if (!bookingTableInfo.providerDecision) {
+          await queryInterface.addColumn('Bookings', 'providerDecision', { type: DataTypes.STRING, defaultValue: 'PENDING' });
+        }
+        if (!bookingTableInfo.paymentState) {
+          await queryInterface.addColumn('Bookings', 'paymentState', { type: DataTypes.STRING, defaultValue: 'UNPAID' });
+        }
+        if (!bookingTableInfo.refundState) {
+          await queryInterface.addColumn('Bookings', 'refundState', { type: DataTypes.STRING, defaultValue: 'NONE' });
+        }
+        if (!bookingTableInfo.disputeState) {
+          await queryInterface.addColumn('Bookings', 'disputeState', { type: DataTypes.STRING, defaultValue: 'NONE' });
+        }
+        if (!bookingTableInfo.fulfillmentState) {
+          await queryInterface.addColumn('Bookings', 'fulfillmentState', { type: DataTypes.STRING, defaultValue: 'NOT_STARTED' });
+        }
+        if (!bookingTableInfo.entitlementState) {
+          await queryInterface.addColumn('Bookings', 'entitlementState', { type: DataTypes.STRING, defaultValue: 'PENDING_HOLD' });
+        }
+        if (!bookingTableInfo.settlementState) {
+          await queryInterface.addColumn('Bookings', 'settlementState', { type: DataTypes.STRING, defaultValue: 'UNSETTLED' });
+        }
+        if (!bookingTableInfo.providerResponseDeadline) {
+          await queryInterface.addColumn('Bookings', 'providerResponseDeadline', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!bookingTableInfo.paymentDeadline) {
+          await queryInterface.addColumn('Bookings', 'paymentDeadline', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!bookingTableInfo.acceptedAt) {
+          await queryInterface.addColumn('Bookings', 'acceptedAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!bookingTableInfo.acceptedBy) {
+          await queryInterface.addColumn('Bookings', 'acceptedBy', { type: DataTypes.INTEGER, allowNull: true });
+        }
+        if (!bookingTableInfo.rejectedAt) {
+          await queryInterface.addColumn('Bookings', 'rejectedAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!bookingTableInfo.rejectedBy) {
+          await queryInterface.addColumn('Bookings', 'rejectedBy', { type: DataTypes.INTEGER, allowNull: true });
+        }
+        if (!bookingTableInfo.rejectionReason) {
+          await queryInterface.addColumn('Bookings', 'rejectionReason', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!bookingTableInfo.preApprovalSnapshot) {
+          await queryInterface.addColumn('Bookings', 'preApprovalSnapshot', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!bookingTableInfo.finalPaymentQuote) {
+          await queryInterface.addColumn('Bookings', 'finalPaymentQuote', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!bookingTableInfo.cancelledAt) {
+          await queryInterface.addColumn('Bookings', 'cancelledAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!bookingTableInfo.cancelledBy) {
+          await queryInterface.addColumn('Bookings', 'cancelledBy', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!bookingTableInfo.cancellationReason) {
+          await queryInterface.addColumn('Bookings', 'cancellationReason', { type: DataTypes.TEXT, allowNull: true });
+        }
+      }
+
+      const srvTableInfo: any = await queryInterface.describeTable('SupportServiceRequests').catch(() => null);
+      if (srvTableInfo) {
+        if (!srvTableInfo.requestNumber) {
+          await queryInterface.addColumn('SupportServiceRequests', 'requestNumber', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!srvTableInfo.lifecycleStatus) {
+          await queryInterface.addColumn('SupportServiceRequests', 'lifecycleStatus', { type: DataTypes.STRING, defaultValue: 'REQUESTED' });
+        }
+        if (!srvTableInfo.providerDecision) {
+          await queryInterface.addColumn('SupportServiceRequests', 'providerDecision', { type: DataTypes.STRING, defaultValue: 'PENDING' });
+        }
+        if (!srvTableInfo.paymentState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'paymentState', { type: DataTypes.STRING, defaultValue: 'UNPAID' });
+        }
+        if (!srvTableInfo.refundState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'refundState', { type: DataTypes.STRING, defaultValue: 'NONE' });
+        }
+        if (!srvTableInfo.disputeState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'disputeState', { type: DataTypes.STRING, defaultValue: 'NONE' });
+        }
+        if (!srvTableInfo.fulfillmentState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'fulfillmentState', { type: DataTypes.STRING, defaultValue: 'NOT_STARTED' });
+        }
+        if (!srvTableInfo.entitlementState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'entitlementState', { type: DataTypes.STRING, defaultValue: 'PENDING_HOLD' });
+        }
+        if (!srvTableInfo.settlementState) {
+          await queryInterface.addColumn('SupportServiceRequests', 'settlementState', { type: DataTypes.STRING, defaultValue: 'UNSETTLED' });
+        }
+        if (!srvTableInfo.paymentStatus) {
+          await queryInterface.addColumn('SupportServiceRequests', 'paymentStatus', { type: DataTypes.STRING, defaultValue: 'UNPAID' });
+        }
+        if (!srvTableInfo.paymentMethod) {
+          await queryInterface.addColumn('SupportServiceRequests', 'paymentMethod', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!srvTableInfo.quantity) {
+          await queryInterface.addColumn('SupportServiceRequests', 'quantity', { type: DataTypes.INTEGER, defaultValue: 1 });
+        }
+        if (!srvTableInfo.providerResponseDeadline) {
+          await queryInterface.addColumn('SupportServiceRequests', 'providerResponseDeadline', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!srvTableInfo.paymentDeadline) {
+          await queryInterface.addColumn('SupportServiceRequests', 'paymentDeadline', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!srvTableInfo.acceptedAt) {
+          await queryInterface.addColumn('SupportServiceRequests', 'acceptedAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!srvTableInfo.rejectedAt) {
+          await queryInterface.addColumn('SupportServiceRequests', 'rejectedAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!srvTableInfo.rejectionReason) {
+          await queryInterface.addColumn('SupportServiceRequests', 'rejectionReason', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!srvTableInfo.preApprovalSnapshot) {
+          await queryInterface.addColumn('SupportServiceRequests', 'preApprovalSnapshot', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!srvTableInfo.finalPaymentQuote) {
+          await queryInterface.addColumn('SupportServiceRequests', 'finalPaymentQuote', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!srvTableInfo.shippingAddress) {
+          await queryInterface.addColumn('SupportServiceRequests', 'shippingAddress', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!srvTableInfo.phone) {
+          await queryInterface.addColumn('SupportServiceRequests', 'phone', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!srvTableInfo.locationUrl) {
+          await queryInterface.addColumn('SupportServiceRequests', 'locationUrl', { type: DataTypes.STRING, allowNull: true });
+        }
+      }
+
+      // Legal & Content CMS Dynamic Schema Migrations (P1.9 & P2)
+      const legalDocsTableInfo: any = await queryInterface.describeTable('LegalDocuments').catch(() => null);
+      if (legalDocsTableInfo) {
+        if (!legalDocsTableInfo.subtitle) {
+          await queryInterface.addColumn('LegalDocuments', 'subtitle', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!legalDocsTableInfo.introText) {
+          await queryInterface.addColumn('LegalDocuments', 'introText', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!legalDocsTableInfo.contentEn) {
+          await queryInterface.addColumn('LegalDocuments', 'contentEn', { type: DataTypes.TEXT, allowNull: true });
+        }
+        if (!legalDocsTableInfo.sections) {
+          await queryInterface.addColumn('LegalDocuments', 'sections', { type: DataTypes.JSON, defaultValue: '[]', allowNull: true });
+        }
+        if (!legalDocsTableInfo.effectiveAt) {
+          await queryInterface.addColumn('LegalDocuments', 'effectiveAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!legalDocsTableInfo.publishedAt) {
+          await queryInterface.addColumn('LegalDocuments', 'publishedAt', { type: DataTypes.DATE, allowNull: true });
+        }
+        if (!legalDocsTableInfo.changedBy) {
+          await queryInterface.addColumn('LegalDocuments', 'changedBy', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!legalDocsTableInfo.changeSummary) {
+          await queryInterface.addColumn('LegalDocuments', 'changeSummary', { type: DataTypes.TEXT, allowNull: true });
+        }
+      }
+
+      const faqsTableInfo: any = await queryInterface.describeTable('FAQItems').catch(() => null);
+      if (faqsTableInfo) {
+        if (!faqsTableInfo.audience) {
+          await queryInterface.addColumn('FAQItems', 'audience', { type: DataTypes.STRING, defaultValue: 'GENERAL', allowNull: true });
+        }
+        if (!faqsTableInfo.requiredCapability) {
+          await queryInterface.addColumn('FAQItems', 'requiredCapability', { type: DataTypes.STRING, allowNull: true });
+        }
+        if (!faqsTableInfo.category) {
+          await queryInterface.addColumn('FAQItems', 'category', { type: DataTypes.STRING, defaultValue: 'عام', allowNull: true });
         }
       }
     } catch (err: any) {

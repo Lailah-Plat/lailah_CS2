@@ -18,13 +18,20 @@ export type PaymentSecurityEventType =
   | 'INVALID_WEBHOOK_SIGNATURE'
   | 'CAPTURE_WITHOUT_VERIFIED_EVENT_ATTEMPT'
   | 'PAYMENT_AMOUNT_MISMATCH'
-  | 'PAYMENT_CURRENCY_MISMATCH';
+  | 'PAYMENT_CURRENCY_MISMATCH'
+  | 'PREMATURE_CHECKOUT_BLOCKED'
+  | 'PREMATURE_SRV_CHECKOUT_BLOCKED';
 
 export interface PaymentSecurityEventContext {
   gatewayName?: string;
   gatewayEventId?: string;
   paymentReference?: string;
   externalPaymentId?: string;
+  bookingId?: number | string;
+  serviceRequestId?: number | string;
+  status?: string;
+  paymentStatus?: string;
+  reason?: string;
   amountHalalas?: number;
   expectedAmountHalalas?: number;
   currency?: string;

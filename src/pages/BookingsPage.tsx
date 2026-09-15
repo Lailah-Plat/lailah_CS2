@@ -20,6 +20,8 @@ import { formatDateWithHijri, formatSmartDate, getFullDateInfo } from '../utils/
 import { toast } from 'react-hot-toast';
 import { ReviewModal } from '../components/modals/ReviewModal';
 import { AdBanner } from '../components/AdBanner';
+import { DirectPaymentModal } from '../components/DirectPaymentModal';
+import { CreditCard } from 'lucide-react';
 
 // Helper for invoice request (Bookings)
 const handleRequestInvoice = (bookingId: string) => {
@@ -312,6 +314,20 @@ export default function BookingsPage() {
 
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [selectedBookingForReview, setSelectedBookingForReview] = useState<any | null>(null);
+
+  // Direct Payment Modal State (P2.2 Post-Acceptance Payment)
+  const [isDirectPaymentOpen, setIsDirectPaymentOpen] = useState(false);
+  const [paymentModalItem, setPaymentModalItem] = useState<any | null>(null);
+  const [isServicePayment, setIsServicePayment] = useState(false);
+
+  const handlePaymentSuccess = (updatedItem: any) => {
+    toast.success('تم تأكيد السداد بنجاح وإصدار الفاتورة الضريبية ZATCA!');
+    if (isServicePayment) {
+      setServiceRequests(prev => prev.map(r => r.id === updatedItem.id ? { ...r, ...updatedItem, status: 'confirmed', paymentStatus: 'paid_full' } : r));
+    } else {
+      setRealBookings(prev => prev.map(b => b.id === updatedItem.id ? { ...b, ...updatedItem, status: 'confirmed', paymentStatus: 'paid_full' } : b));
+    }
+  };
 
   const handleModalSubmitReview = async (reviewData: {
     targetType: 'hall' | 'service' | 'provider';
@@ -868,14 +884,24 @@ export default function BookingsPage() {
 
   const getStatusInfo = (status: string) => {
     switch (status) {
+      case 'PROVIDER_ACCEPTED':
+      case 'AWAITING_PAYMENT':
+      case 'معتمد - بانتظار السداد':
+      case 'بانتظار السداد':
+        return { text: 'معتمد من المزود (بانتظار السداد 💳)', color: 'text-amber-800', bg: 'bg-amber-100', border: 'border-amber-300', icon: <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" /> };
       case 'confirmed':
-        return { text: 'مؤكد ورسمي', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> };
+      case 'PAID':
+      case 'مؤكد':
+        return { text: 'مؤكد ورسمي ✅', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> };
       case 'pending':
-        return { text: 'قيد التجهيز والمراجعة', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> };
+      case 'PENDING_APPROVAL':
+        return { text: 'قيد التجهيز والمراجعة ⏳', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', icon: <Clock className="w-3.5 h-3.5 text-blue-500" /> };
       case 'cancelled':
-        return { text: 'ملغى ومسترجع', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: <XCircle className="w-3.5 h-3.5 text-red-500" /> };
+      case 'REJECTED':
+      case 'EXPIRED':
+        return { text: 'ملغى أو معتذر عنه ❌', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', icon: <XCircle className="w-3.5 h-3.5 text-red-500" /> };
       default:
-        return { text: 'جديد', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: <AlertCircle className="w-3.5 h-3.5 text-blue-500" /> };
+        return { text: status || 'جديد', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', icon: <AlertCircle className="w-3.5 h-3.5 text-blue-500" /> };
     }
   };
 
@@ -900,6 +926,21 @@ export default function BookingsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {/* Direct Payment Action for Accepted or Unpaid Bookings */}
+          {(['PROVIDER_ACCEPTED', 'AWAITING_PAYMENT', 'معتمد - بانتظار السداد', 'بانتظار السداد'].includes(booking.status) || (booking.status === 'confirmed' && booking.paymentStatus !== 'paid_full' && booking.paymentStatus !== 'paid' && booking.paymentStatus !== 'مدفوعة بالكامل') || (booking.status === 'pending' && booking.paymentStatus === 'unpaid')) && (
+            <button 
+              onClick={() => {
+                setPaymentModalItem(booking);
+                setIsServicePayment(false);
+                setIsDirectPaymentOpen(true);
+              }}
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-blue-950 text-xs font-black transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-1.5 animate-pulse cursor-pointer"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>سداد الحجز الآن لتأكيده رسمياً 💳</span>
+            </button>
+          )}
+
           <button 
             onClick={(e) => openProviderChat(e, booking.hall?.provider || 'مزود القاعة', booking.hall?.name || 'القاعة')}
             className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-blue-950 hover:bg-blue-900 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2"
@@ -1073,6 +1114,19 @@ export default function BookingsPage() {
                 * يمكنك التواصل المباشر مع مزود الخدمة لأي استفسارات إضافية حول طلبك.
               </p>
               <div className="flex flex-wrap gap-2 pt-2">
+                 {(['PROVIDER_ACCEPTED', 'AWAITING_PAYMENT', 'معتمد - بانتظار السداد', 'بانتظار السداد', 'مقبول'].includes(request.status) || (request.status === 'confirmed' && request.paymentStatus !== 'paid_full' && request.paymentStatus !== 'paid' && request.paymentStatus !== 'مدفوعة بالكامل') || (request.status === 'pending' && request.paymentStatus === 'unpaid')) && (
+                   <button 
+                     onClick={() => {
+                       setPaymentModalItem(request);
+                       setIsServicePayment(true);
+                       setIsDirectPaymentOpen(true);
+                     }}
+                     className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-blue-950 py-2.5 rounded-xl text-xs font-black hover:from-amber-600 hover:to-orange-600 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer animate-pulse mb-1"
+                   >
+                     <CreditCard className="w-4 h-4" />
+                     <span>سداد طلب الخدمة الآن وتأكيده 💳</span>
+                   </button>
+                 )}
                  <button 
                   onClick={() => {
                     setViewingRequestForInvoice(request);
@@ -1934,7 +1988,9 @@ export default function BookingsPage() {
 
               <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50">
                 <BookingInvoice
-                  bookingId={viewingInvoice.id}
+                  bookingId={viewingInvoice.bookingNumber || viewingInvoice.id}
+                  bookingNumber={viewingInvoice.bookingNumber}
+                  invoiceNumber={viewingInvoice.invoiceNumber}
                   issueDate={viewingInvoice.createdAt ? new Date(viewingInvoice.createdAt).toLocaleDateString('ar-SA') : viewingInvoice.date}
                   providerName={viewingInvoice.hall.provider}
                   providerAddress={viewingInvoice.hall.location || 'الرياض، المملكة العربية السعودية'}
@@ -2118,6 +2174,18 @@ export default function BookingsPage() {
         targetName={selectedBookingForReview?.hall?.name || selectedBookingForReview?.serviceName || 'حجز منصة ليلة'}
         providerName={selectedBookingForReview?.hall?.provider || selectedBookingForReview?.provider}
         onSubmitReview={handleModalSubmitReview}
+      />
+
+      {/* Direct Payment Gateway Modal (P2.2 Post-Acceptance Payment) */}
+      <DirectPaymentModal
+        isOpen={isDirectPaymentOpen}
+        onClose={() => {
+          setIsDirectPaymentOpen(false);
+          setPaymentModalItem(null);
+        }}
+        booking={paymentModalItem}
+        isServiceRequest={isServicePayment}
+        onPaymentSuccess={handlePaymentSuccess}
       />
 
       <Footer />

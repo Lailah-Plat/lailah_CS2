@@ -92,7 +92,10 @@ export default function ServiceRequestInvoice({ request, isOpen, onClose }: Serv
         {/* Scrollable Container for unified invoice */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50/50">
           <BookingInvoice
-            bookingId={`SRV-${request.id}`}
+            bookingId={request.requestNumber || request.serviceRequestId || request.id}
+            bookingNumber={request.requestNumber || request.serviceRequestId}
+            invoiceNumber={request.invoiceNumber}
+            requestNumber={request.requestNumber || request.serviceRequestId}
             issueDate={request.date}
             providerName={request.providerName}
             providerAddress="الرياض، المملكة العربية السعودية"

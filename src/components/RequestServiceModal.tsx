@@ -100,7 +100,7 @@ export default function RequestServiceModal({
 
   const totalCost = quantity * service.price;
 
-  const handleSubmitRequest = (e: React.FormEvent) => {
+  const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setRequestError(null);
 
@@ -127,89 +127,79 @@ export default function RequestServiceModal({
 
     setPaymentProcessing(true);
 
-    // Simulated Gateway lookup
-    let activeGatewayKey = 'moyasar';
     try {
-      const stored = localStorage.getItem('ADMIN_ENABLED_GATEWAYS');
-      const enabled = stored ? JSON.parse(stored) : {
-        moyasar: true,
-        hyperpay: false,
-        paytabs: false,
-        geidea: false,
-        tabby_api: true,
-        tamara_api: true
-      };
-      
-      if (paymentMethod === 'tabby') {
-        activeGatewayKey = 'tabby_api';
-      } else if (paymentMethod === 'tamara') {
-        activeGatewayKey = 'tamara_api';
+      let userId = 'GUEST';
+      let customerName = 'عميل زائر';
+      if (currentUserData) {
+        userId = currentUserData.id || currentUserData.uid || 'USER-123';
+        customerName = currentUserData.name || currentUserData.fullName || 'أحمد محمد';
+      }
+
+      const activePolicy = service.bookingPaymentPolicy || 'APPROVAL_BEFORE_PAYMENT';
+      let initialStatus = 'pending';
+      let initialPaymentStatus = 'UNPAID';
+
+      if (activePolicy === 'INSTANT_CONFIRMATION') {
+        initialStatus = 'confirmed';
+        initialPaymentStatus = 'مدفوع';
+      } else if (activePolicy === 'PAYMENT_BEFORE_APPROVAL') {
+        initialStatus = 'pending';
+        initialPaymentStatus = 'محجوز في الضمان';
+      } else if (activePolicy === 'AUTHORIZE_THEN_CAPTURE') {
+        initialStatus = 'pending';
+        initialPaymentStatus = 'مفوض';
       } else {
-        const standardKeys = ['moyasar', 'hyperpay', 'paytabs', 'geidea'];
-        const activeStandard = standardKeys.find(k => enabled[k]);
-        activeGatewayKey = activeStandard || localStorage.getItem('ADMIN_ACTIVE_GATEWAY') || 'moyasar';
+        initialStatus = 'pending';
+        initialPaymentStatus = 'غير مسدد';
       }
-    } catch (err) {
-      activeGatewayKey = 'moyasar';
-    }
 
-    const gatewaysMap: Record<string, string> = {
-      moyasar: 'مُيسر (Moyasar Secure)',
-      hyperpay: 'هايبر باي (HyperPay 3D Secure)',
-      paytabs: 'بي تابس (PayTabs Secured)',
-      geidea: 'جيديا (Geidea API)',
-      tabby_api: 'تابي (Tabby Installments)',
-      tamara_api: 'تمارا (Tamara Installments)'
-    };
-    
-    const selectedGateway = gatewaysMap[activeGatewayKey] || 'قناة الدفع الآمنة';
-    setProcessingGateway(selectedGateway);
+      const newRequest = {
+        id: Date.now(),
+        bookingId: isLinkedToBooking ? selectedBookingId : '',
+        userId: userId,
+        customerName: customerName,
+        providerName: service.provider || 'مزود الخدمة',
+        serviceName: service.name,
+        date: serviceDate,
+        status: initialStatus,
+        price: totalCost,
+        amount: totalCost,
+        quantity: quantity,
+        paymentMethod: paymentMethod,
+        paymentStatus: initialPaymentStatus,
+        bookingPaymentPolicy: activePolicy,
+        shippingAddress: `${region} - ${city} - ${detailedAddress}`,
+        phone: `+966${contactPhone}`,
+        locationUrl: mapsUrl,
+        providerResponseDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      };
 
-    // Trigger simulator timer
-    setTimeout(() => {
       try {
-        let userId = 'GUEST';
-        let customerName = 'عميل زائر';
-        if (currentUserData) {
-          userId = currentUserData.id || currentUserData.uid || 'USER-123';
-          customerName = currentUserData.name || currentUserData.fullName || 'أحمد محمد';
-        }
-
-        const newRequest = {
-          id: Date.now(),
-          bookingId: isLinkedToBooking ? selectedBookingId : '',
-          userId: userId,
-          customerName: customerName,
-          providerName: service.provider || 'مزود الخدمة',
-          serviceName: service.name,
-          date: serviceDate,
-          status: 'قيد الانتظار',
-          price: totalCost,
-          quantity: quantity,
-          paymentMethod: paymentMethod,
-          paymentStatus: paymentMethod === 'bank_transfer' ? 'في انتظار التحويل' : 'مدفوع',
-          shippingAddress: `${region} - ${city} - ${detailedAddress}`,
-          phone: `+966${contactPhone}`,
-          locationUrl: mapsUrl
-        };
-
-        const existingRequests = JSON.parse(localStorage.getItem('SUPPORT_SERVICE_REQUESTS') || '[]');
-        localStorage.setItem('SUPPORT_SERVICE_REQUESTS', JSON.stringify([newRequest, ...existingRequests]));
-        window.dispatchEvent(new Event('storage'));
-
-        setPaymentProcessing(false);
-        setIsSuccess(true);
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-          setIsSuccess(false);
-        }, 3000);
-
-      } catch (err: any) {
-        setPaymentProcessing(false);
-        setRequestError(err?.message || 'وقع خطأ أثناء معالجة تفاصيل الطلب، يرجى المحاولة لاحقاً.');
+        await fetch('/api/bookings/support-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRequest)
+        });
+      } catch (err) {
+        console.warn('Backend support request sync error:', err);
       }
-    }, 2000);
+
+      const existingRequests = JSON.parse(localStorage.getItem('SUPPORT_SERVICE_REQUESTS') || '[]');
+      localStorage.setItem('SUPPORT_SERVICE_REQUESTS', JSON.stringify([newRequest, ...existingRequests]));
+      window.dispatchEvent(new Event('storage'));
+
+      setPaymentProcessing(false);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        setIsSuccess(false);
+      }, 3000);
+
+    } catch (err: any) {
+      setPaymentProcessing(false);
+      setRequestError(err?.message || 'وقع خطأ أثناء معالجة تفاصيل الطلب، يرجى المحاولة لاحقاً.');
+    }
   };
 
   return (
@@ -825,6 +815,23 @@ export default function RequestServiceModal({
                     </div>
                   </div>
 
+                  {/* Terms and Policies Confirmation Box */}
+                  <div className={`p-3.5 rounded-xl border space-y-1.5 transition-colors ${
+                    isDark ? 'bg-amber-500/5 border-amber-500/20 text-slate-300' : 'bg-amber-50 border-amber-200 text-slate-700'
+                  }`}>
+                    <label className="flex items-start gap-2 cursor-pointer text-xs leading-relaxed font-medium">
+                      <input 
+                        type="checkbox" 
+                        required 
+                        defaultChecked 
+                        className="w-4 h-4 rounded border-amber-400 text-amber-500 focus:ring-amber-500 mt-0.5 shrink-0" 
+                      />
+                      <span>
+                        أقر باطلاعي وموافقتي على <strong>شروط مزود الخدمة الخاصة</strong> و<strong>شروط وسياسات منصة ليلة المعتمدة</strong>.
+                      </span>
+                    </label>
+                  </div>
+
                 </div>
 
                 {/* Fixed Stat & Buttons bottom interface - NO SCROLL */}
@@ -855,10 +862,16 @@ export default function RequestServiceModal({
                       {paymentProcessing ? (
                         <>
                           <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-white rounded-full animate-spin"></span>
-                          <span className="text-[10px]">يقوم {processingGateway ? 'المعالج' : 'النظام'} بالدفع...</span>
+                          <span className="text-[10px]">جاري معالجة الطلب...</span>
                         </>
                       ) : (
-                        "تأكيد وحجز الخدمة"
+                        service.bookingPaymentPolicy === 'INSTANT_CONFIRMATION'
+                          ? "إتمام السداد وتأكيد الخدمة الفورية ⚡"
+                          : service.bookingPaymentPolicy === 'PAYMENT_BEFORE_APPROVAL'
+                          ? "سداد المبلغ وإرسال الطلب للضمان 🛡️"
+                          : service.bookingPaymentPolicy === 'AUTHORIZE_THEN_CAPTURE'
+                          ? "تفويض المبلغ وإرسال الطلب 💳"
+                          : "إرسال طلب الخدمة للمزود 📨"
                       )}
                     </button>
                   </div>

@@ -481,6 +481,7 @@ export interface Hall {
   reviewsCount?: number;
   availableDays?: string[];
   cancellationPeriod?: number | string;
+  cancellationPolicy?: string;
   lastPriceUpdate?: string;
   bookingType?: 'packages' | 'alacarte' | 'venueonly';
   guests?: number;
@@ -495,6 +496,7 @@ export interface Hall {
   packagesList?: any[];
   productsList?: any[];
   approved?: boolean;
+  bookingPaymentPolicy?: 'INSTANT_CONFIRMATION' | 'APPROVAL_BEFORE_PAYMENT' | 'PAYMENT_BEFORE_APPROVAL' | 'AUTHORIZE_THEN_CAPTURE' | string;
   hasPendingEdits?: boolean;
   pendingChanges?: any;
   pendingPayload?: any;
@@ -544,6 +546,7 @@ export interface EventService {
   status?: string;
   activationStatus?: string;
   approved?: boolean;
+  bookingPaymentPolicy?: 'INSTANT_CONFIRMATION' | 'APPROVAL_BEFORE_PAYMENT' | 'PAYMENT_BEFORE_APPROVAL' | 'AUTHORIZE_THEN_CAPTURE' | string;
   hasPendingEdits?: boolean;
   pendingChanges?: any;
   pendingPayload?: any;

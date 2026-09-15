@@ -69,7 +69,11 @@ export default function UnifiedInvoiceTab({
       {/* Invoice representation */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
         <BookingInvoice 
-          bookingId={activeBooking.id.toString()}
+          bookingId={activeBooking.bookingNumber || activeBooking.id.toString()}
+          bookingNumber={activeBooking.bookingNumber}
+          invoiceNumber={activeBooking.invoiceNumber}
+          requestNumber={activeBooking.requestNumber || activeBooking.serviceRequestId}
+          referenceNumber={activeBooking.referenceNumber}
           issueDate={activeBooking.date || activeBooking.startDate}
           providerName={isSupportRequest ? activeBooking.providerName : (activeBooking.hall || activeBooking.type)}
           providerAddress={!isSupportRequest ? (activeBooking.hallRegion || "الرياض، السعودية") : "الرياض، السعودية"}

@@ -125,8 +125,31 @@ if (dbUrl && !dbConfig.localDatabaseEnabled) {
   } else {
     console.log("ℹ️ External database check unsuccessful. Utilizing local SQLite database engine.");
   }
-} else {
+}
+
+if (!dbUrl || !isConnectable) {
   console.log("ℹ️ Using local SQLite database engine.");
+  
+  // Auto-heal / Recover from SQLite database corruption (SQLITE_CORRUPT)
+  try {
+    const sqlitePath = path.resolve(process.cwd(), 'database.sqlite');
+    if (fs.existsSync(sqlitePath)) {
+      const probeScript = "const sqlite3 = require('sqlite3'); const db = new sqlite3.Database('" + sqlitePath.replace(/\\/g, '/') + "', sqlite3.OPEN_READONLY, (err) => { if (err) process.exit(1); db.get('PRAGMA quick_check;', (qErr, row) => { if (qErr || !row || row.quick_check !== 'ok') { process.exit(1); } else { process.exit(0); } }); });";
+      const checkRes = spawnSync('node', ['-e', probeScript], { timeout: 3000, stdio: 'pipe' });
+      if (checkRes.status !== 0) {
+        console.warn("⚠️ [Auto-Heal] SQLite database corruption detected (SQLITE_CORRUPT). Rotating corrupted database file...");
+        const backupPath = path.resolve(process.cwd(), `database.sqlite.corrupt.${Date.now()}`);
+        fs.renameSync(sqlitePath, backupPath);
+        const walPath = path.resolve(process.cwd(), 'database.sqlite-wal');
+        if (fs.existsSync(walPath)) try { fs.unlinkSync(walPath); } catch (e) {}
+        const shmPath = path.resolve(process.cwd(), 'database.sqlite-shm');
+        if (fs.existsSync(shmPath)) try { fs.unlinkSync(shmPath); } catch (e) {}
+        console.log(`✅ [Auto-Heal] Corrupted SQLite database moved to ${backupPath}. A fresh database will be initialized.`);
+      }
+    }
+  } catch (healErr: any) {
+    console.error("⚠️ [Auto-Heal] Notice during SQLite integrity check:", healErr.message || healErr);
+  }
 }
 
 export const sequelize = (dbUrl && isConnectable) ? new Sequelize(dbUrl, {

@@ -5,6 +5,7 @@ import {
   EyeOff, LogOut, Trash2, ShieldAlert, Globe, Server, CheckCircle, Info, Send, UserCheck, Trash,
   Search, Layers, Filter, Clock
 } from 'lucide-react';
+import { RegulatoryPeriodsTab } from './RegulatoryPeriodsTab.js';
 
 interface SecuritySecretTabProps {
   integrationKeys: any;
@@ -38,7 +39,7 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
   const [hasEnvUrl, setHasEnvUrl] = useState(false);
   
   // Testing and execution states
-  const [activeTab, setActiveTab] = useState<'settings' | 'shield' | 'firewall' | 'audit' | 'migration'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'regulatory' | 'shield' | 'firewall' | 'audit' | 'migration'>('settings');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -680,6 +681,19 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
         >
           <Database className="w-4 h-4 text-slate-500" />
           رابط قاعدة البيانات والاتصال 🔌
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('regulatory')}
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'regulatory' 
+              ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-amber-500" />
+          الفترات والمهل التشغيلية ⏰
         </button>
 
         <button
@@ -2255,6 +2269,10 @@ export const SecuritySecretTab: React.FC<SecuritySecretTabProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'regulatory' && (
+        <RegulatoryPeriodsTab showNotification={showNotification} />
       )}
     </div>
   );

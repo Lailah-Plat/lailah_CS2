@@ -17,6 +17,9 @@ import { convertDigits } from './digitConverter';
  * @returns المعرف المنسق بالصيغة SRV-YY-XXXXXXXXXX
  */
 export const formatServiceRequestId = (id: number | string) => {
+  if (typeof id === 'string' && /^SRV-\d{2}-\d{10}$/.test(id)) {
+    return id;
+  }
   // استخراج أخر رقمين من السنة الحالية (مثال: 26 لعام 2026)
   const yy = new Date().getFullYear().toString().slice(-2);
   // تنظيف المعرف من أي حروف غير رقمية
@@ -33,6 +36,9 @@ export const formatServiceRequestId = (id: number | string) => {
  * @returns المعرف المنسق بالصيغة BKG-YY-XXXXXXXXXX
  */
 export const formatBookingId = (id: number | string) => {
+  if (typeof id === 'string' && /^BKG-\d{2}-\d{10}$/.test(id)) {
+    return id;
+  }
   const yy = new Date().getFullYear().toString().slice(-2);
   const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
   const paddedId = String(cleanId || 1).padStart(10, '0');
@@ -45,6 +51,15 @@ export const formatBookingId = (id: number | string) => {
  * @returns المعرف المنسق بالصيغة INV-YYXXXXXXXXXX
  */
 export const formatInvoiceId = (id: number | string) => {
+  if (typeof id === 'string' && /^INV-\d{12}$/.test(id)) {
+    return id;
+  }
+  if (typeof id === 'string' && (/^BKG-\d{2}-\d{10}$/.test(id) || /^SRV-\d{2}-\d{10}$/.test(id))) {
+    const parts = id.split('-');
+    const year = parts[1];
+    const seq = parts[2];
+    return convertDigits(`INV-${year}${seq}`);
+  }
   const yy = new Date().getFullYear().toString().slice(-2);
   const cleanId = typeof id === 'string' ? id.replace(/\D/g, '') : id;
   const paddedId = String(cleanId || 1).padStart(10, '0');

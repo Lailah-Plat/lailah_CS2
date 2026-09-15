@@ -9,7 +9,13 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:addons": "tsx scripts/test-addon-lifecycle.ts",
+    "test:entitlements": "tsx scripts/test-entitlements.ts",
+    "test:admin-grants": "tsx scripts/test-admin-grants.ts",
+    "test:p1.7": "tsx scripts/test-p1-7-verification.ts",
+    "test:p1-all": "tsx scripts/test-entitlements.ts && tsx scripts/test-addon-lifecycle.ts && tsx scripts/test-admin-grants.ts && tsx scripts/test-p1-7-verification.ts",
+    "check:sizes": "tsx scripts/check-file-sizes.ts"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
@@ -34,6 +40,7 @@
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",
+    "mammoth": "^1.12.2",
     "motion": "^12.23.24",
     "multer": "^2.1.1",
     "nodemailer": "^9.0.0",

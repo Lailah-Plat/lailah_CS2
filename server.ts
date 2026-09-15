@@ -7,7 +7,7 @@ import paymentRouter from "./src/modules/finance/payment.routes.js";
 import supportRouter, { startSLAWorker } from "./src/modules/support/support.routes.js";
 import aiRouter from "./src/modules/ai/ai.routes.js";
 import employeeRouter from "./src/modules/employee/employee.routes.js";
-import bookingRouter from "./src/modules/booking/booking.routes.js";
+import bookingRouter, { startBookingDeadlineWorker } from "./src/modules/booking/booking.routes.js";
 import marketingRouter from "./src/modules/marketing/marketing.routes.js";
 import authRouter from "./src/modules/user/auth.routes.js";
 import userRouter from "./src/modules/user/user.routes.js";
@@ -23,6 +23,8 @@ import { smsRouter } from "./src/modules/notifications/smsRouter.js";
 import { iCalRouter } from "./src/modules/calendar/iCalRouter.js";
 import { affiliatesRouter } from "./src/modules/marketing/affiliatesRouter.js";
 import { featureAdoptionRouter } from "./src/modules/analytics/featureAdoptionRouter.js";
+import { legalRouter } from "./src/modules/legal/legal.routes.js";
+import { seedDefaultLegalContent } from "./src/models/LegalModels.js";
 import { syncDatabase } from "./src/models/Database.js";
 import { syncUserModels } from "./src/models/UserModels.js";
 import { syncBookingModels } from "./src/models/BookingModels.js";
@@ -34,6 +36,8 @@ import { syncFavorites } from "./src/models/FavoriteModels.js";
 import { syncAdvancedPhaseModels } from "./src/models/AdvancedPhaseModels.js";
 import { syncStoreModels } from "./src/models/StoreModels.js";
 import storeRouter from "./src/modules/store/store.routes.js";
+import { initOperationsDatabase } from "./src/models/OperationModels.js";
+import { operationsRouter } from "./src/modules/operations/operations.routes.js";
 import { runStartupDataMigration } from "./src/utils/phoneMigration.js";
 import { loggerMiddleware } from "./src/middleware/logger.middleware.js";
 import { errorMiddleware } from "./src/middleware/error.middleware.js";
@@ -46,7 +50,7 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
 
   // Initialize DB in the background to avoid blocking server port binding
   (async () => {
@@ -63,7 +67,9 @@ async function startServer() {
         { name: "Subscription Models", fn: syncSubscriptionModels },
         { name: "Favorite Models", fn: syncFavorites },
         { name: "Advanced Phase Models", fn: syncAdvancedPhaseModels },
-        { name: "Store & Entitlement Models", fn: syncStoreModels }
+        { name: "Store & Entitlement Models", fn: syncStoreModels },
+        { name: "Legal Models & Default Content", fn: seedDefaultLegalContent },
+        { name: "Operational Cases & Activities", fn: initOperationsDatabase }
       ];
 
       for (const step of syncSteps) {
@@ -455,6 +461,7 @@ async function startServer() {
   app.use("/api/support", supportRouter);
   app.use("/api/hr", employeeRouter);
   app.use("/api/bookings", bookingRouter);
+  app.use("/api/booking", bookingRouter);
   app.use("/api/halls", (req, res, next) => {
     req.url = req.url === "/" || req.url === "" ? "/halls" : "/halls" + req.url;
     bookingRouter(req, res, next);
@@ -483,6 +490,13 @@ async function startServer() {
   app.use("/api/security", securityRouter);
   app.use("/api/feedback", feedbackRouter);
   app.use("/api/subscriptions", subscriptionRouter);
+  app.use("/api/provider", (req, res, next) => {
+    // Alias /api/provider/me/entitlements and /api/provider/:id/entitlements to subscription router
+    if (req.url.includes('/entitlements')) {
+      return subscriptionRouter(req, res, next);
+    }
+    next();
+  });
   app.use("/api/store", storeRouter);
   app.use("/api/favorites", favoriteRouter);
   app.use("/api/integrations/zoho-desk", zohoDeskRouter);
@@ -490,6 +504,8 @@ async function startServer() {
   app.use("/api/webhooks", webhookRouter);
   app.use("/api/notifications/sms", smsRouter);
   app.use("/api/calendar", iCalRouter);
+  app.use("/api/legal", legalRouter);
+  app.use("/api/operations", operationsRouter);
 
   // Strict 404 handler for all API routes to prevent Vite SPA fallback from returning index.html (HTML)
   app.use((req, res, next) => {
@@ -564,6 +580,9 @@ async function startServer() {
 
   // Start SLA Background Worker
   startSLAWorker(io);
+
+  // Start Booking & Order Lifecycle Deadline Worker (P2.5)
+  startBookingDeadlineWorker(io);
 
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

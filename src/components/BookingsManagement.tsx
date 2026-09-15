@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   Plus, Search, Filter, Lock, Download, FileSpreadsheet, FileDown, 
   Printer, Eye, Pencil, Trash2, FilterX, FileText, CheckCircle2, XCircle, Clock,
-  Table, LayoutGrid, Activity, Layers, ShieldCheck, Sparkles, RefreshCw, MessageSquare
+  Table, LayoutGrid, Activity, Layers, ShieldCheck, Sparkles, RefreshCw, MessageSquare,
+  History
 } from 'lucide-react';
 import { AdminCalendar } from './AdminCalendar';
 import { BookingOperationsManager } from './BookingOperationsManager';
@@ -12,6 +13,7 @@ import { MasterAvailabilityMatrixTab } from './bookings/MasterAvailabilityMatrix
 import { ExternalBlockManagerModal } from './ExternalBlockManagerModal';
 import { OrderCountdownTimer } from './bookings/OrderCountdownTimer';
 import { normalizeOrderStatus, getOrderStatusInfo, OrderLifecycleStatus } from './bookings/OrderLifecycleStepper';
+import { LifecycleTimelineModal } from './common/LifecycleTimelineModal';
 import { formatSmartDate, getFullDateInfo } from '../utils/dateUtils';
 import { convertDigits } from '../utils/digitConverter';
 import { formatBookingId, formatServiceRequestId } from '../utils/idUtils';
@@ -155,6 +157,17 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
   const [showAdminCalendar, setShowAdminCalendar] = useState(false);
   const [selectedBookingForOperations, setSelectedBookingForOperations] = useState<any>(null);
   const [isExternalBlockModalOpen, setIsExternalBlockModalOpen] = useState(false);
+  const [timelineModalState, setTimelineModalState] = useState<{
+    isOpen: boolean;
+    aggregateType: 'Booking' | 'SupportServiceRequest';
+    aggregateId: string | number;
+    referenceNumber?: string;
+  }>({
+    isOpen: false,
+    aggregateType: 'Booking',
+    aggregateId: '',
+    referenceNumber: ''
+  });
 
   const isProviderTab = userRole === 'provider';
   const canExport = isAdminUser || providerSubscription?.canExportFinancials || providerSubscription?.addons?.includes('invoice_export');
@@ -665,16 +678,30 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <button 
-                          onClick={() => {
-                            setViewingSupportRequest(r);
-                            setIsSupportRequestViewModalOpen(true);
-                          }}
-                          className="p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors" 
-                          title="عرض التفاصيل"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                          <button 
+                            onClick={() => {
+                              setTimelineModalState({
+                                isOpen: true,
+                                aggregateType: 'SupportServiceRequest',
+                                aggregateId: r.id,
+                                referenceNumber: formatServiceRequestId(r.id)
+                              });
+                            }}
+                            className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors" 
+                            title="سجل التدقيق ودورة الحياة (Lifecycle Timeline)"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setViewingSupportRequest(r);
+                              setIsSupportRequestViewModalOpen(true);
+                            }}
+                            className="p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors" 
+                            title="عرض التفاصيل"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                         <button 
                           onClick={() => setInvoiceBookingToPrint(r)} 
                           className="p-2 text-amber-500 hover:bg-amber-50 rounded-xl transition-colors" 
@@ -1249,6 +1276,20 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
                             <Activity className="w-3.5 h-3.5" />
                             <span>تشغيل ⚡</span>
                           </button>
+                          <button 
+                            onClick={() => {
+                              setTimelineModalState({
+                                isOpen: true,
+                                aggregateType: 'Booking',
+                                aggregateId: b.id,
+                                referenceNumber: formatBookingId(b.id)
+                              });
+                            }}
+                            className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors" 
+                            title="سجل التدقيق ودورة الحياة (Lifecycle Timeline)"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
                           <button onClick={() => { setViewingBooking(b); setIsBookingViewModalOpen(true); }} className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors" title="عرض التفاصيل الكاملة">
                             <Eye className="w-4 h-4" />
                           </button>
@@ -1479,6 +1520,15 @@ export const BookingsManagement: React.FC<BookingsManagementProps> = ({
           onClose={() => setIsExternalBlockModalOpen(false)}
         />
       )}
+
+      {/* Lifecycle & Domain Events Audit Trail Modal (P2.1) */}
+      <LifecycleTimelineModal
+        isOpen={timelineModalState.isOpen}
+        onClose={() => setTimelineModalState(prev => ({ ...prev, isOpen: false }))}
+        aggregateType={timelineModalState.aggregateType}
+        aggregateId={timelineModalState.aggregateId}
+        referenceNumber={timelineModalState.referenceNumber}
+      />
     </div>
   );
 };

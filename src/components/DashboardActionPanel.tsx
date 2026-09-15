@@ -34,7 +34,7 @@ interface AuditLogEntry {
   itemName: string;
   customerName: string;
   providerName: string;
-  action: 'قبول وتأكيد' | 'رفض وإلغاء استرداد';
+  action: 'قبول وتأكيد' | 'رفض وإلغاء استرداد' | 'قبول وفتح مسار السداد' | 'رفض وإغلاق الطلب';
   amount: number;
   paymentStatus: string;
   logMessage: string;
@@ -150,7 +150,7 @@ export const DashboardActionPanel: React.FC<DashboardActionPanelProps> = ({
     itemId: number,
     itemName: string,
     customerName: string,
-    action: 'قبول وتأكيد' | 'رفض وإلغاء استرداد',
+    action: 'قبول وتأكيد' | 'رفض وإلغاء استرداد' | 'قبول وفتح مسار السداد' | 'رفض وإغلاق الطلب',
     amount: number,
     paymentStatus: string,
     message: string
@@ -290,122 +290,125 @@ export const DashboardActionPanel: React.FC<DashboardActionPanelProps> = ({
     prevPendingIdsRef.current = currentPendingIds;
   }, [pendingBookings.length, pendingServices.length, soundEnabled]);
 
-  // Direct confirmation of Booking
+  // P2 Lifecycle: Provider Accepts Booking (Opens payment window for customer)
   const handleApproveBooking = async (bookingId: number) => {
     const bk = bookings.find(b => b.id === bookingId);
     if (!bk) return;
     
     try {
-      await fetch(`/api/bookings/${bookingId}`, {
-        method: 'PUT',
+      await fetch(`/api/bookings/${bookingId}/accept`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'confirmed', paymentStatus: 'paid' })
+        body: JSON.stringify({ actorRole: 'provider', paymentDeadlineHours: 24 })
       });
     } catch (err) {
       console.warn("Failed to approve booking on backend:", err);
     }
     
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'مؤكد', paymentStatus: 'مدفوع' } : b));
+    // Status transitions to Awaiting Payment
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'معتمد - بانتظار السداد', paymentStatus: 'غير مسدد' } : b));
     
     addAuditLog(
       'حجز قاعة',
       bookingId,
       bk.hall,
       bk.customer,
-      'قبول وتأكيد',
+      'قبول وفتح مسار السداد',
       bk.amount || bk.totalPrice || 0,
-      bk.paymentStatus || 'مدفوع بالكامل',
-      `تمت الموافقة وتأكيد حجز الصالة بنجاح. تم الانتقال من حالة "قيد الانتظار" إلى "مؤكد" وتوثيق الضمان المالي.`
+      'بانتظار السداد لتأكيد الحجز',
+      `تمت موافقة المزود على طلب الحجز رقم #${bookingId}. فُتحت نافذة السداد الأمني للعميل بمهلة 24 ساعة لتأكيد الحجز مالياً.`
     );
-    showNotification('success', 'تم قبول وتأكيد الحجز كـ مؤكد وإرسال إشعار فوري للعميل 🎇');
+    showNotification('success', 'تم قبول طلب الحجز وفتح نافذة السداد الأمني للعميل بنجاح 💳');
   };
 
-  // Direct cancellation & refund of Booking
+  // P2 Lifecycle: Provider Rejects Booking (No refund needed as payment was never taken)
   const handleRejectBooking = async (bookingId: number) => {
     const bk = bookings.find(b => b.id === bookingId);
     if (!bk) return;
 
     try {
-      await fetch(`/api/bookings/${bookingId}/cancel`, {
-        method: 'POST'
+      await fetch(`/api/bookings/${bookingId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejectionReason: 'اعتذار المزود عن قبول الحجز في هذا التوقيت', actorRole: 'provider' })
       });
     } catch (err) {
-      console.warn("Failed to cancel booking on backend:", err);
+      console.warn("Failed to reject booking on backend:", err);
     }
 
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'ملغي', paymentStatus: 'مسترجع' } : b));
+    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'مرفوض', paymentStatus: 'غير مسدد' } : b));
     
     addAuditLog(
       'حجز قاعة',
       bookingId,
       bk.hall,
       bk.customer,
-      'رفض وإلغاء استرداد',
+      'رفض وإغلاق الطلب',
       bk.amount || bk.totalPrice || 0,
-      'مسترجع بالكامل',
-      `تم رفض طلب الحجز من قبل المزود. تم إلغاء الحجز وتوجيه النظام لاسترداد المبلغ المالي للعميل تلقائياً (${formatCurrency(bk.amount || 0)}).`
+      'غير مسدد (لا يوجد استرداد)',
+      `تم تسجيل اعتذار المزود عن قبول الحجز #${bookingId} وإغلاق الطلب رسمياً دون أي التزامات مالية أو عمليات استرداد.`
     );
-    showNotification('info', 'تم رفض الحجز وإلغائه، مع تعيين حالة الدفع كـ مسترجع للعميل بنجاح 💸');
+    showNotification('info', 'تم رفض طلب الحجز وإغلاقه دون أي التزامات مالية 🔒');
   };
 
-  // Direct confirmation of Service Request
+  // P2 Lifecycle: Provider Accepts Service Request (Opens payment window)
   const handleApproveService = async (serviceId: number) => {
     const srv = supportServiceRequests.find(s => s.id === serviceId);
     if (!srv) return;
 
     try {
-      await fetch(`/api/bookings/support-requests/${serviceId}`, {
-        method: 'PUT',
+      await fetch(`/api/bookings/support-requests/${serviceId}/accept`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'جاري التنفيذ' })
+        body: JSON.stringify({ actorRole: 'provider', paymentDeadlineHours: 24 })
       });
     } catch (err) {
-      console.warn("Failed to update status on support service request in backend:", err);
+      console.warn("Failed to accept support service request in backend:", err);
     }
 
-    setSupportServiceRequests(prev => prev.map(s => s.id === serviceId ? { ...s, status: 'جاري التنفيذ' } : s));
+    setSupportServiceRequests(prev => prev.map(s => s.id === serviceId ? { ...s, status: 'معتمد - بانتظار السداد', paymentStatus: 'غير مسدد' } : s));
     
     addAuditLog(
       'خدمة مساندة',
       serviceId,
       srv.serviceName,
       srv.customerName || 'عميل مستقل',
-      'قبول وتأكيد',
+      'قبول وفتح مسار السداد',
       srv.price || srv.amount || 0,
-      srv.paymentStatus || 'مدفوع بالكامل',
-      `قبول طلب الخدمة المساندة المستقلة رقم #${serviceId}. تم تأكيد استعداد طواقم العمل والمعدات للتنفيذ في الوقت المحدد.`
+      'بانتظار السداد لتأكيد الخدمة',
+      `تمت موافقة المزود على طلب الخدمة #${serviceId}. تم فتح نافذة السداد للعميل لإتمام الطلب.`
     );
-    showNotification('success', 'تم قبول وتأكيد توفير الخدمة المساندة بنجاح وتوجيهها لقيد التنفيذ 🛠️');
+    showNotification('success', 'تم قبول طلب الخدمة وفتح نافذة السداد للعميل بنجاح 🛠️');
   };
 
-  // Direct rejection & cancellation of Service Request
+  // P2 Lifecycle: Provider Rejects Service Request
   const handleRejectService = async (serviceId: number) => {
     const srv = supportServiceRequests.find(s => s.id === serviceId);
     if (!srv) return;
 
     try {
-      await fetch(`/api/bookings/support-requests/${serviceId}`, {
-        method: 'PUT',
+      await fetch(`/api/bookings/support-requests/${serviceId}/reject`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'ملغي' })
+        body: JSON.stringify({ rejectionReason: 'اعتذار مزود الخدمة عن تلبية الطلب', actorRole: 'provider' })
       });
     } catch (err) {
-      console.warn("Failed to cancel support service request in backend:", err);
+      console.warn("Failed to reject support service request in backend:", err);
     }
 
-    setSupportServiceRequests(prev => prev.map(s => s.id === serviceId ? { ...s, status: 'ملغي' } : s));
+    setSupportServiceRequests(prev => prev.map(s => s.id === serviceId ? { ...s, status: 'مرفوض', paymentStatus: 'غير مسدد' } : s));
     
     addAuditLog(
       'خدمة مساندة',
       serviceId,
       srv.serviceName,
       srv.customerName || 'عميل مستقل',
-      'رفض وإلغاء استرداد',
+      'رفض وإغلاق الطلب',
       srv.price || srv.amount || 0,
-      'مسترجع بالكامل',
-      `طلب الرفض للخدمة اللوجستية رقم #${serviceId}. تم الإلغاء ووضع علامة على الأموال للاسترداد تلقائياً.`
+      'غير مسدد (لا يوجد استرداد)',
+      `اعتذار المزود عن تلبية الخدمة المساندة رقم #${serviceId} وإغلاقها دون أي التزامات مالية.`
     );
-    showNotification('info', 'تم رفض طلب الخدمة اللوجستية والمساندة المستقلة وإلغاؤها بنجاح 🔒');
+    showNotification('info', 'تم رفض طلب الخدمة المساندة وإغلاقها بنجاح 🔒');
   };
 
   // Combine and apply filters/search

@@ -1,5 +1,5 @@
-import { DataTypes, Model } from 'sequelize';
-import { sequelize } from './Database.js';
+import { DataTypes, Model, Op } from 'sequelize';
+import { sequelize } from './dbInstance.js';
 import { User } from './UserModels.js';
 
 export class Hall extends Model {
@@ -50,6 +50,7 @@ export class Hall extends Model {
   declare tourismLicenseImage: string;
   declare bookingType: string;
   declare packagesList: string;
+  declare bookingPaymentPolicy: string;
   declare providerUser?: any;
 }
 
@@ -100,7 +101,8 @@ Hall.init({
   zakatCertificateImage: { type: DataTypes.TEXT },
   tourismLicenseImage: { type: DataTypes.TEXT },
   bookingType: { type: DataTypes.STRING, defaultValue: 'alacarte' },
-  packagesList: { type: DataTypes.TEXT, defaultValue: '[]' }
+  packagesList: { type: DataTypes.TEXT, defaultValue: '[]' },
+  bookingPaymentPolicy: { type: DataTypes.STRING, defaultValue: 'APPROVAL_BEFORE_PAYMENT' }
 }, {
   sequelize,
   modelName: 'Hall',
@@ -168,6 +170,7 @@ export class Service extends Model {
   declare packages: string;
   declare addons: string;
   declare classification: string | null;
+  declare bookingPaymentPolicy: string;
   declare providerUser?: any;
 }
 
@@ -196,7 +199,8 @@ Service.init({
   taxonomyType: { type: DataTypes.STRING, defaultValue: 'rental' },
   packages: { type: DataTypes.TEXT, defaultValue: '[]' },
   addons: { type: DataTypes.TEXT, defaultValue: '[]' },
-  classification: { type: DataTypes.STRING, allowNull: true }
+  classification: { type: DataTypes.STRING, allowNull: true },
+  bookingPaymentPolicy: { type: DataTypes.STRING, defaultValue: 'APPROVAL_BEFORE_PAYMENT' }
 }, {
   sequelize,
   modelName: 'Service',
@@ -210,6 +214,7 @@ Service.init({
 
 export class Booking extends Model {
   declare id: number;
+  declare bookingNumber: string | null;
   declare customerName: string;
   declare customerPhone: string;
   declare hallId: number;
@@ -217,7 +222,7 @@ export class Booking extends Model {
   declare endTime: Date;
   declare guests: number;
   declare totalAmount: number;
-  declare status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  declare status: string;
   declare createdAt?: Date;
   declare userId: number | null;
   declare customerEmail: string | null;
@@ -230,11 +235,40 @@ export class Booking extends Model {
   declare depositAmount: number | null;
   declare paymentMethod: string | null;
   declare paymentStatus: string | null;
+  // P2.1 - The 8 Orthogonal State Axes
+  declare lifecycleStatus: string;
+  declare providerDecision: string;
+  declare paymentState: string;
+  declare refundState: string;
+  declare disputeState: string;
+  declare fulfillmentState: string;
+  declare entitlementState: string;
+  declare settlementState: string;
+  declare providerResponseDeadline: Date | null;
   declare paymentDeadline: Date | null;
+  declare acceptedAt: Date | null;
+  declare acceptedBy: number | null;
+  declare rejectedAt: Date | null;
+  declare rejectedBy: number | null;
+  declare rejectionReason: string | null;
+  declare preApprovalSnapshot: string | null;
+  declare finalPaymentQuote: string | null;
+  declare cancelledAt: Date | null;
+  declare cancelledBy: string | null;
+  declare cancellationReason: string | null;
+  declare bookingPaymentPolicy: string | null;
+  declare bookingPaymentPolicySnapshot: string | null;
+  // P2.2 - Period-Based Availability & Hold Columns
+  declare bookingDate: string | null; // YYYY-MM-DD
+  declare bookingPeriod: string | null; // 'MORNING' | 'EVENING' | 'FULL_DAY'
+  declare holdToken: string | null;
+  // P2.3-P2.4 - Regulatory Period & Deadline Snapshot
+  declare periodSnapshot: string | null;
 }
 
 Booking.init({
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  bookingNumber: { type: DataTypes.STRING, allowNull: true, unique: true },
   customerName: { type: DataTypes.STRING, allowNull: false },
   customerPhone: { type: DataTypes.STRING, allowNull: false },
   hallId: { type: DataTypes.INTEGER, allowNull: false },
@@ -242,7 +276,7 @@ Booking.init({
   endTime: { type: DataTypes.DATE, allowNull: false },
   guests: { type: DataTypes.INTEGER, defaultValue: 0 },
   totalAmount: { type: DataTypes.FLOAT, allowNull: false },
-  status: { type: DataTypes.STRING, defaultValue: 'pending' },
+  status: { type: DataTypes.STRING, defaultValue: 'REQUESTED' },
   userId: { type: DataTypes.INTEGER, allowNull: true },
   customerEmail: { type: DataTypes.STRING, allowNull: true },
   bookingType: { type: DataTypes.STRING, defaultValue: 'alacarte' },
@@ -253,8 +287,36 @@ Booking.init({
   taxAmount: { type: DataTypes.FLOAT, defaultValue: 0 },
   depositAmount: { type: DataTypes.FLOAT, defaultValue: 0 },
   paymentMethod: { type: DataTypes.STRING, allowNull: true },
-  paymentStatus: { type: DataTypes.STRING, defaultValue: 'pending' },
+  paymentStatus: { type: DataTypes.STRING, defaultValue: 'UNPAID' },
+  // P2.1 - The 8 Orthogonal State Axes
+  lifecycleStatus: { type: DataTypes.STRING, defaultValue: 'REQUESTED' },
+  providerDecision: { type: DataTypes.STRING, defaultValue: 'PENDING' },
+  paymentState: { type: DataTypes.STRING, defaultValue: 'UNPAID' },
+  refundState: { type: DataTypes.STRING, defaultValue: 'NONE' },
+  disputeState: { type: DataTypes.STRING, defaultValue: 'NONE' },
+  fulfillmentState: { type: DataTypes.STRING, defaultValue: 'NOT_STARTED' },
+  entitlementState: { type: DataTypes.STRING, defaultValue: 'PENDING_HOLD' },
+  settlementState: { type: DataTypes.STRING, defaultValue: 'UNSETTLED' },
+  providerResponseDeadline: { type: DataTypes.DATE, allowNull: true },
   paymentDeadline: { type: DataTypes.DATE, allowNull: true },
+  acceptedAt: { type: DataTypes.DATE, allowNull: true },
+  acceptedBy: { type: DataTypes.INTEGER, allowNull: true },
+  rejectedAt: { type: DataTypes.DATE, allowNull: true },
+  rejectedBy: { type: DataTypes.INTEGER, allowNull: true },
+  rejectionReason: { type: DataTypes.TEXT, allowNull: true },
+  preApprovalSnapshot: { type: DataTypes.TEXT, allowNull: true },
+  finalPaymentQuote: { type: DataTypes.TEXT, allowNull: true },
+  cancelledAt: { type: DataTypes.DATE, allowNull: true },
+  cancelledBy: { type: DataTypes.STRING, allowNull: true },
+  cancellationReason: { type: DataTypes.TEXT, allowNull: true },
+  bookingPaymentPolicy: { type: DataTypes.STRING, defaultValue: 'APPROVAL_BEFORE_PAYMENT' },
+  bookingPaymentPolicySnapshot: { type: DataTypes.TEXT, allowNull: true },
+  // P2.2 - Period-Based Availability & Hold Fields
+  bookingDate: { type: DataTypes.STRING, allowNull: true },
+  bookingPeriod: { type: DataTypes.STRING, allowNull: true, defaultValue: 'FULL_DAY' },
+  holdToken: { type: DataTypes.STRING, allowNull: true },
+  // P2.3-P2.4 - Regulatory Period & Deadline Snapshot
+  periodSnapshot: { type: DataTypes.TEXT, allowNull: true },
 }, {
   sequelize,
   modelName: 'Booking',
@@ -263,8 +325,33 @@ Booking.init({
     { fields: ['userId'] },
     { fields: ['hallId'] },
     { fields: ['startTime'] },
-    { fields: ['paymentStatus'] }
+    { fields: ['paymentStatus'] },
+    { fields: ['bookingNumber'] },
+    { fields: ['bookingDate'] },
+    { fields: ['bookingPeriod'] },
+    { fields: ['holdToken'] }
   ]
+});
+
+Booking.beforeCreate(async (booking: any) => {
+  if (!booking.bookingNumber) {
+    try {
+      const currentYear = new Date().getFullYear();
+      const yy = String(currentYear).slice(-2);
+      const countThisYear = await Booking.count({
+        where: {
+          createdAt: {
+            [Op.gte]: new Date(`${currentYear}-01-01T00:00:00.000Z`)
+          }
+        }
+      });
+      const seq = countThisYear + 1;
+      const paddedSeq = String(seq).padStart(10, '0');
+      booking.bookingNumber = `BKG-${yy}-${paddedSeq}`;
+    } catch (e) {
+      console.error("Error in Booking beforeCreate hook:", e);
+    }
+  }
 });
 
 export class BookingService extends Model {
@@ -307,31 +394,116 @@ BookingService.belongsTo(Service, { foreignKey: 'serviceId', as: 'serviceInfo', 
 
 export class SupportServiceRequest extends Model {
   declare id: number;
-  declare bookingId: number;
+  declare requestNumber: string | null;
+  declare bookingId: number | null;
   declare customerName: string;
   declare providerName: string;
   declare serviceName: string;
   declare price: number;
   declare date: string;
   declare status: string;
+  declare paymentStatus: string | null;
+  // P2.1 - The 8 Orthogonal State Axes
+  declare lifecycleStatus: string;
+  declare providerDecision: string;
+  declare paymentState: string;
+  declare refundState: string;
+  declare disputeState: string;
+  declare fulfillmentState: string;
+  declare entitlementState: string;
+  declare settlementState: string;
+  declare paymentMethod: string | null;
+  declare quantity: number | null;
   declare customerId: number | null;
   declare providerId: number | null;
   declare serviceId: number | null;
+  declare providerResponseDeadline: Date | null;
+  declare paymentDeadline: Date | null;
+  declare acceptedAt: Date | null;
+  declare rejectedAt: Date | null;
+  declare rejectionReason: string | null;
+  declare preApprovalSnapshot: string | null;
+  declare finalPaymentQuote: string | null;
+  declare shippingAddress: string | null;
+  declare phone: string | null;
+  declare locationUrl: string | null;
+  declare bookingPaymentPolicy: string | null;
+  declare bookingPaymentPolicySnapshot: string | null;
+  // P2.3-P2.4 - Regulatory Period & Deadline Snapshot
+  declare periodSnapshot: string | null;
 }
 
 SupportServiceRequest.init({
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  requestNumber: { type: DataTypes.STRING, allowNull: true, unique: true },
   bookingId: { type: DataTypes.INTEGER, allowNull: true },
   customerName: { type: DataTypes.STRING },
   providerName: { type: DataTypes.STRING },
   serviceName: { type: DataTypes.STRING },
   price: { type: DataTypes.FLOAT },
   date: { type: DataTypes.STRING },
-  status: { type: DataTypes.STRING, defaultValue: 'قيد الانتظار' },
+  status: { type: DataTypes.STRING, defaultValue: 'REQUESTED' },
+  paymentStatus: { type: DataTypes.STRING, defaultValue: 'UNPAID' },
+  // P2.1 - The 8 Orthogonal State Axes
+  lifecycleStatus: { type: DataTypes.STRING, defaultValue: 'REQUESTED' },
+  providerDecision: { type: DataTypes.STRING, defaultValue: 'PENDING' },
+  paymentState: { type: DataTypes.STRING, defaultValue: 'UNPAID' },
+  refundState: { type: DataTypes.STRING, defaultValue: 'NONE' },
+  disputeState: { type: DataTypes.STRING, defaultValue: 'NONE' },
+  fulfillmentState: { type: DataTypes.STRING, defaultValue: 'NOT_STARTED' },
+  entitlementState: { type: DataTypes.STRING, defaultValue: 'PENDING_HOLD' },
+  settlementState: { type: DataTypes.STRING, defaultValue: 'UNSETTLED' },
+  paymentMethod: { type: DataTypes.STRING, allowNull: true },
+  quantity: { type: DataTypes.INTEGER, defaultValue: 1 },
   customerId: { type: DataTypes.INTEGER, allowNull: true },
   providerId: { type: DataTypes.INTEGER, allowNull: true },
-  serviceId: { type: DataTypes.INTEGER, allowNull: true }
-}, { sequelize, modelName: 'SupportServiceRequest' });
+  serviceId: { type: DataTypes.INTEGER, allowNull: true },
+  providerResponseDeadline: { type: DataTypes.DATE, allowNull: true },
+  paymentDeadline: { type: DataTypes.DATE, allowNull: true },
+  acceptedAt: { type: DataTypes.DATE, allowNull: true },
+  rejectedAt: { type: DataTypes.DATE, allowNull: true },
+  rejectionReason: { type: DataTypes.TEXT, allowNull: true },
+  preApprovalSnapshot: { type: DataTypes.TEXT, allowNull: true },
+  finalPaymentQuote: { type: DataTypes.TEXT, allowNull: true },
+  shippingAddress: { type: DataTypes.TEXT, allowNull: true },
+  phone: { type: DataTypes.STRING, allowNull: true },
+  locationUrl: { type: DataTypes.STRING, allowNull: true },
+  bookingPaymentPolicy: { type: DataTypes.STRING, defaultValue: 'APPROVAL_BEFORE_PAYMENT' },
+  bookingPaymentPolicySnapshot: { type: DataTypes.TEXT, allowNull: true },
+  // P2.3-P2.4 - Regulatory Period & Deadline Snapshot
+  periodSnapshot: { type: DataTypes.TEXT, allowNull: true }
+}, {
+  sequelize,
+  modelName: 'SupportServiceRequest',
+  indexes: [
+    { fields: ['status'] },
+    { fields: ['customerId'] },
+    { fields: ['providerId'] },
+    { fields: ['serviceId'] },
+    { fields: ['requestNumber'] }
+  ]
+});
+
+SupportServiceRequest.beforeCreate(async (req: any) => {
+  if (!req.requestNumber) {
+    try {
+      const currentYear = new Date().getFullYear();
+      const yy = String(currentYear).slice(-2);
+      const countThisYear = await SupportServiceRequest.count({
+        where: {
+          createdAt: {
+            [Op.gte]: new Date(`${currentYear}-01-01T00:00:00.000Z`)
+          }
+        }
+      });
+      const seq = countThisYear + 1;
+      const paddedSeq = String(seq).padStart(10, '0');
+      req.requestNumber = `SRV-${yy}-${paddedSeq}`;
+    } catch (e) {
+      console.error("Error in SupportServiceRequest beforeCreate hook:", e);
+    }
+  }
+});
 
 export class InventoryItem extends Model {
   declare id: number;
@@ -505,6 +677,141 @@ ForceMajeureRequest.init({
   customerId: { type: DataTypes.INTEGER, allowNull: true }
 }, { sequelize, modelName: 'ForceMajeureRequest' });
 
+export class ResourcePolicyAuditLog extends Model {
+  declare id: number;
+  declare providerId: number;
+  declare resourceType: 'hall' | 'service';
+  declare resourceId: number;
+  declare resourceName: string | null;
+  declare oldPolicy: string;
+  declare newPolicy: string;
+  declare actorId: number | null;
+  declare actorRole: string | null;
+  declare entitlementSource: string | null;
+  declare reason: string | null;
+  declare createdAt: Date;
+}
+
+ResourcePolicyAuditLog.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  providerId: { type: DataTypes.INTEGER, allowNull: false },
+  resourceType: { type: DataTypes.STRING, allowNull: false },
+  resourceId: { type: DataTypes.INTEGER, allowNull: false },
+  resourceName: { type: DataTypes.STRING, allowNull: true },
+  oldPolicy: { type: DataTypes.STRING, allowNull: false },
+  newPolicy: { type: DataTypes.STRING, allowNull: false },
+  actorId: { type: DataTypes.INTEGER, allowNull: true },
+  actorRole: { type: DataTypes.STRING, allowNull: true },
+  entitlementSource: { type: DataTypes.STRING, allowNull: true },
+  reason: { type: DataTypes.TEXT, allowNull: true }
+}, {
+  sequelize,
+  modelName: 'ResourcePolicyAuditLog',
+  tableName: 'ResourcePolicyAuditLogs',
+  indexes: [
+    { fields: ['providerId'] },
+    { fields: ['resourceType', 'resourceId'] }
+  ]
+});
+
+// ==========================================
+// P2.2 - BookingHold Model (Atomic Period Locks)
+// ==========================================
+export class BookingHold extends Model {
+  declare id: number;
+  declare holdToken: string;
+  declare hallId: number;
+  declare bookingDate: string; // YYYY-MM-DD
+  declare period: string; // 'MORNING' | 'EVENING' | 'FULL_DAY'
+  declare userId: number | null;
+  declare sessionId: string | null;
+  declare policy: string;
+  declare status: string; // 'ACTIVE' | 'CONVERTED' | 'EXPIRED' | 'RELEASED'
+  declare expiresAt: Date;
+  declare createdAt: Date;
+}
+
+BookingHold.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  holdToken: { type: DataTypes.STRING, allowNull: false, unique: true },
+  hallId: { type: DataTypes.INTEGER, allowNull: false },
+  bookingDate: { type: DataTypes.STRING, allowNull: false },
+  period: { type: DataTypes.STRING, allowNull: false, defaultValue: 'FULL_DAY' },
+  userId: { type: DataTypes.INTEGER, allowNull: true },
+  sessionId: { type: DataTypes.STRING, allowNull: true },
+  policy: { type: DataTypes.STRING, allowNull: false, defaultValue: 'INSTANT_CONFIRMATION' },
+  status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'ACTIVE' },
+  expiresAt: { type: DataTypes.DATE, allowNull: false }
+}, {
+  sequelize,
+  modelName: 'BookingHold',
+  tableName: 'BookingHolds',
+  indexes: [
+    { fields: ['hallId', 'bookingDate', 'status'] },
+    { fields: ['holdToken'] },
+    { fields: ['expiresAt'] },
+    { fields: ['userId'] }
+  ]
+});
+
+// ==========================================
+// P2.2 - ExternalBlockedDate Model (Unified External & Manual Blocks)
+// ==========================================
+export class ExternalBlockedDate extends Model {
+  declare id: number;
+  declare blockId: string; // BLK-YY-XXXXXXXXXX
+  declare entityId: number;
+  declare entityType: 'hall' | 'service';
+  declare entityName: string;
+  declare providerId: number | null;
+  declare providerName: string | null;
+  declare startDate: string; // YYYY-MM-DD
+  declare endDate: string; // YYYY-MM-DD
+  declare period: string; // 'صباحية' | 'مسائية' | 'يوم كامل' | 'كافة الفترات'
+  declare blockType: string; // 'external_booking' | 'maintenance' | 'owner_event' | 'official_holiday' | 'capacity_limit' | 'other'
+  declare reason: string | null;
+  declare internalNotes: string | null;
+  declare maxDailyCapacity: number;
+  declare source: string; // 'manual' | 'ical_sync' | 'admin_override'
+  declare status: string; // 'active' | 'unblocked'
+  declare createdBy: string | null;
+  declare unblockedAt: Date | null;
+  declare unblockedBy: string | null;
+}
+
+ExternalBlockedDate.init({
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  blockId: { type: DataTypes.STRING, allowNull: false },
+  entityId: { type: DataTypes.INTEGER, allowNull: false },
+  entityType: { type: DataTypes.STRING, allowNull: false, defaultValue: 'hall' },
+  entityName: { type: DataTypes.STRING, allowNull: false },
+  providerId: { type: DataTypes.INTEGER, allowNull: true },
+  providerName: { type: DataTypes.STRING, allowNull: true },
+  startDate: { type: DataTypes.STRING, allowNull: false },
+  endDate: { type: DataTypes.STRING, allowNull: false },
+  period: { type: DataTypes.STRING, allowNull: false, defaultValue: 'يوم كامل' },
+  blockType: { type: DataTypes.STRING, allowNull: false, defaultValue: 'manual' },
+  reason: { type: DataTypes.TEXT, allowNull: true },
+  internalNotes: { type: DataTypes.TEXT, allowNull: true },
+  maxDailyCapacity: { type: DataTypes.INTEGER, defaultValue: 1 },
+  source: { type: DataTypes.STRING, defaultValue: 'manual' },
+  status: { type: DataTypes.STRING, defaultValue: 'active' },
+  createdBy: { type: DataTypes.STRING, allowNull: true },
+  unblockedAt: { type: DataTypes.DATE, allowNull: true },
+  unblockedBy: { type: DataTypes.STRING, allowNull: true }
+}, {
+  sequelize,
+  modelName: 'ExternalBlockedDate',
+  tableName: 'ExternalBlockedDates',
+  indexes: [
+    { fields: ['entityId', 'entityType', 'status'] },
+    { fields: ['startDate', 'endDate'] },
+    { fields: ['providerId'] },
+    { fields: ['blockId'] }
+  ]
+});
+
+
 export async function syncBookingModels() {
   const syncTable = async (model: any) => {
     try {
@@ -565,6 +872,7 @@ export async function syncBookingModels() {
   await syncTable(Hall);
   await syncTable(HallExtraServices);
   await syncTable(Service);
+  await syncTable(ResourcePolicyAuditLog);
 
   // Dynamic migration: Ensure 'unit', 'unitPrice' and 'cancellationPeriod' columns exist dynamically
   try {
@@ -964,6 +1272,50 @@ export async function syncBookingModels() {
   await syncTable(InventoryItem);
   await syncTable(Supplier);
   await syncTable(ForceMajeureRequest);
+  await syncTable(BookingHold);
+  await syncTable(ExternalBlockedDate);
+
+  // Dynamic migration for P2.2 Booking columns (bookingDate, bookingPeriod, holdToken)
+  try {
+    const qi = sequelize.getQueryInterface();
+    const bookingTableInfo = await qi.describeTable(Booking.tableName);
+    if (!bookingTableInfo.bookingDate) {
+      await qi.addColumn(Booking.tableName, 'bookingDate', {
+        type: DataTypes.STRING,
+        allowNull: true
+      });
+    }
+    if (!bookingTableInfo.bookingPeriod) {
+      await qi.addColumn(Booking.tableName, 'bookingPeriod', {
+        type: DataTypes.STRING,
+        defaultValue: 'FULL_DAY',
+        allowNull: true
+      });
+    }
+    if (!bookingTableInfo.holdToken) {
+      await qi.addColumn(Booking.tableName, 'holdToken', {
+        type: DataTypes.STRING,
+        allowNull: true
+      });
+    }
+    if (!bookingTableInfo.periodSnapshot) {
+      await qi.addColumn(Booking.tableName, 'periodSnapshot', {
+        type: DataTypes.TEXT,
+        allowNull: true
+      });
+    }
+
+    // Check SupportServiceRequest table for periodSnapshot
+    const serviceReqTableInfo = await qi.describeTable(SupportServiceRequest.tableName);
+    if (!serviceReqTableInfo.periodSnapshot) {
+      await qi.addColumn(SupportServiceRequest.tableName, 'periodSnapshot', {
+        type: DataTypes.TEXT,
+        allowNull: true
+      });
+    }
+  } catch (bkgP22Err: any) {
+    console.warn('Could not verify P2.2 columns for Booking:', bkgP22Err.message);
+  }
 
   // Seed sample data if empty or missing images (self-healing for previous empty seeds)
   const count = await Hall.count();
@@ -1361,5 +1713,66 @@ export async function syncBookingModels() {
       { id: 4, bookingId: 104, customerName: 'ليلى الشهري', providerName: 'شركة كوش الفخمة وتنسيق الأفراح والعقود', serviceName: 'تفصيل كوشة العروس المتميزة واضاءات الممر', date: '2026-05-21', status: 'قيد الانتظار', price: 6000 },
       { id: 5, bookingId: 105, customerName: 'خالد الحربي', providerName: 'مؤسسة المذاق العربي للحلويات والضيافة', serviceName: 'بوفيه مفتوح تراثي شعبي وأطباق سعودية', date: '2026-05-22', status: 'مكتمل', price: 2500 }
     ]);
+  }
+
+  // Ensure Booking Payment Policy columns exist (P1.9 Migration)
+  await migrateBookingPaymentPolicyColumns();
+}
+
+/**
+ * Migration helper for P1.9 Booking & Payment Policy columns
+ */
+export async function migrateBookingPaymentPolicyColumns() {
+  const queryInterface = sequelize.getQueryInterface();
+  try {
+    const hallTable = await queryInterface.describeTable('Halls').catch(() => null);
+    if (hallTable && !hallTable['bookingPaymentPolicy']) {
+      await queryInterface.addColumn('Halls', 'bookingPaymentPolicy', {
+        type: DataTypes.STRING,
+        defaultValue: 'APPROVAL_BEFORE_PAYMENT'
+      }).catch(() => {});
+    }
+
+    const serviceTable = await queryInterface.describeTable('Services').catch(() => null);
+    if (serviceTable && !serviceTable['bookingPaymentPolicy']) {
+      await queryInterface.addColumn('Services', 'bookingPaymentPolicy', {
+        type: DataTypes.STRING,
+        defaultValue: 'APPROVAL_BEFORE_PAYMENT'
+      }).catch(() => {});
+    }
+
+    const bookingTable = await queryInterface.describeTable('Bookings').catch(() => null);
+    if (bookingTable) {
+      if (!bookingTable['bookingPaymentPolicy']) {
+        await queryInterface.addColumn('Bookings', 'bookingPaymentPolicy', {
+          type: DataTypes.STRING,
+          defaultValue: 'APPROVAL_BEFORE_PAYMENT'
+        }).catch(() => {});
+      }
+      if (!bookingTable['bookingPaymentPolicySnapshot']) {
+        await queryInterface.addColumn('Bookings', 'bookingPaymentPolicySnapshot', {
+          type: DataTypes.TEXT,
+          allowNull: true
+        }).catch(() => {});
+      }
+    }
+
+    const supportReqTable = await queryInterface.describeTable('SupportServiceRequests').catch(() => null);
+    if (supportReqTable) {
+      if (!supportReqTable['bookingPaymentPolicy']) {
+        await queryInterface.addColumn('SupportServiceRequests', 'bookingPaymentPolicy', {
+          type: DataTypes.STRING,
+          defaultValue: 'APPROVAL_BEFORE_PAYMENT'
+        }).catch(() => {});
+      }
+      if (!supportReqTable['bookingPaymentPolicySnapshot']) {
+        await queryInterface.addColumn('SupportServiceRequests', 'bookingPaymentPolicySnapshot', {
+          type: DataTypes.TEXT,
+          allowNull: true
+        }).catch(() => {});
+      }
+    }
+  } catch (err: any) {
+    console.warn('[migrateBookingPaymentPolicyColumns] Table check error:', err.message);
   }
 }

@@ -1,5 +1,6 @@
 import express from 'express';
 import { MarketingController } from './marketing.controller.js';
+import { requireEntitlement } from '../../middleware/entitlement.middleware.js';
 
 const router = express.Router();
 const controller = new MarketingController();
@@ -16,11 +17,11 @@ const checkRole = (roles: string[]) => (req: express.Request, res: express.Respo
 // Campaigns
 router.get('/campaigns', checkRole(['provider', 'agency', 'admin']), controller.getCampaigns);
 router.put('/campaigns/:id/workflow', checkRole(['provider', 'agency', 'admin']), controller.updateCampaignWorkflow);
-router.post('/pay-campaign', checkRole(['provider', 'admin']), controller.payCampaign);
+router.post('/pay-campaign', checkRole(['provider', 'admin']), requireEntitlement('marketing_agency'), controller.payCampaign);
 router.post('/register-expense', checkRole(['agency', 'admin']), controller.registerExpense);
 
 // Favorites Count and Retargeting
 router.get('/favorites-count/:hallId', checkRole(['provider', 'admin']), controller.getFavoritesCount);
-router.post('/retarget-favorites', checkRole(['provider', 'admin']), controller.retargetFavorites);
+router.post('/retarget-favorites', checkRole(['provider', 'admin']), requireEntitlement('marketing_agency'), controller.retargetFavorites);
 
 export default router;

@@ -1,5 +1,6 @@
 import { ISubscriptionRepository } from '../subscription.repository.js';
 import { ProviderSubscription } from '../../../models/SubscriptionModels.js';
+import { effectiveEntitlementService } from '../../../services/entitlement/effectiveEntitlementService.js';
 
 export interface UpgradeSubscriptionInput {
   providerIds: any[];
@@ -8,13 +9,14 @@ export interface UpgradeSubscriptionInput {
   durationMonths?: number | string;
   customEndDate?: string;
   notes?: string;
+  actor?: string;
 }
 
 export class UpgradeSubscriptionUseCase {
   constructor(private subscriptionRepository: ISubscriptionRepository) {}
 
   async execute(input: UpgradeSubscriptionInput): Promise<ProviderSubscription[]> {
-    const { providerIds, planName, pricePaid, durationMonths, customEndDate, notes } = input;
+    const { providerIds, planName, pricePaid, durationMonths, customEndDate, notes, actor } = input;
 
     if (!providerIds || !Array.isArray(providerIds) || providerIds.length === 0) {
       throw new Error('يجب اختيار مزود خدمة واحد على الأقل.');
@@ -63,7 +65,26 @@ export class UpgradeSubscriptionUseCase {
         startDate,
         endDate,
         isCustom: true,
+        planId: plan ? plan.id : null,
         notes: notes || `ترقية إدارية يدوية إلى باقة ${planName}`
+      });
+
+      // Invalidate cache and log audit event
+      effectiveEntitlementService.invalidateProviderCache(providerId);
+      await effectiveEntitlementService.logAuditEvent({
+        providerId,
+        providerEmail,
+        eventType: 'PLAN_CHANGED',
+        source: 'PLAN',
+        actor: actor || 'Admin',
+        reason: notes || `ترقية أو تغيير الباقة إلى ${planName}`,
+        newValue: planName,
+        financialImpact: price,
+        metadata: {
+          planId: plan?.id,
+          durationMonths,
+          endDate: endDate ? endDate.toISOString() : null
+        }
       });
 
       results.push(sub);
@@ -72,3 +93,4 @@ export class UpgradeSubscriptionUseCase {
     return results;
   }
 }
+

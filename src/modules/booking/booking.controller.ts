@@ -12,6 +12,14 @@ import {
 
 import { Hall, Service, Booking, BookingService, SupportServiceRequest, InventoryItem, Supplier, ForceMajeureRequest, HallExtraServices } from '../../models/BookingModels.js';
 import { User, PlatformConfig } from '../../models/UserModels.js';
+import { LifecycleAuditLog, DomainEvent } from '../../models/Database.js';
+import { BookingStateMachine, BookingState, PaymentState } from '../../services/lifecycle/BookingStateMachine.js';
+import { ServiceRequestStateMachine, ServiceRequestState, ServicePaymentState } from '../../services/lifecycle/ServiceRequestStateMachine.js';
+import { bookingPolicyService, BOOKING_POLICY_DEFINITIONS } from '../../services/bookingPolicy/bookingPolicyService.js';
+import { BookingHoldService } from '../../services/bookingPolicy/bookingHoldService.js';
+import { PeriodConflictService } from '../../services/bookingPolicy/periodConflictService.js';
+import { regulatoryPeriodService } from '../../services/bookingPolicy/regulatoryPeriodService.js';
+import { ExternalBlockedDate } from '../../models/BookingModels.js';
 
 // Use Cases Imports
 import { CreateBookingUseCase } from './usecases/CreateBooking.usecase.js';
@@ -482,6 +490,20 @@ export class BookingController {
     try {
       const { id } = req.params;
       const { userEmail } = req.body;
+      const userRole = (req.headers['x-user-role'] as string) || (req as any).user?.role || '';
+
+      // Check Provider Cancellation Restriction (Section D / Section 12)
+      if (userRole === 'provider') {
+        const targetBooking = await this.repo.findBookingByPk(id);
+        const guard = bookingPolicyService.validateProviderCanDirectlyCancel(targetBooking);
+        if (!guard.allowed) {
+          return res.status(403).json({
+            code: 'provider_direct_cancel_forbidden',
+            error: guard.reason
+          });
+        }
+      }
+
       const useCase = new CancelBookingUseCase(this.repo);
       const result = await useCase.execute(id, userEmail, req.app.get("io"), req);
       res.json(result);
@@ -561,9 +583,61 @@ export class BookingController {
   // 24. Create Support Service Request
   createSupportRequest = async (req: Request, res: Response) => {
     try {
+      // Resolve policy for service request (P1.9)
+      const resolvedPolicyData = await bookingPolicyService.resolveEffectiveBookingPolicy({
+        providerId: Number(req.body.providerId) || 0,
+        serviceId: req.body.serviceId ? Number(req.body.serviceId) : null,
+        explicitPolicy: req.body.bookingPaymentPolicy || null
+      });
+
+      const activePolicy = resolvedPolicyData.policy;
+      const policySnapshotStr = JSON.stringify(resolvedPolicyData.snapshot);
+
+      // P2.3-P2.4 Snapshot Regulatory Timing for Service Request
+      const serviceDate = req.body.date ? PeriodConflictService.normalizeDate(req.body.date) : new Date().toISOString().split('T')[0];
+      const servicePeriodSnapshot = await regulatoryPeriodService.createPeriodSnapshot('FULL_DAY', serviceDate);
+      const periodSnapshotStr = JSON.stringify(servicePeriodSnapshot);
+
+      const deadlineHours = resolvedPolicyData.snapshot.providerResponseDeadlineHours;
+      const providerResponseDeadline = (deadlineHours && deadlineHours > 0)
+        ? new Date(Date.now() + deadlineHours * 60 * 60 * 1000)
+        : null;
+
+      // Compute initial 8 axes
+      const initialAxes = ServiceRequestStateMachine.computeInitialAxes({
+        policy: activePolicy,
+        hasPrePaid: req.body.paymentStatus === 'مدفوع' || req.body.paymentStatus === 'PAID',
+        hasAuthorized: req.body.paymentStatus === 'AUTHORIZED' || req.body.paymentStatus === 'مفوض'
+      });
+
+      const preApproval = req.body.preApprovalSnapshot 
+        ? (typeof req.body.preApprovalSnapshot === 'object' ? JSON.stringify(req.body.preApprovalSnapshot) : String(req.body.preApprovalSnapshot))
+        : JSON.stringify({
+            grossAmount: req.body.price || req.body.amount || 0,
+            serviceName: req.body.serviceName,
+            quantity: req.body.quantity || 1,
+            bookingPaymentPolicy: activePolicy,
+            createdAt: new Date().toISOString()
+          });
+
       const item = await this.repo.createSupportRequest({
         ...req.body,
-        documents: Array.isArray(req.body.documents) ? JSON.stringify(req.body.documents) : String(req.body.documents || '[]')
+        status: initialAxes.legacyStatus,
+        paymentStatus: req.body.paymentStatus || initialAxes.legacyPaymentStatus,
+        lifecycleStatus: initialAxes.lifecycleStatus,
+        providerDecision: initialAxes.providerDecision,
+        paymentState: initialAxes.paymentState,
+        refundState: initialAxes.refundState,
+        disputeState: initialAxes.disputeState,
+        fulfillmentState: initialAxes.fulfillmentState,
+        entitlementState: initialAxes.entitlementState,
+        settlementState: initialAxes.settlementState,
+        providerResponseDeadline,
+        documents: Array.isArray(req.body.documents) ? JSON.stringify(req.body.documents) : String(req.body.documents || '[]'),
+        preApprovalSnapshot: preApproval,
+        bookingPaymentPolicy: activePolicy,
+        bookingPaymentPolicySnapshot: policySnapshotStr,
+        periodSnapshot: periodSnapshotStr
       });
       res.status(201).json(item);
     } catch (error: any) {
@@ -578,11 +652,51 @@ export class BookingController {
       const item = await this.repo.findSupportRequestByPk(id);
       if (!item) return res.status(404).json({ error: 'الطلب غير موجود' });
 
-      await item.update({
-        ...req.body,
-        documents: Array.isArray(req.body.documents) ? JSON.stringify(req.body.documents) : (req.body.documents !== undefined ? String(req.body.documents) : (item as any).documents)
-      });
+      const updates = { ...req.body };
+      if (updates.documents !== undefined) {
+        updates.documents = Array.isArray(updates.documents) ? JSON.stringify(updates.documents) : String(updates.documents);
+      }
+      if (updates.preApprovalSnapshot !== undefined && typeof updates.preApprovalSnapshot === 'object') {
+        updates.preApprovalSnapshot = JSON.stringify(updates.preApprovalSnapshot);
+      }
+
+      await item.update(updates);
       res.json(item);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+
+  // 25b. Cancel Support Service Request
+  cancelSupportRequest = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { reason, actorId, actorRole = 'customer' } = req.body;
+      const item = await this.repo.findSupportRequestByPk(id);
+      if (!item) return res.status(404).json({ error: 'طلب الخدمة غير موجود' });
+
+      await ServiceRequestStateMachine.transition(item, 'CANCEL', {
+        actorId: actorId || (req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : undefined),
+        actorRole: actorRole || (req.headers['x-user-role'] as string) || 'customer',
+        cancellationReason: reason || 'إلغاء طلب الخدمة من قبل العميل'
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("service_request_status_updated", {
+          requestId: item.id,
+          requestNumber: (item as any).requestNumber,
+          status: item.status,
+          lifecycleStatus: (item as any).lifecycleStatus,
+          cancellationReason: (item as any).cancellationReason
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم إلغاء طلب الخدمة بنجاح.',
+        item
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1020,4 +1134,767 @@ export class BookingController {
       res.status(500).json({ success: false, error: err.message });
     }
   };
+
+  // 41. P2 Lifecycle: Provider Accepts Booking
+  acceptBooking = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { actorId, actorRole = 'provider', paymentDeadlineHours = 24 } = req.body;
+      const booking = await this.repo.findBookingByPk(id);
+      if (!booking) return res.status(404).json({ error: 'الحجز غير موجود' });
+
+      // Execute State Machine Transition
+      await BookingStateMachine.transition(booking, 'PROVIDER_ACCEPT', {
+        actorId: actorId || (req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : undefined),
+        actorRole: actorRole || (req.headers['x-user-role'] as string) || 'provider',
+        paymentDeadlineHours
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("booking_status_updated", {
+          bookingId: booking.id,
+          bookingNumber: (booking as any).bookingNumber,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          paymentDeadline: (booking as any).paymentDeadline
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم قبول الحجز بنجاح وفُتحت نافذة السداد للعميل.',
+        booking
+      });
+    } catch (err: any) {
+      console.error("Accept Booking Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل قبول الحجز' });
+    }
+  };
+
+  // 42. P2 Lifecycle: Provider Rejects Booking
+  rejectBooking = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { rejectionReason, actorId, actorRole = 'provider' } = req.body;
+      const booking = await this.repo.findBookingByPk(id);
+      if (!booking) return res.status(404).json({ error: 'الحجز غير موجود' });
+
+      await BookingStateMachine.transition(booking, 'PROVIDER_REJECT', {
+        rejectionReason: rejectionReason || 'اعتذار المزود عن قبول الحجز في هذا التوقيت',
+        actorId: actorId || (req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : undefined),
+        actorRole: actorRole || (req.headers['x-user-role'] as string) || 'provider'
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("booking_status_updated", {
+          bookingId: booking.id,
+          bookingNumber: (booking as any).bookingNumber,
+          status: booking.status,
+          rejectionReason: (booking as any).rejectionReason
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم تسجيل اعتذار المزود وإغلاق طلب الحجز دون خصم أي مبالغ.',
+        booking
+      });
+    } catch (err: any) {
+      console.error("Reject Booking Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل رفض الحجز' });
+    }
+  };
+
+  // 43. P2 Lifecycle: Provider Accepts Support Service Request
+  acceptSupportRequest = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { actorId, actorRole = 'provider', paymentDeadlineHours = 24 } = req.body;
+      const request = await this.repo.findSupportRequestByPk(id);
+      if (!request) return res.status(404).json({ error: 'طلب الخدمة غير موجود' });
+
+      await ServiceRequestStateMachine.transition(request, 'PROVIDER_ACCEPT', {
+        actorId: actorId || (req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : undefined),
+        actorRole: actorRole || (req.headers['x-user-role'] as string) || 'provider',
+        paymentDeadlineHours
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("service_request_status_updated", {
+          requestId: request.id,
+          requestNumber: (request as any).requestNumber,
+          status: request.status,
+          paymentStatus: request.paymentStatus,
+          paymentDeadline: (request as any).paymentDeadline
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم قبول طلب الخدمة بنجاح وفُتحت نافذة السداد للعميل.',
+        request
+      });
+    } catch (err: any) {
+      console.error("Accept Support Request Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل قبول طلب الخدمة' });
+    }
+  };
+
+  // 44. P2 Lifecycle: Provider Rejects Support Service Request
+  rejectSupportRequest = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { rejectionReason, actorId, actorRole = 'provider' } = req.body;
+      const request = await this.repo.findSupportRequestByPk(id);
+      if (!request) return res.status(404).json({ error: 'طلب الخدمة غير موجود' });
+
+      await ServiceRequestStateMachine.transition(request, 'PROVIDER_REJECT', {
+        rejectionReason: rejectionReason || 'اعتذار مزود الخدمة عن تلبية الطلب في هذا التوقيت',
+        actorId: actorId || (req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : undefined),
+        actorRole: actorRole || (req.headers['x-user-role'] as string) || 'provider'
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("service_request_status_updated", {
+          requestId: request.id,
+          requestNumber: (request as any).requestNumber,
+          status: request.status,
+          rejectionReason: (request as any).rejectionReason
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم تسجيل اعتذار مزود الخدمة وإغلاق الطلب دون أي التزامات مالية.',
+        request
+      });
+    } catch (err: any) {
+      console.error("Reject Support Request Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل رفض طلب الخدمة' });
+    }
+  };
+
+  // 45. P2 Lifecycle: Customer Pays Post-Acceptance (Simulated or Gateway callback)
+  payBooking = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { paymentReference = `PAY-${Date.now()}`, paymentMethod = 'mada', amount } = req.body;
+      const booking = await this.repo.findBookingByPk(id);
+      if (!booking) return res.status(404).json({ error: 'الحجز غير موجود' });
+
+      const check = BookingStateMachine.isPaymentCheckoutAllowed(booking as any);
+      if (!check.allowed) {
+        return res.status(403).json({ error: check.reason, code: 'PAYMENT_NOT_ELIGIBLE' });
+      }
+
+      await BookingStateMachine.transition(booking, 'PAYMENT_CAPTURED', {
+        paymentReference,
+        paymentMethod,
+        paidAmount: amount || Number(booking.totalAmount)
+      });
+
+      await awardLoyaltyPointsForBooking(booking);
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("booking_status_updated", {
+          bookingId: booking.id,
+          bookingNumber: (booking as any).bookingNumber,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم سداد الحجز وتأكيده رسمياً بنجاح.',
+        booking
+      });
+    } catch (err: any) {
+      console.error("Pay Booking Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل سداد الحجز' });
+    }
+  };
+
+  // 46. P2 Lifecycle: Customer Pays Service Request Post-Acceptance
+  paySupportRequest = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { paymentReference = `PAY-SRV-${Date.now()}`, paymentMethod = 'mada', amount } = req.body;
+      const request = await this.repo.findSupportRequestByPk(id);
+      if (!request) return res.status(404).json({ error: 'طلب الخدمة غير موجود' });
+
+      const check = ServiceRequestStateMachine.isPaymentCheckoutAllowed(request as any);
+      if (!check.allowed) {
+        return res.status(403).json({ error: check.reason, code: 'PAYMENT_NOT_ELIGIBLE' });
+      }
+
+      await ServiceRequestStateMachine.transition(request, 'PAYMENT_CAPTURED', {
+        paymentReference,
+        paymentMethod,
+        paidAmount: amount || Number(request.price)
+      });
+
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("service_request_status_updated", {
+          requestId: request.id,
+          requestNumber: (request as any).requestNumber,
+          status: request.status,
+          paymentStatus: request.paymentStatus
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم سداد طلب الخدمة وتأكيده رسمياً بنجاح.',
+        request
+      });
+    } catch (err: any) {
+      console.error("Pay Support Request Error:", err.message);
+      res.status(400).json({ error: err.message || 'فشل سداد طلب الخدمة' });
+    }
+  };
+
+  // 47. P2 Lifecycle: Automated Deadline & Expiry Checker (P2.5)
+  checkDeadlines = async (req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      let expiredProviderDecisions = 0;
+      let expiredPayments = 0;
+
+      const io = req.app ? req.app.get("io") : null;
+
+      // Check Bookings
+      const pendingBookings = await this.repo.findBookings({
+        where: {
+          [Op.or]: [
+            { status: { [Op.in]: ['pending', 'AWAITING_PROVIDER_DECISION', 'REQUESTED', 'PROVIDER_ACCEPTED', 'AWAITING_PAYMENT', 'معتمد - بانتظار السداد'] } },
+            { lifecycleStatus: { [Op.in]: ['REQUESTED', 'AWAITING_PROVIDER', 'PROVIDER_ACCEPTED', 'AWAITING_PAYMENT'] } }
+          ]
+        }
+      });
+
+      for (const b of pendingBookings) {
+        const rawStatus = b.status;
+        const lifecycle = (b as any).lifecycleStatus || rawStatus;
+        const provDecision = (b as any).providerDecision;
+        const provDeadline = (b as any).providerResponseDeadline;
+        const payDeadline = (b as any).paymentDeadline;
+
+        // Provider Decision Timeout
+        const isAwaitingProvider = (provDecision === 'PENDING') ||
+          rawStatus === 'pending' || rawStatus === 'AWAITING_PROVIDER_DECISION' || rawStatus === 'REQUESTED' ||
+          lifecycle === 'REQUESTED' || lifecycle === 'AWAITING_PROVIDER';
+
+        if (isAwaitingProvider && provDeadline && new Date(provDeadline) < now) {
+          try {
+            await BookingStateMachine.transition(b, 'PROVIDER_TIMEOUT');
+            expiredProviderDecisions++;
+            if (io) {
+              io.emit("booking_status_updated", {
+                bookingId: b.id,
+                bookingNumber: (b as any).bookingNumber,
+                status: b.status,
+                lifecycleStatus: (b as any).lifecycleStatus,
+                rejectionReason: 'انتهت مهلة استجابة المزود المحددة نظاماً'
+              });
+            }
+          } catch (e) {}
+        }
+
+        // Payment Expiry Timeout
+        const isAwaitingPayment = rawStatus === 'PROVIDER_ACCEPTED' || rawStatus === 'AWAITING_PAYMENT' || rawStatus === 'معتمد - بانتظار السداد' ||
+          lifecycle === 'PROVIDER_ACCEPTED' || lifecycle === 'AWAITING_PAYMENT';
+
+        if (isAwaitingPayment && payDeadline && new Date(payDeadline) < now) {
+          try {
+            await BookingStateMachine.transition(b, 'PAYMENT_EXPIRED');
+            expiredPayments++;
+            if (io) {
+              io.emit("booking_status_updated", {
+                bookingId: b.id,
+                bookingNumber: (b as any).bookingNumber,
+                status: b.status,
+                lifecycleStatus: (b as any).lifecycleStatus,
+                paymentStatus: b.paymentStatus,
+                rejectionReason: 'انتهت مهلة سداد الحجز المحددة بعد قبول المزود'
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Check Service Requests
+      const pendingServices = await this.repo.findSupportRequests({
+        where: {
+          [Op.or]: [
+            { status: { [Op.in]: ['pending', 'AWAITING_PROVIDER_DECISION', 'REQUESTED', 'PROVIDER_ACCEPTED', 'AWAITING_PAYMENT', 'معتمد - بانتظار السداد'] } },
+            { lifecycleStatus: { [Op.in]: ['REQUESTED', 'AWAITING_PROVIDER', 'PROVIDER_ACCEPTED', 'AWAITING_PAYMENT'] } }
+          ]
+        }
+      });
+
+      for (const s of pendingServices) {
+        const rawStatus = s.status;
+        const lifecycle = (s as any).lifecycleStatus || rawStatus;
+        const provDecision = (s as any).providerDecision;
+        const provDeadline = (s as any).providerResponseDeadline;
+        const payDeadline = (s as any).paymentDeadline;
+
+        const isAwaitingProvider = (provDecision === 'PENDING') ||
+          rawStatus === 'pending' || rawStatus === 'AWAITING_PROVIDER_DECISION' || rawStatus === 'REQUESTED' ||
+          lifecycle === 'REQUESTED' || lifecycle === 'AWAITING_PROVIDER';
+
+        if (isAwaitingProvider && provDeadline && new Date(provDeadline) < now) {
+          try {
+            await ServiceRequestStateMachine.transition(s, 'PROVIDER_TIMEOUT');
+            expiredProviderDecisions++;
+            if (io) {
+              io.emit("service_request_status_updated", {
+                requestId: s.id,
+                requestNumber: (s as any).requestNumber,
+                status: s.status,
+                lifecycleStatus: (s as any).lifecycleStatus,
+                rejectionReason: 'انتهت مهلة استجابة مزود الخدمة المحددة نظاماً'
+              });
+            }
+          } catch (e) {}
+        }
+
+        const isAwaitingPayment = rawStatus === 'PROVIDER_ACCEPTED' || rawStatus === 'AWAITING_PAYMENT' || rawStatus === 'معتمد - بانتظار السداد' ||
+          lifecycle === 'PROVIDER_ACCEPTED' || lifecycle === 'AWAITING_PAYMENT';
+
+        if (isAwaitingPayment && payDeadline && new Date(payDeadline) < now) {
+          try {
+            await ServiceRequestStateMachine.transition(s, 'PAYMENT_EXPIRED');
+            expiredPayments++;
+            if (io) {
+              io.emit("service_request_status_updated", {
+                requestId: s.id,
+                requestNumber: (s as any).requestNumber,
+                status: s.status,
+                lifecycleStatus: (s as any).lifecycleStatus,
+                paymentStatus: s.paymentStatus,
+                rejectionReason: 'انتهت مهلة سداد طلب الخدمة المحددة بعد قبول المزود'
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
+      res.json({
+        success: true,
+        checkedAt: now.toISOString(),
+        expiredProviderDecisions,
+        expiredPayments
+      });
+    } catch (err: any) {
+      console.error("Check Deadlines Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // 47b. Get Timeline / Audit Trail for Booking (P2.1)
+  getBookingTimeline = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const logs = await LifecycleAuditLog.findAll({
+        where: {
+          aggregateType: 'Booking',
+          aggregateId: String(id)
+        },
+        order: [['timestamp', 'ASC']]
+      });
+
+      const events = await DomainEvent.findAll({
+        where: {
+          aggregateType: 'Booking',
+          aggregateId: String(id)
+        },
+        order: [['createdAt', 'ASC']]
+      });
+
+      res.json({
+        success: true,
+        bookingId: id,
+        auditLogs: logs,
+        events
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // 47c. Get Timeline / Audit Trail for Support Request (P2.1)
+  getSupportRequestTimeline = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const logs = await LifecycleAuditLog.findAll({
+        where: {
+          aggregateType: 'SupportServiceRequest',
+          aggregateId: String(id)
+        },
+        order: [['timestamp', 'ASC']]
+      });
+
+      const events = await DomainEvent.findAll({
+        where: {
+          aggregateType: 'SupportServiceRequest',
+          aggregateId: String(id)
+        },
+        order: [['createdAt', 'ASC']]
+      });
+
+      res.json({
+        success: true,
+        requestId: id,
+        auditLogs: logs,
+        events
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // 46. Get Allowed Booking Policies for Provider (P1.9)
+  getProviderAllowedPolicies = async (req: Request, res: Response) => {
+    try {
+      const providerId = Number(req.query.providerId || req.headers['x-user-id'] || 0);
+      const allowed = await bookingPolicyService.getAllowedBookingPolicies(providerId);
+      
+      const policiesWithMeta = allowed.map(p => ({
+        policy: p,
+        metadata: BOOKING_POLICY_DEFINITIONS[p] || {
+          policy: p,
+          nameAr: p,
+          descriptionAr: '',
+          isSafeDefault: p === 'APPROVAL_BEFORE_PAYMENT'
+        }
+      }));
+
+      res.json({
+        providerId,
+        allowedPolicies: allowed,
+        policies: policiesWithMeta,
+        allDefinitions: BOOKING_POLICY_DEFINITIONS
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // 47. Update Hall Booking Payment Policy (DEPRECATED in P1.9 cleanup)
+  // Per-resource overrides are deprecated. Policy is unified at the provider level: PUT /api/bookings/policies/provider-settings
+  updateHallBookingPolicy = async (req: Request, res: Response) => {
+    return res.status(410).json({
+      error: 'تم إلغاء تخصيص سياسة الحجز لكل قاعة أو مكان بشكل منفرد. يتم ضبط سياسة الحجز الموحدة لجميع أماكن المزود عبر إعدادات المزود: PUT /api/bookings/policies/provider-settings',
+      code: 'RESOURCE_POLICY_DEPRECATED',
+      deprecated: true,
+      alternativeEndpoint: '/api/bookings/policies/provider-settings'
+    });
+  };
+
+  // 48. Update Service Booking Payment Policy (DEPRECATED in P1.9 cleanup)
+  // Per-resource overrides are deprecated. Policy is unified at the provider level: PUT /api/bookings/policies/provider-settings
+  updateServiceBookingPolicy = async (req: Request, res: Response) => {
+    return res.status(410).json({
+      error: 'تم إلغاء تخصيص سياسة الحجز لكل خدمة منفردة. يتم ضبط سياسة الحجز الموحدة لجميع خدمات المزود المستقلة عبر إعدادات المزود: PUT /api/bookings/policies/provider-settings',
+      code: 'RESOURCE_POLICY_DEPRECATED',
+      deprecated: true,
+      alternativeEndpoint: '/api/bookings/policies/provider-settings'
+    });
+  };
+
+  // 49. Get Unified Provider Booking Policy Settings (P1.9 Revised)
+  getProviderPolicySettings = async (req: Request, res: Response) => {
+    try {
+      const providerId = Number(req.query.providerId || req.headers['x-user-id'] || 0);
+      const provider = await User.findByPk(providerId);
+
+      const allowedPolicies = await bookingPolicyService.getAllowedBookingPolicies(providerId);
+      const canControlDeadline = await bookingPolicyService.canProviderControlDeadline(providerId);
+      const sovereignConfig = await bookingPolicyService.getSovereignPolicyConfig();
+
+      const venueBookingPolicy = (provider as any)?.venueBookingPolicy || 'INSTANT_CONFIRMATION';
+      const independentServiceBookingPolicy = (provider as any)?.independentServiceBookingPolicy || 'INSTANT_CONFIRMATION';
+      const providerResponseDeadlineHours = (provider as any)?.providerResponseDeadlineHours || 1;
+
+      res.json({
+        success: true,
+        providerId,
+        venueBookingPolicy,
+        independentServiceBookingPolicy,
+        providerResponseDeadlineHours,
+        allowedPolicies,
+        canControlDeadline,
+        sovereignConfig,
+        allDefinitions: BOOKING_POLICY_DEFINITIONS
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // 50. Update Unified Provider Booking Policy Settings (P1.9 Revised)
+  updateProviderPolicySettings = async (req: Request, res: Response) => {
+    try {
+      const providerId = Number(req.body.providerId || req.headers['x-user-id'] || 0);
+      const { venueBookingPolicy, independentServiceBookingPolicy, providerResponseDeadlineHours } = req.body;
+
+      const actorId = Number(req.headers['x-user-id']) || providerId;
+      const actorRole = (req as any).user?.role || (req.headers['x-user-role'] as string) || 'provider';
+
+      const result = await bookingPolicyService.updateProviderPolicySettings({
+        providerId,
+        venueBookingPolicy,
+        independentServiceBookingPolicy,
+        providerResponseDeadlineHours,
+        actorId,
+        actorRole
+      });
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          error: result.error
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'تم تحديث سياسات الحجز والدفع الموحدة بنجاح',
+        data: result
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  };
+
+  // ==========================================
+  // P2.2 - Booking Hold & Lock Endpoints
+  // ==========================================
+
+  // 51. Acquire Atomic Period Hold
+  acquireHold = async (req: Request, res: Response) => {
+    try {
+      const { hallId, date, period, sessionId } = req.body;
+      const userId = req.headers['x-user-id'] ? Number(req.headers['x-user-id']) : req.body.userId || null;
+
+      const result = await BookingHoldService.acquireHold({
+        hallId,
+        date,
+        period,
+        userId,
+        sessionId
+      });
+
+      if (!result.success) {
+        return res.status(409).json({
+          success: false,
+          error: result.error,
+          errorCode: result.errorCode
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'تم حجز الفترة مؤقتاً بنجاح',
+        holdToken: result.holdToken,
+        expiresAt: result.expiresAt,
+        ttlSeconds: result.ttlSeconds,
+        policy: result.policy
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 52. Verify Hold Status
+  verifyHold = async (req: Request, res: Response) => {
+    try {
+      const { holdToken, hallId, date, period } = req.query;
+      const result = await BookingHoldService.verifyHold(
+        String(holdToken || ''),
+        Number(hallId || 0),
+        String(date || ''),
+        String(period || '')
+      );
+
+      res.json({
+        success: result.isValid,
+        isValid: result.isValid,
+        hold: result.hold,
+        reason: result.reason
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 53. Release Hold Manually
+  releaseHold = async (req: Request, res: Response) => {
+    try {
+      const { holdToken } = req.body;
+      const released = await BookingHoldService.releaseHold(String(holdToken || ''));
+      res.json({
+        success: released,
+        message: released ? 'تم تحرير الحجز المؤقت' : 'لم يتم العثور على الحجز المؤقت أو تم تحريره مسبقاً'
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 54. Get Blocked Dates (Unified for Provider & Admin)
+  getBlockedDates = async (req: Request, res: Response) => {
+    try {
+      const { entityId, entityType = 'hall', providerId } = req.query;
+      const whereClause: any = { status: 'active' };
+
+      if (entityId) whereClause.entityId = Number(entityId);
+      if (entityType) whereClause.entityType = String(entityType);
+      if (providerId) whereClause.providerId = Number(providerId);
+
+      const blocks = await ExternalBlockedDate.findAll({
+        where: whereClause,
+        order: [['startDate', 'ASC']]
+      });
+
+      res.json({
+        success: true,
+        blocks
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 55. Create Blocked Date
+  createBlockedDate = async (req: Request, res: Response) => {
+    try {
+      const {
+        entityId,
+        entityType = 'hall',
+        entityName,
+        providerId,
+        providerName,
+        startDate,
+        endDate,
+        period = 'يوم كامل',
+        blockType = 'manual',
+        reason,
+        internalNotes
+      } = req.body;
+
+      const currentYear = new Date().getFullYear();
+      const yy = String(currentYear).slice(-2);
+      const count = await ExternalBlockedDate.count();
+      const blockId = `BLK-${yy}-${String(count + 1).padStart(10, '0')}`;
+
+      const block = await ExternalBlockedDate.create({
+        blockId,
+        entityId: Number(entityId),
+        entityType: String(entityType),
+        entityName: entityName || 'مكان',
+        providerId: providerId ? Number(providerId) : null,
+        providerName: providerName || null,
+        startDate: PeriodConflictService.normalizeDate(startDate),
+        endDate: PeriodConflictService.normalizeDate(endDate || startDate),
+        period: String(period),
+        blockType: String(blockType),
+        reason: reason || null,
+        internalNotes: internalNotes || null,
+        source: 'manual',
+        status: 'active',
+        createdBy: req.headers['x-user-id'] ? String(req.headers['x-user-id']) : 'provider'
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'تم حظر التاريخ والفترة بنجاح',
+        block
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 56. Remove / Unblock Date
+  deleteBlockedDate = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const block = await ExternalBlockedDate.findByPk(Number(id));
+      if (!block) {
+        return res.status(404).json({ success: false, error: 'سجل الحظر غير موجود' });
+      }
+
+      block.status = 'unblocked';
+      block.unblockedAt = new Date();
+      block.unblockedBy = req.headers['x-user-id'] ? String(req.headers['x-user-id']) : 'provider';
+      await block.save();
+
+      res.json({
+        success: true,
+        message: 'تم إلغاء حظر التاريخ بنجاح'
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 57. P2.3-P2.4 Get Admin Sovereign Regulatory Periods & Deadlines Configuration
+  getRegulatoryPeriodsConfig = async (req: Request, res: Response) => {
+    try {
+      const config = await regulatoryPeriodService.getRegulatoryConfig();
+      res.json({
+        success: true,
+        config
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 58. P2.3-P2.4 Update Admin Sovereign Regulatory Periods & Deadlines Configuration
+  updateRegulatoryPeriodsConfig = async (req: Request, res: Response) => {
+    try {
+      const actorId = Number(req.headers['x-user-id']) || 0;
+      const actorName = (req.headers['x-user-name'] as string) || (req as any).user?.name || 'admin';
+      const { morning, evening, deadlines, reason, effectiveFrom } = req.body;
+
+      const result = await regulatoryPeriodService.updateRegulatoryConfig({
+        morning,
+        evening,
+        deadlines,
+        reason,
+        effectiveFrom,
+        actorId,
+        actorName
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
+
+  // 59. P2.3-P2.4 Get Audit History for Regulatory Timing Changes
+  getRegulatoryAuditHistory = async (req: Request, res: Response) => {
+    try {
+      const limit = Number(req.query.limit) || 20;
+      const logs = await regulatoryPeriodService.getAuditHistory(limit);
+      res.json({
+        success: true,
+        logs
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  };
 }
+

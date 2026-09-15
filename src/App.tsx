@@ -236,8 +236,12 @@ import {
   Columns,
   AlignCenter,
   Grid,
-  Sliders
+  Sliders,
+  Radio,
+  ArrowLeft
 } from 'lucide-react';
+import { getCurrentUser, canAccessAdminDashboard, canAccessOperationsCenter } from './utils/permissionUtils';
+import { AccessRestrictedScreen } from './components/common/AccessRestrictedScreen';
 
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -290,6 +294,10 @@ import { ServiceViewModal } from './components/modals/ServiceViewModal';
 import { useAppState } from './hooks/useAppState';
 
 export default function App() {
+  const currentUser = getCurrentUser();
+  const hasDashboardAccess = canAccessAdminDashboard(currentUser);
+  const hasOperationsAccess = canAccessOperationsCenter(currentUser);
+
   const state = useAppState();
   const {
     activeTab,
@@ -729,6 +737,11 @@ export default function App() {
     return TABS.find(t => t.id === activeTab)?.label || 'لوحة التحكم';
   }, [activeTab, userRole]);
 
+  // Strict Sovereign Access Guard: Block unauthorized employees, clients, and providers
+  if (!hasDashboardAccess) {
+    return <AccessRestrictedScreen type="dashboard" />;
+  }
+
   if (publicLpasSlug) {
     const lpasPage = resolveLPASPage(publicLpasSlug);
     return (
@@ -992,6 +1005,30 @@ export default function App() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>النظام متصل وبكامل كفاءته</span>
               </div>
+
+              {/* Top Navigation Button for Contextual Operations Center */}
+              {hasOperationsAccess && (
+                <button
+                  id="admin-header-operations-center-btn"
+                  onClick={() => navigate('/operations')}
+                  className="px-3.5 py-1.5 rounded-2xl transition-all duration-200 text-right flex items-center gap-2 border cursor-pointer bg-gradient-to-r from-blue-950/90 via-indigo-950 to-slate-900 hover:from-blue-900 hover:to-indigo-900 text-cyan-200 border-indigo-700/80 hover:border-cyan-400 shadow-md hover:shadow-cyan-900/20 active:scale-95 group"
+                  title="الانتقال إلى مركز العمليات السياقي المستقل"
+                >
+                  <div className="p-1.5 bg-indigo-500/25 text-cyan-400 rounded-xl group-hover:bg-cyan-500/20 transition-all flex items-center justify-center">
+                    <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  </div>
+                  <div className="flex flex-col text-right">
+                    <div className="text-xs font-black text-white flex items-center gap-1.5">
+                      <span>مركز العمليات</span>
+                      <span className="px-1.5 py-0.2 bg-cyan-400 text-slate-950 text-[9px] rounded-md font-black tracking-wider shadow-xs">
+                        LIVE
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-cyan-200/80 font-medium hidden md:block">المنظومة السياقية والاستثناءات</div>
+                  </div>
+                  <ArrowLeft className="w-3.5 h-3.5 text-cyan-400/80 group-hover:-translate-x-0.5 transition-transform hidden sm:block" />
+                </button>
+              )}
 
               {/* Top Navigation Button for Urgent Operational & Financial Alerts */}
               {userRole === 'admin' && (

@@ -32,6 +32,95 @@ export interface Provider {
   iban?: string;
 }
 
+export type BookingPaymentPolicy = 
+  | 'APPROVAL_BEFORE_PAYMENT'
+  | 'PAYMENT_BEFORE_APPROVAL'
+  | 'INSTANT_CONFIRMATION'
+  | 'AUTHORIZE_THEN_CAPTURE';
+
+// P2.1 - The 8 Orthogonal State Axes
+export type BookingLifecycleStatus =
+  | 'DRAFT'
+  | 'REQUESTED'
+  | 'AWAITING_PROVIDER'
+  | 'PROVIDER_ACCEPTED'
+  | 'CONFIRMED'
+  | 'IN_EXECUTION'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REJECTED'
+  | 'EXPIRED';
+
+export type ProviderDecisionStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'TIMED_OUT'
+  | 'AUTO_ACCEPTED';
+
+export type PaymentExecutionState =
+  | 'UNPAID'
+  | 'AUTHORIZED'
+  | 'AWAITING_PAYMENT'
+  | 'PROCESSING'
+  | 'PAID'
+  | 'FAILED'
+  | 'VOIDED';
+
+export type RefundExecutionState =
+  | 'NONE'
+  | 'REQUESTED'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'PROCESSED'
+  | 'REJECTED'
+  | 'PARTIAL';
+
+export type DisputeExecutionState =
+  | 'NONE'
+  | 'OPEN'
+  | 'UNDER_INVESTIGATION'
+  | 'RESOLVED_CLIENT'
+  | 'RESOLVED_PROVIDER'
+  | 'REJECTED'
+  | 'ESCALATED_ADMIN';
+
+export type FulfillmentExecutionState =
+  | 'NOT_STARTED'
+  | 'PREPARING'
+  | 'IN_PROGRESS'
+  | 'DELIVERED'
+  | 'VERIFIED_BY_CLIENT'
+  | 'ISSUE_REPORTED';
+
+export type EntitlementExecutionState =
+  | 'PENDING_HOLD'
+  | 'MATURED'
+  | 'BLOCKED_DISPUTE'
+  | 'RELEASED_FOR_PAYOUT'
+  | 'FORFEITED';
+
+export type SettlementExecutionState =
+  | 'UNSETTLED'
+  | 'INCLUDED_IN_BATCH'
+  | 'SETTLED_PAID'
+  | 'REVERSED';
+
+export interface BookingPolicySnapshot {
+  policy: BookingPaymentPolicy;
+  policySource: 'PROVIDER_VENUE_POLICY' | 'PROVIDER_SERVICE_POLICY' | 'PROVIDER_DEFAULT' | 'PLATFORM_DEFAULT';
+  resolvedAt: string;
+  providerId: number;
+  hallId?: number;
+  serviceId?: number;
+  entitlementVersion: number;
+  entitlementsSummary: {
+    hasPolicyControl: boolean;
+    allowedPolicies: BookingPaymentPolicy[];
+  };
+  reason?: string;
+}
+
 export interface Hall {
   id: number | string;
   name: string;
@@ -42,6 +131,7 @@ export interface Hall {
   region: string;
   provider: string;
   providerId?: number | string;
+  bookingPaymentPolicy?: BookingPaymentPolicy | string;
   category?: string;
   crNumber?: string;
   address?: string;
@@ -118,6 +208,27 @@ export interface Booking {
   netProviderAmount?: number; // Amount disbursed to partner after commission
   paymentStatus: string;
   status: string;
+  // P2.1 - The 8 Orthogonal State Axes
+  lifecycleStatus?: BookingLifecycleStatus | string;
+  providerDecision?: ProviderDecisionStatus | string;
+  paymentState?: PaymentExecutionState | string;
+  refundState?: RefundExecutionState | string;
+  disputeState?: DisputeExecutionState | string;
+  fulfillmentState?: FulfillmentExecutionState | string;
+  entitlementState?: EntitlementExecutionState | string;
+  settlementState?: SettlementExecutionState | string;
+  providerResponseDeadline?: string | null;
+  paymentDeadline?: string | null;
+  acceptedAt?: string | null;
+  acceptedBy?: number | string | null;
+  rejectedAt?: string | null;
+  rejectedBy?: number | string | null;
+  rejectionReason?: string | null;
+  preApprovalSnapshot?: any;
+  finalPaymentQuote?: any;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
+  cancellationReason?: string | null;
   notes?: string;
   addons?: any[];
   bookingType?: string;
@@ -130,6 +241,49 @@ export interface Booking {
   attachedReceipts?: SupplementaryReceiptVoucher[];
   storeAddonOrders?: any[];
   pricingSnapshot?: any;
+  bookingPaymentPolicy?: BookingPaymentPolicy | string;
+  bookingPaymentPolicySnapshot?: BookingPolicySnapshot | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SupportServiceRequest {
+  id: number | string;
+  requestNumber?: string; // SRV-YY-XXXXXXXXXX format
+  bookingId?: number | string | null;
+  customerName: string;
+  providerName: string;
+  serviceName: string;
+  price: number;
+  date: string;
+  status: string;
+  // P2.1 - The 8 Orthogonal State Axes
+  lifecycleStatus?: BookingLifecycleStatus | string;
+  providerDecision?: ProviderDecisionStatus | string;
+  paymentState?: PaymentExecutionState | string;
+  refundState?: RefundExecutionState | string;
+  disputeState?: DisputeExecutionState | string;
+  fulfillmentState?: FulfillmentExecutionState | string;
+  entitlementState?: EntitlementExecutionState | string;
+  settlementState?: SettlementExecutionState | string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  quantity?: number;
+  customerId?: number | string | null;
+  providerId?: number | string | null;
+  serviceId?: number | string | null;
+  providerResponseDeadline?: string | null;
+  paymentDeadline?: string | null;
+  acceptedAt?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  preApprovalSnapshot?: any;
+  finalPaymentQuote?: any;
+  shippingAddress?: string | null;
+  phone?: string | null;
+  locationUrl?: string | null;
+  bookingPaymentPolicy?: BookingPaymentPolicy | string;
+  bookingPaymentPolicySnapshot?: BookingPolicySnapshot | string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -319,6 +473,7 @@ export interface Service {
   unitPrice?: number;
   showProviderToCustomers?: boolean;
   quantity?: string | number;
+  bookingPaymentPolicy?: BookingPaymentPolicy | string;
   createdAt?: string;
   updatedAt?: string;
   isArchived?: boolean;
@@ -441,6 +596,55 @@ export interface AuditLog {
   details: string;
   impactSummary?: string;
   timestamp: string;
+}
+
+// ==========================================
+// P2.2 - Period-Based Availability & Hold Types
+// ==========================================
+
+export type BookingPeriod = 'MORNING' | 'EVENING' | 'FULL_DAY';
+export type ArabicPeriod = 'صباحية' | 'مسائية' | 'يوم كامل' | 'كافة الفترات';
+
+export interface BookingHold {
+  id: string | number;
+  holdToken: string;
+  hallId: number;
+  bookingDate: string; // YYYY-MM-DD
+  period: BookingPeriod;
+  userId?: number | null;
+  sessionId?: string | null;
+  policy: BookingPaymentPolicy;
+  status: 'ACTIVE' | 'CONVERTED' | 'EXPIRED' | 'RELEASED';
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface PeriodAvailabilityStatus {
+  date: string; // YYYY-MM-DD
+  hallId: number;
+  periods: {
+    MORNING: {
+      isAvailable: boolean;
+      status: 'AVAILABLE' | 'HELD' | 'BOOKED' | 'BLOCKED' | 'MAINTENANCE';
+      bookingId?: number | null;
+      holdToken?: string | null;
+      reason?: string | null;
+    };
+    EVENING: {
+      isAvailable: boolean;
+      status: 'AVAILABLE' | 'HELD' | 'BOOKED' | 'BLOCKED' | 'MAINTENANCE';
+      bookingId?: number | null;
+      holdToken?: string | null;
+      reason?: string | null;
+    };
+    FULL_DAY: {
+      isAvailable: boolean;
+      status: 'AVAILABLE' | 'HELD' | 'BOOKED' | 'BLOCKED' | 'MAINTENANCE';
+      bookingId?: number | null;
+      holdToken?: string | null;
+      reason?: string | null;
+    };
+  };
 }
 
 

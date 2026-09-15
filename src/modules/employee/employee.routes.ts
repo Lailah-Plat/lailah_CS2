@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { EmployeeController } from './employee.controller.js';
 import { authenticate, authorize } from '../../middleware/auth.middleware.js';
+import { enforceLimit } from '../../middleware/entitlement.middleware.js';
 
 const router = Router();
 const controller = new EmployeeController();
@@ -16,9 +17,10 @@ router.put('/roles/:id', authorize('إدارة الموظفين والصلاحي
 // employees
 router.get('/employees', authorize('إدارة الموظفين والصلاحيات', 'view'), controller.getEmployees);
 router.get('/employees/:id', authorize('إدارة الموظفين والصلاحيات', 'view'), controller.getEmployeeById);
-router.post('/employees', authorize('إدارة الموظفين والصلاحيات', 'add'), controller.createEmployee);
+router.post('/employees', authorize('إدارة الموظفين والصلاحيات', 'add'), enforceLimit('staff_seats'), controller.createEmployee);
 router.put('/employees/:id', authorize('إدارة الموظفين والصلاحيات', 'edit'), controller.updateEmployee);
 router.delete('/employees/:id', authorize('إدارة الموظفين والصلاحيات', 'delete'), controller.deleteEmployee);
+
 
 // advanced HR endpoints
 router.get('/attendance', controller.getAttendance);

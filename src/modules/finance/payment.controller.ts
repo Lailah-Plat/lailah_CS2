@@ -3,6 +3,9 @@ import { Op } from "sequelize";
 import { PaymentFactory } from "../../services/payment/PaymentFactory.js";
 import { UnifiedPaymentsEngine } from "../../services/payment/UnifiedPaymentsEngine.js";
 import { GatewayEvent, SettlementInstruction, GatewayCapability, SplitTransaction, Beneficiary, VerifiedPaymentEvent } from "../../models/Database.js";
+import { Booking, SupportServiceRequest } from "../../models/BookingModels.js";
+import { BookingStateMachine, BookingState, PaymentState } from "../../services/lifecycle/BookingStateMachine.js";
+import { ServiceRequestStateMachine } from "../../services/lifecycle/ServiceRequestStateMachine.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { PaymentWebhookService } from "../../services/payment/PaymentWebhookService.js";
 import { CaptureGuard } from "../../services/payment/CaptureGuard.js";
@@ -11,13 +14,81 @@ import { PaymentSecurityAuditService } from "../../services/payment/PaymentSecur
 
 const router = Router();
 
-// 1. Endpoint for creating a checkout session (Strict P0 Lifecycle: Status PENDING, NO premature capture)
+// 1. Endpoint for creating a checkout session (Strict P2 Lifecycle: Only allowed after Provider Acceptance)
 router.post("/checkout", async (req: Request, res: Response) => {
   try {
-    const { amount, bookingId, providerId, customerDetails, gatewayName, commissionRate = 0.10 } = req.body;
+    const { amount, bookingId, serviceRequestId, providerId, customerDetails, gatewayName, commissionRate = 0.10 } = req.body;
     
     if (!amount || !gatewayName) {
       return res.status(400).json({ error: "Missing amount or gatewayName" });
+    }
+
+    // P2.2 Golden Rule Enforcement: Verify Provider Approval before opening Checkout
+    if (bookingId) {
+      const booking = await Booking.findByPk(bookingId);
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" });
+      }
+
+      const checkoutCheck = BookingStateMachine.isPaymentCheckoutAllowed(booking as any);
+      if (!checkoutCheck.allowed) {
+        await PaymentSecurityAuditService.logEvent('PREMATURE_CHECKOUT_BLOCKED', {
+          bookingId,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          reason: checkoutCheck.reason
+        });
+        return res.status(403).json({
+          error: checkoutCheck.reason || "لا يمكن الدفع قبل قبول المزود للطلب أولاً.",
+          code: "PAYMENT_NOT_ELIGIBLE",
+          currentStatus: booking.status,
+          bookingNumber: (booking as any).bookingNumber
+        });
+      }
+
+      // Ensure amount does not deviate from approved quote
+      const expectedAmount = Number(booking.totalAmount);
+      if (Math.abs(expectedAmount - Number(amount)) > 0.01) {
+        return res.status(400).json({
+          error: "المبلغ المطلوب سداده لا يتطابق مع المبلغ المعتمد للحجز.",
+          code: "AMOUNT_MISMATCH",
+          expectedAmount,
+          requestedAmount: amount
+        });
+      }
+    }
+
+    if (serviceRequestId) {
+      const srvReq = await SupportServiceRequest.findByPk(serviceRequestId);
+      if (!srvReq) {
+        return res.status(404).json({ error: "Service request not found", code: "SERVICE_REQUEST_NOT_FOUND" });
+      }
+
+      const srvCheckoutCheck = ServiceRequestStateMachine.isPaymentCheckoutAllowed(srvReq as any);
+      if (!srvCheckoutCheck.allowed) {
+        await PaymentSecurityAuditService.logEvent('PREMATURE_SRV_CHECKOUT_BLOCKED', {
+          serviceRequestId,
+          status: srvReq.status,
+          paymentStatus: srvReq.paymentStatus,
+          reason: srvCheckoutCheck.reason
+        });
+        return res.status(403).json({
+          error: srvCheckoutCheck.reason || "لا يمكن الدفع قبل قبول مزود الخدمة للطلب أولاً.",
+          code: "PAYMENT_NOT_ELIGIBLE",
+          currentStatus: srvReq.status,
+          requestNumber: (srvReq as any).requestNumber
+        });
+      }
+
+      const expectedAmount = Number(srvReq.price);
+      if (Math.abs(expectedAmount - Number(amount)) > 0.01) {
+        return res.status(400).json({
+          error: "المبلغ المطلوب سداده لا يتطابق مع قيمة الخدمة المعتمدة.",
+          code: "AMOUNT_MISMATCH",
+          expectedAmount,
+          requestedAmount: amount
+        });
+      }
     }
 
     const orderId = `ORD-${Date.now()}`;
@@ -25,7 +96,7 @@ router.post("/checkout", async (req: Request, res: Response) => {
     
     const session = await gateway.createCheckoutSession(amount, customerDetails, orderId);
     
-    // Strict Financial Lifecycle Rule (P0 Audit Fix):
+    // Strict Financial Lifecycle Rule (P2 Audit Fix):
     // Checkout creation MUST remain in PENDING state.
     // Financial capture, split snapshots, and ledger journals are ONLY triggered upon verified Gateway Webhook.
     return res.json({
