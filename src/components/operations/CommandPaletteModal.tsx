@@ -14,7 +14,7 @@ import {
   FileText,
   X
 } from 'lucide-react';
-import { OperationalCase, CommandDefinition, PRIORITY_LABELS, CASE_TYPE_LABELS } from './types';
+import { OperationalCase, CommandDefinition, PRIORITY_LABELS, CASE_TYPE_LABELS, OpsTheme } from './types';
 import { getOperationsAuthHeaders } from '../../utils/permissionUtils';
 
 interface CommandPaletteModalProps {
@@ -24,6 +24,7 @@ interface CommandPaletteModalProps {
   onExecuteCommand: (commandId: string, caseId?: string) => void;
   activeCase?: OperationalCase | null;
   commands: CommandDefinition[];
+  theme?: OpsTheme;
 }
 
 export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
@@ -32,8 +33,10 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   onSelectCase,
   onExecuteCommand,
   activeCase,
-  commands
+  commands,
+  theme = 'dark'
 }) => {
+  const isDark = theme === 'dark';
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ cases: OperationalCase[]; nonCaseMatches: any[] }>({
     cases: [],
@@ -154,18 +157,24 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   let renderIndex = 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in" dir="rtl">
       <div 
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]"
+        className={`w-full max-w-2xl rounded-2xl shadow-2xl border overflow-hidden flex flex-col max-h-[80vh] ${
+          isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        }`}
         onClick={e => e.stopPropagation()}
       >
         {/* Search Header */}
-        <div className="p-4 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
+        <div className={`p-4 border-b flex items-center gap-3 ${
+          isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50/50 border-slate-100'
+        }`}>
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input
             ref={inputRef}
             type="text"
-            className="w-full bg-transparent text-slate-800 text-lg placeholder:text-slate-400 focus:outline-none"
+            className={`w-full bg-transparent text-lg focus:outline-none ${
+              isDark ? 'text-white placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'
+            }`}
             placeholder="ابحث عن حالة OPS- أو حجز BKG- أو خدمة أو عميل، أو اكتب أمراً..."
             value={query}
             onChange={e => handleSearch(e.target.value)}
@@ -174,18 +183,20 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
           {query && (
             <button 
               onClick={() => handleSearch('')}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              className="p-1 text-slate-400 hover:text-white rounded-lg"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded font-mono shrink-0">
+          <span className={`text-xs px-2 py-1 rounded font-mono shrink-0 ${
+            isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-600'
+          }`}>
             ESC للإغلاق
           </span>
         </div>
 
         {/* Results Body */}
-        <div className="overflow-y-auto p-3 divide-y divide-slate-100">
+        <div className={`overflow-y-auto p-3 divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-100'}`}>
           {/* Active Context Case Notice */}
           {activeCase && (
             <div className="pb-3 mb-2">

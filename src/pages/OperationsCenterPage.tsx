@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { OperationsShell } from '../components/operations/OperationsShell';
+import { OperationalPulseView } from '../components/operations/OperationalPulseView';
 import { ExceptionsCenterView } from '../components/operations/ExceptionsCenterView';
 import { OperationalCommandView } from '../components/operations/OperationalCommandView';
 import { ContextualWorkspaceView } from '../components/operations/ContextualWorkspaceView';
@@ -10,7 +11,8 @@ import {
   OperationalCase, 
   OperationalPulseCounts, 
   OperationsMode, 
-  CommandDefinition 
+  CommandDefinition,
+  OpsTheme
 } from '../components/operations/types';
 
 export const OperationsCenterPage: React.FC = () => {
@@ -25,6 +27,18 @@ export const OperationsCenterPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState<string>(window.location.pathname);
+  const [theme, setTheme] = useState<OpsTheme>(() => {
+    const saved = localStorage.getItem('laylah_ops_theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  const handleToggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('laylah_ops_theme', next);
+      return next;
+    });
+  };
 
   const [cases, setCases] = useState<OperationalCase[]>([]);
   const [currentCase, setCurrentCase] = useState<OperationalCase | null>(null);
@@ -40,7 +54,10 @@ export const OperationsCenterPage: React.FC = () => {
     const path = window.location.pathname;
     setCurrentPath(path);
 
-    if (path.startsWith('/operations/workspace')) {
+    if (path === '/operations/pulse' || path === '/operations/radar') {
+      setCurrentMode('pulse');
+      setActiveFilter(null);
+    } else if (path.startsWith('/operations/workspace')) {
       setCurrentMode('workspace');
       const parts = path.split('/');
       if (parts[3]) {
@@ -203,7 +220,9 @@ export const OperationsCenterPage: React.FC = () => {
   const handleSelectMode = (mode: OperationsMode) => {
     setCurrentMode(mode);
     let targetUrl = '/operations/inbox';
-    if (mode === 'exceptions') {
+    if (mode === 'pulse') {
+      targetUrl = '/operations/pulse';
+    } else if (mode === 'exceptions') {
       targetUrl = activeFilter ? `/operations/${activeFilter}` : '/operations/inbox';
     } else if (mode === 'command') {
       targetUrl = '/operations/command';
@@ -342,8 +361,24 @@ export const OperationsCenterPage: React.FC = () => {
       activeCaseId={selectedCaseId || currentCase?.caseId}
       userRole="مشرف العمليات"
       userName="عبدالله السبيعي"
+      theme={theme}
+      onToggleTheme={handleToggleTheme}
     >
-      {/* Mode 1: Exceptions Center */}
+      {/* Mode 1: Operational Pulse / Radar */}
+      {currentMode === 'pulse' && (
+        <OperationalPulseView
+          counts={counts}
+          cases={cases}
+          onNavigateToQueue={(filter) => handleNavigate(`/operations/${filter}`, filter, 'exceptions')}
+          onOpenCase={handleOpenInWorkspace}
+          onRunDiscovery={handleRunDiscovery}
+          isRunningDiscovery={isRunningDiscovery}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          theme={theme}
+        />
+      )}
+
+      {/* Mode 2: Exceptions Center */}
       {currentMode === 'exceptions' && (
         <ExceptionsCenterView
           cases={cases}
@@ -352,10 +387,11 @@ export const OperationsCenterPage: React.FC = () => {
           onSelectFilter={handleSelectFilter}
           onOpenInWorkspace={handleOpenInWorkspace}
           onExecuteCommand={handleExecuteCommand}
+          theme={theme}
         />
       )}
 
-      {/* Mode 2: Operational Command & Search */}
+      {/* Mode 3: Operational Command & Search */}
       {currentMode === 'command' && (
         <OperationalCommandView
           commands={commands}
@@ -363,10 +399,11 @@ export const OperationsCenterPage: React.FC = () => {
           onSelectCase={handleOpenInWorkspace}
           onExecuteCommand={handleExecuteCommand}
           onCreateCase={handleCreateCase}
+          theme={theme}
         />
       )}
 
-      {/* Mode 3: Contextual Workspace (3-Pane) */}
+      {/* Mode 4: Contextual Workspace (3-Pane) */}
       {currentMode === 'workspace' && (
         <ContextualWorkspaceView
           currentCase={currentCase}
@@ -374,6 +411,7 @@ export const OperationsCenterPage: React.FC = () => {
           onSelectCase={handleOpenInWorkspace}
           onExecuteCommand={handleExecuteCommand}
           onRefreshCase={fetchCaseDetails}
+          theme={theme}
         />
       )}
 
@@ -385,6 +423,7 @@ export const OperationsCenterPage: React.FC = () => {
         onExecuteCommand={handleExecuteCommand}
         activeCase={currentCase}
         commands={commands}
+        theme={theme}
       />
     </OperationsShell>
   );

@@ -38,6 +38,7 @@ export interface OperationalCase {
   deduplicationKey: string;
   version: number;
   metadata?: any;
+  internalNotes?: Array<{ authorName: string; createdAt: string; content: string }>;
   createdAt: string;
   updatedAt: string;
   activities?: OperationalCaseActivity[];
@@ -91,7 +92,8 @@ export interface CommandDefinition {
   category: 'LIFECYCLE' | 'ASSIGNMENT' | 'ESCALATION' | 'COLLABORATION' | 'VIEW';
 }
 
-export type OperationsMode = 'exceptions' | 'command' | 'workspace';
+export type OperationsMode = 'pulse' | 'exceptions' | 'workspace' | 'command';
+export type OpsTheme = 'dark' | 'light';
 export type WorkspaceViewMode = 'focused' | 'split' | 'three-column' | 'timeline';
 export type ExceptionsViewMode = 'smart-list' | 'stage-board' | 'timeline' | 'team-distribution';
 

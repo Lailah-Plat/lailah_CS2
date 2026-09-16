@@ -19,7 +19,7 @@ import {
   ExternalLink,
   Shield
 } from 'lucide-react';
-import { OperationalPulseCounts, OperationsMode } from './types';
+import { OperationalPulseCounts, OperationsMode, OpsTheme } from './types';
 
 export interface OperationsSidebarItem {
   id: string;
@@ -46,6 +46,7 @@ interface OperationsSidebarProps {
   isRunningDiscovery?: boolean;
   userRole?: string;
   activeCaseId?: string | null;
+  theme?: OpsTheme;
 }
 
 export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
@@ -59,8 +60,10 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
   onRunDiscovery,
   isRunningDiscovery = false,
   userRole = 'admin',
-  activeCaseId
+  activeCaseId,
+  theme = 'dark'
 }) => {
+  const isDark = theme === 'dark';
   // 11 sovereign sections according to prompt requirements
   const navigationItems: OperationsSidebarItem[] = [
     {
@@ -191,27 +194,35 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
 
   return (
     <aside 
-      className={`bg-white border-l border-slate-200/80 shrink-0 flex flex-col transition-all duration-300 z-30 select-none ${
+      className={`border-l shrink-0 flex flex-col transition-all duration-300 z-30 select-none ${
+        isDark 
+          ? 'bg-slate-950 border-slate-850 text-slate-200' 
+          : 'bg-white border-slate-200/80 text-slate-800'
+      } ${
         isCollapsed ? 'w-18' : 'w-64'
       }`}
       dir="rtl"
     >
       {/* Sidebar Header / Brand Mini */}
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
+      <div className={`p-4 border-b flex items-center justify-between gap-2 ${
+        isDark ? 'border-slate-800/80' : 'border-slate-100'
+      }`}>
         {!isCollapsed && (
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center text-xs font-black shadow-xs">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-xs font-black shadow-xs">
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-extrabold text-slate-900 tracking-tight">أقسام العمليات</div>
+              <div className={`text-xs font-extrabold tracking-tight ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>أقسام العمليات</div>
               <div className="text-[10px] text-slate-400 font-medium">الوصول الميداني المباشر</div>
             </div>
           </div>
         )}
         <button
           onClick={onToggleCollapse}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors mr-auto"
+          className={`p-1.5 rounded-lg transition-colors mr-auto ${
+            isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+          }`}
           title={isCollapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'}
         >
           {isCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -232,7 +243,9 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all group relative ${
                 active 
                   ? item.activeBg 
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                  : isDark 
+                    ? 'text-slate-400 hover:bg-slate-900 hover:text-slate-200' 
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
               }`}
               title={isCollapsed ? item.label : undefined}
             >
@@ -250,8 +263,8 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
                     active 
                       ? 'bg-white/20 text-white' 
                       : item.badgeType === 'danger'
-                        ? 'bg-rose-100 text-rose-800'
-                        : 'bg-slate-100 text-slate-700'
+                        ? 'bg-rose-900/50 text-rose-300 border border-rose-800'
+                        : isDark ? 'bg-slate-850 text-slate-300' : 'bg-slate-100 text-slate-700'
                   }`}
                 >
                   {count}
@@ -260,7 +273,7 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
 
               {/* Collapsed Badge Dot Indicator */}
               {isCollapsed && count !== undefined && count > 0 && (
-                <span className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                <span className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-slate-900" />
               )}
             </button>
           );
@@ -268,23 +281,23 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
       </div>
 
       {/* Secondary Quick Workspaces */}
-      <div className="p-2 border-t border-slate-100 space-y-1">
+      <div className={`p-2 border-t space-y-1 ${isDark ? 'border-slate-800/80' : 'border-slate-100'}`}>
         {/* Contextual Workspace Direct Link */}
         <button
           onClick={() => onNavigate('/operations/workspace' + (activeCaseId ? `/${activeCaseId}` : ''), null, 'workspace')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
             currentMode === 'workspace'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'bg-teal-600 text-white shadow-xs'
+              : isDark ? 'text-slate-400 hover:bg-slate-900 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
           title={isCollapsed ? 'مساحة العمل السياقية' : undefined}
         >
-          <Layout className={`w-4 h-4 shrink-0 ${currentMode === 'workspace' ? 'text-white' : 'text-blue-600'}`} />
+          <Layout className={`w-4 h-4 shrink-0 ${currentMode === 'workspace' ? 'text-white' : 'text-teal-400'}`} />
           {!isCollapsed && (
             <div className="flex-1 text-right flex items-center justify-between">
               <span>مساحة العمل السياقية</span>
               {activeCaseId && (
-                <span className="font-mono text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-normal">
+                <span className="font-mono text-[10px] bg-teal-900/60 text-teal-300 border border-teal-700 px-1.5 py-0.2 rounded font-normal">
                   نشطة
                 </span>
               )}
@@ -297,12 +310,12 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
           onClick={() => onNavigate('/operations/command', null, 'command')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
             currentMode === 'command'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              ? 'bg-slate-800 text-white shadow-xs'
+              : isDark ? 'text-slate-400 hover:bg-slate-900 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
           title={isCollapsed ? 'شريط الأوامر والبحث' : undefined}
         >
-          <Terminal className={`w-4 h-4 shrink-0 ${currentMode === 'command' ? 'text-white' : 'text-slate-600'}`} />
+          <Terminal className={`w-4 h-4 shrink-0 ${currentMode === 'command' ? 'text-white' : 'text-amber-400'}`} />
           {!isCollapsed && (
             <span className="flex-1 text-right truncate">شريط الأوامر والبحث</span>
           )}
@@ -313,7 +326,9 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
           <button
             onClick={onRunDiscovery}
             disabled={isRunningDiscovery}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+              isDark ? 'text-slate-400 hover:bg-slate-900 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
             title={isCollapsed ? 'فحص الاستثناءات الآلي' : undefined}
           >
             <RefreshCw className={`w-4 h-4 shrink-0 text-amber-500 ${isRunningDiscovery ? 'animate-spin' : ''}`} />
@@ -327,10 +342,14 @@ export const OperationsSidebar: React.FC<OperationsSidebarProps> = ({
       </div>
 
       {/* Footer / Link to Dashboard */}
-      <div className="p-3 border-t border-slate-100 bg-slate-50/70">
+      <div className={`p-3 border-t ${isDark ? 'border-slate-800/80 bg-slate-950' : 'border-slate-100 bg-slate-50/70'}`}>
         <a
           href="/dashboard"
-          className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-white rounded-xl border border-slate-200/80 transition-all shadow-2xs"
+          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl border transition-all shadow-2xs ${
+            isDark 
+              ? 'text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-850 border-slate-800' 
+              : 'text-slate-700 hover:text-slate-900 hover:bg-white border-slate-200/80'
+          }`}
           title={isCollapsed ? 'لوحة الإدارة الشاملة' : undefined}
         >
           <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />

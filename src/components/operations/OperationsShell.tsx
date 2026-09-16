@@ -7,15 +7,20 @@ import {
   ChevronLeft,
   Menu,
   X,
-  ChevronRight,
-  ShieldAlert,
+  ShieldAlert, 
+  Terminal, 
+  Layout, 
+  Sparkles,
+  Sun,
+  Moon,
+  AlertTriangle,
   Flame,
-  Terminal,
-  Layout,
+  CheckCircle2,
+  Lock,
   Layers,
-  Sparkles
+  Shield
 } from 'lucide-react';
-import { OperationsMode, OperationalPulseCounts } from './types';
+import { OperationsMode, OperationalPulseCounts, OpsTheme } from './types';
 import { OperationsSidebar } from './OperationsSidebar';
 
 interface OperationsShellProps {
@@ -35,6 +40,9 @@ interface OperationsShellProps {
   activeCaseId?: string | null;
   userRole?: string;
   userName?: string;
+  theme?: OpsTheme;
+  onToggleTheme?: () => void;
+  onQuickSearch?: (query: string) => void;
 }
 
 export const OperationsShell: React.FC<OperationsShellProps> = ({
@@ -52,24 +60,31 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
   isRunningDiscovery = false,
   children,
   activeCaseId,
-  userRole = 'مشرف العمليات',
-  userName = 'عبدالله السبيعي'
+  userRole = 'مشرف العمليات والرقابة السيادية',
+  userName = 'عبدالله السبيعي',
+  theme = 'dark',
+  onToggleTheme,
+  onQuickSearch
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('');
 
-  // Derive human-readable breadcrumb label
+  const isDark = theme === 'dark';
+
+  // Human-readable breadcrumb label
   const getFilterLabel = () => {
-    if (currentMode === 'command') return 'شريط الأوامر والبحث التشغيلي';
-    if (currentMode === 'workspace') return 'مساحة العمل السياقية';
+    if (currentMode === 'pulse') return 'نبض العمليات الحي (Radar)';
+    if (currentMode === 'command') return 'شريط الأوامر والبحث التشغيلي (⌘K)';
+    if (currentMode === 'workspace') return 'مساحة العمل السياقية المتعمقة';
     switch (activeFilter) {
-      case 'critical': return 'الحالات الحرجة';
+      case 'critical': return 'الحالات الحرجة (Critical)';
       case 'high': return 'حالات عالية الأولوية';
       case 'my-cases': return 'الحالات المسندة إليّ';
       case 'unassigned': return 'الحالات غير المسندة';
-      case 'approvals': return 'الاعتمادات السيادية';
-      case 'bookings': return 'الحجوزات وطلبات الخدمات';
-      case 'financial': return 'المالية والتسويات المعلقة';
+      case 'approvals': return 'اعتمادات المنشآت والخدمات';
+      case 'bookings': return 'حجوزات القاعات (BKG-26)';
+      case 'financial': return 'الضمانات المالية والفواتير (INV-26)';
       case 'disputes': return 'النزاعات والشكاوى';
       case 'escalations': return 'التصعيدات الميدانية';
       case 'sla': return 'مراقبة مستوى الخدمة (SLA)';
@@ -78,273 +93,358 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
     }
   };
 
+  const handleHeaderSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!headerSearchQuery.trim()) {
+      onOpenCommandPalette();
+      return;
+    }
+    if (onQuickSearch) {
+      onQuickSearch(headerSearchQuery);
+    } else {
+      onOpenCommandPalette();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 selection:bg-primary/20" dir="rtl">
-      {/* Top Header - Sovereign Operations Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200/80 shadow-2xs">
-        <div className="w-full px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+    <div 
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-200 selection:bg-emerald-500/20 ${
+        isDark 
+          ? 'bg-slate-950 text-slate-100' 
+          : 'bg-slate-50 text-slate-800'
+      }`} 
+      dir="rtl"
+    >
+      {/* SECTION 1: Fixed 64px Master Header & Control Bar */}
+      <header 
+        className={`sticky top-0 z-40 h-16 backdrop-blur-md border-b transition-colors ${
+          isDark 
+            ? 'bg-slate-950/90 border-slate-800/80 shadow-lg shadow-black/20' 
+            : 'bg-white/95 border-slate-200/80 shadow-2xs'
+        }`}
+      >
+        <div className="w-full h-full px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4">
           
-          {/* Right: Mobile Hamburger & Logo / Brand */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Right Section: Mobile Menu + Brand Identity */}
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+              className={`lg:hidden p-2 rounded-xl transition-colors ${
+                isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
+              }`}
               title="القائمة الجانبية"
             >
               {isMobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onNavigate('/operations/inbox', null, 'exceptions')}>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-950 to-slate-800 flex items-center justify-center text-white shadow-md shadow-slate-900/10 border border-slate-700">
-                <Activity className="w-4 h-4 text-amber-400" />
+            {/* Glowing Emerald Hexagon / Activity Icon & Brand */}
+            <div 
+              className="flex items-center gap-2.5 cursor-pointer group select-none" 
+              onClick={() => onSelectMode('pulse')}
+              title="الانتقال إلى نبض العمليات"
+            >
+              <div className="relative flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-900 to-emerald-950 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-md shadow-emerald-950/30 group-hover:border-emerald-400 transition-all">
+                  <Activity className="w-4.5 h-4.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-950 animate-pulse" />
               </div>
+
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-base text-slate-950 tracking-tight">ليلة</span>
-                  <span className="text-[10px] font-black bg-slate-900 text-amber-400 px-1.5 py-0.2 rounded-md uppercase tracking-wider">
-                    مركز العمليات السياقي
+                <div className="flex items-center gap-1.5">
+                  <span className={`font-black text-base tracking-tight ${isDark ? 'text-white' : 'text-slate-950'}`}>
+                    ليلة
+                  </span>
+                  <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded-md uppercase tracking-wider">
+                    مركز العمليات
                   </span>
                 </div>
-                <div className="text-[10px] text-slate-400 font-medium -mt-0.5">
-                  منظومة التدخل والاستثناءات الميدانية
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono -mt-0.5">
+                  <span className="text-emerald-500 font-bold">LOS v2.5</span>
+                  <span className="opacity-40">•</span>
+                  <span>التحكم السيادي</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Center: Dynamic Breadcrumbs Navigation */}
-          <nav className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 font-medium bg-slate-100/70 px-3 py-1.5 rounded-xl border border-slate-200/60 max-w-xl truncate">
-            <button 
-              onClick={() => onNavigate('/operations/inbox', null, 'exceptions')}
-              className="text-slate-600 hover:text-slate-900 font-bold transition-colors"
-            >
-              مركز العمليات
-            </button>
-            <ChevronLeft className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="text-slate-800 font-semibold truncate">
-              {getFilterLabel()}
-            </span>
-            {activeCaseId && (
-              <>
-                <ChevronLeft className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 truncate">
-                  {activeCaseId}
-                </span>
-              </>
-            )}
-          </nav>
-
-          {/* Quick Search Trigger (Ctrl+K) */}
-          <div className="hidden lg:flex items-center flex-1 max-w-xs mx-2">
+          {/* Center-Right: 4-Mode Persistent Switcher */}
+          <nav 
+            id="operations-4-mode-switcher" 
+            aria-label="أوضاع مركز العمليات الأربعة"
+            className={`hidden xl:flex items-center p-1 rounded-xl border ${
+              isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100 border-slate-200'
+            }`}
+          >
+            {/* Mode 1: Operational Pulse */}
             <button
-              onClick={onOpenCommandPalette}
-              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200 rounded-xl text-xs text-slate-500 transition-colors"
+              onClick={() => onSelectMode('pulse')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentMode === 'pulse'
+                  ? isDark
+                    ? 'bg-emerald-500 text-slate-950 shadow-sm font-black'
+                    : 'bg-white text-emerald-800 shadow-xs ring-1 ring-emerald-500/30 font-black'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
             >
-              <span className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-slate-400" />
-                <span>بحث سريع أو كتابة أمر...</span>
-              </span>
-              <kbd className="font-mono text-[10px] bg-white text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+              <Activity className="w-3.5 h-3.5" />
+              <span>نبض العمليات</span>
+            </button>
+
+            {/* Mode 2: Exceptions Center */}
+            <button
+              onClick={() => onSelectMode('exceptions')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentMode === 'exceptions'
+                  ? isDark
+                    ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
+                    : 'bg-white text-amber-900 shadow-xs ring-1 ring-amber-500/30 font-black'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>مركز الاستثناءات</span>
+              {counts && counts.critical > 0 && (
+                <span className={`inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.2 rounded font-black ${
+                  currentMode === 'exceptions'
+                    ? 'bg-slate-950/20 text-slate-950'
+                    : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  <span>{counts.critical} حرج</span>
+                </span>
+              )}
+            </button>
+
+            {/* Mode 3: Omni-Command & Search */}
+            <button
+              onClick={() => onSelectMode('command')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentMode === 'command'
+                  ? isDark
+                    ? 'bg-teal-500 text-slate-950 shadow-sm font-black'
+                    : 'bg-white text-teal-900 shadow-xs ring-1 ring-teal-500/30 font-black'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>البحث والأوامر</span>
+              <kbd className={`font-mono text-[9px] px-1 py-0.2 rounded border ${
+                isDark ? 'bg-slate-950 text-teal-300 border-slate-700' : 'bg-slate-200 text-slate-700 border-slate-300'
+              }`}>
                 ⌘K
               </kbd>
             </button>
-          </div>
 
-          {/* Left: Live Status, Refresh, Link to Dashboard, User Profile */}
-          <div className="flex items-center gap-2.5">
-            {/* Live Pulse Dot */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            {/* Mode 4: Contextual Workspace */}
+            <button
+              onClick={() => onSelectMode('workspace')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                currentMode === 'workspace'
+                  ? isDark
+                    ? 'bg-blue-500 text-white shadow-sm font-black'
+                    : 'bg-white text-blue-900 shadow-xs ring-1 ring-blue-500/30 font-black'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <Layout className="w-3.5 h-3.5" />
+              <span>مساحة العمل</span>
+              {activeCaseId && (
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-700 font-bold truncate max-w-[80px]">
+                  {activeCaseId}
+                </span>
+              )}
+            </button>
+          </nav>
+
+          {/* Center: Instant Omni-Search Field */}
+          <form 
+            onSubmit={handleHeaderSearchSubmit}
+            className="hidden md:flex items-center flex-1 max-w-md mx-2"
+          >
+            <div 
+              onClick={onOpenCommandPalette}
+              className={`w-full flex items-center justify-between px-3.5 py-1.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                isDark
+                  ? 'bg-slate-900/80 hover:bg-slate-850 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-300'
+                  : 'bg-slate-100 hover:bg-slate-200/80 border-slate-200 text-slate-500'
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="truncate text-xs">
+                  بحث فوري بالمعرفات الرسمية (BKG-26 / SRV-26 / INV-26)...
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                <kbd className={`px-1.5 py-0.5 rounded border shadow-2xs ${
+                  isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600'
+                }`}>
+                  ⌘K
+                </kbd>
+              </div>
+            </div>
+          </form>
+
+          {/* Left: Quick Tools & Specialist Profile */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            
+            {/* Live Indicator Dot */}
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
+              isDark 
+                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/60' 
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>مباشر</span>
             </div>
 
-            {/* Refresh Button */}
+            {/* Refresh / Data Sync Button */}
             <button
               onClick={onRefresh}
               disabled={isLoading}
               title={`آخر تحديث: ${lastUpdated.toLocaleTimeString('ar-SA')}`}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-lg transition-colors"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-xl border transition-colors ${
+                isDark 
+                  ? 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80'
+              }`}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-primary' : 'text-slate-500'}`} />
-              <span className="hidden xl:inline text-[11px] text-slate-500">
-                {isLoading ? 'جاري التحديث...' : `تحديث ${lastUpdated.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}`}
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-400' : 'text-slate-400'}`} />
+              <span className="hidden 2xl:inline text-[11px] text-slate-400 font-mono">
+                {isLoading ? 'مزامنة...' : lastUpdated.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </button>
+
+            {/* Theme Toggle Button (Sun / Moon) */}
+            {onToggleTheme && (
+              <button
+                onClick={onToggleTheme}
+                className={`p-2 rounded-xl border transition-colors ${
+                  isDark 
+                    ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800 hover:text-amber-300' 
+                    : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200/80'
+                }`}
+                title={isDark ? 'التحويل للوضع الفاتح (Light Mode)' : 'التحويل للوضع الداكن الميداني (Deep Slate Dark Ops)'}
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            )}
 
             {/* Mobile Search Button */}
             <button
               onClick={onOpenCommandPalette}
-              className="lg:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+              className={`md:hidden p-2 rounded-xl border ${
+                isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+              }`}
               title="البحث والأوامر (⌘K)"
             >
               <Search className="w-4 h-4" />
             </button>
 
-            {/* Link to Dashboard for authorized managers */}
+            {/* Link to Standard Dashboard */}
             <a
               href="/dashboard"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-lg transition-colors"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-colors ${
+                isDark 
+                  ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800' 
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-200/80'
+              }`}
               title="الانتقال إلى لوحة الإدارة الشاملة"
             >
               <span>لوحة الإدارة</span>
               <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
             </a>
 
-            {/* User Profile */}
-            <div className="flex items-center gap-2 pl-1 border-r border-slate-200 pr-2">
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 font-bold flex items-center justify-center text-xs shadow-inner">
-                {userName.charAt(0)}
+            {/* Ops Specialist Avatar & Identity */}
+            <div className={`flex items-center gap-2 pl-1 border-r pr-2 ${
+              isDark ? 'border-slate-800' : 'border-slate-200'
+            }`}>
+              <div className="relative">
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-emerald-400 border border-emerald-500/40 font-bold flex items-center justify-center text-xs shadow-inner">
+                  {userName.charAt(0)}
+                </div>
+                <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 ring-1.5 ring-slate-950" />
               </div>
-              <div className="hidden md:block text-right">
-                <div className="text-xs font-bold text-slate-900 leading-tight">{userName}</div>
-                <div className="text-[10px] text-slate-500 font-medium leading-tight">{userRole}</div>
+              <div className="hidden lg:block text-right">
+                <div className={`text-xs font-bold leading-tight ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                  {userName}
+                </div>
+                <div className="text-[10px] text-emerald-400 font-medium leading-tight">
+                  متصل • وصول سيادي
+                </div>
               </div>
             </div>
+
           </div>
 
         </div>
 
-        {/* 3 Interconnected Unified Models Navigation Buttons Bar */}
-        <div className="bg-slate-50/95 border-t border-slate-200/80 px-3 sm:px-6 py-2">
-          <nav 
-            id="operations-unified-models-nav"
-            aria-label="النماذج التشغيلية الموحدة لمركز العمليات" 
-            className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3 max-w-[1720px] mx-auto"
+        {/* Mobile Sub-Navigation Bar for 4 Modes */}
+        <div className={`xl:hidden flex items-center gap-1.5 px-3 py-1.5 border-t overflow-x-auto scrollbar-none ${
+          isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'
+        }`}>
+          <button
+            onClick={() => onSelectMode('pulse')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
+              currentMode === 'pulse' 
+                ? 'bg-emerald-500 text-slate-950' 
+                : isDark ? 'text-slate-400 bg-slate-900' : 'text-slate-600 bg-white'
+            }`}
           >
-            {/* Model 1: Exceptions-Based Management */}
-            <button
-              id="btn-model-exceptions"
-              type="button"
-              onClick={() => onSelectMode('exceptions')}
-              className={`flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border text-right transition-all cursor-pointer relative ${
-                currentMode === 'exceptions'
-                  ? 'bg-white border-amber-500/80 shadow-xs ring-2 ring-amber-500/20 text-slate-900'
-                  : 'bg-white/60 hover:bg-white border-slate-200/80 text-slate-600 hover:text-slate-900 hover:border-slate-300'
-              }`}
-            >
-              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                currentMode === 'exceptions' 
-                  ? 'bg-amber-500 text-white shadow-xs' 
-                  : 'bg-amber-50 text-amber-600 border border-amber-200/60'
-              }`}>
-                <Flame className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-              </div>
+            <Activity className="w-3.5 h-3.5" />
+            <span>نبض العمليات</span>
+          </button>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                  <span className="font-extrabold text-xs sm:text-sm truncate">
-                    1. الإدارة المبنية على الاستثناءات
-                  </span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md font-bold shrink-0 ${
-                    currentMode === 'exceptions'
-                      ? 'bg-amber-100 text-amber-900'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {counts?.critical ? `${counts.critical} حرجة` : `${counts?.totalActive || 0} نشطة`}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500 font-medium truncate">
-                  لاكتشاف الحالات وترتيب أولوياتها
-                </div>
-              </div>
+          <button
+            onClick={() => onSelectMode('exceptions')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
+              currentMode === 'exceptions' 
+                ? 'bg-amber-500 text-slate-950' 
+                : isDark ? 'text-slate-400 bg-slate-900' : 'text-slate-600 bg-white'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>مركز الاستثناءات</span>
+          </button>
 
-              {currentMode === 'exceptions' && (
-                <span className="hidden sm:block absolute -top-1 right-1/2 translate-x-1/2 w-8 h-1 bg-amber-500 rounded-full" />
-              )}
-            </button>
+          <button
+            onClick={() => onSelectMode('command')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
+              currentMode === 'command' 
+                ? 'bg-teal-500 text-slate-950' 
+                : isDark ? 'text-slate-400 bg-slate-900' : 'text-slate-600 bg-white'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            <span>الأوامر ⌘K</span>
+          </button>
 
-            {/* Model 2: Comprehensive Search & Operational Commands */}
-            <button
-              id="btn-model-command"
-              type="button"
-              onClick={() => onSelectMode('command')}
-              className={`flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border text-right transition-all cursor-pointer relative ${
-                currentMode === 'command'
-                  ? 'bg-white border-slate-900 shadow-xs ring-2 ring-slate-900/20 text-slate-900'
-                  : 'bg-white/60 hover:bg-white border-slate-200/80 text-slate-600 hover:text-slate-900 hover:border-slate-300'
-              }`}
-            >
-              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                currentMode === 'command' 
-                  ? 'bg-slate-950 text-white shadow-xs' 
-                  : 'bg-slate-100 text-slate-700 border border-slate-200/80'
-              }`}>
-                <Terminal className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                  <span className="font-extrabold text-xs sm:text-sm truncate">
-                    2. البحث والأوامر التشغيلية الشاملة
-                  </span>
-                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md font-bold shrink-0 ${
-                    currentMode === 'command'
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    ⌘K
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500 font-medium truncate">
-                  للوصول السريع وبدء إجراء مسموح
-                </div>
-              </div>
-
-              {currentMode === 'command' && (
-                <span className="hidden sm:block absolute -top-1 right-1/2 translate-x-1/2 w-8 h-1 bg-slate-950 rounded-full" />
-              )}
-            </button>
-
-            {/* Model 3: Existing Contextual Workspace */}
-            <button
-              id="btn-model-workspace"
-              type="button"
-              onClick={() => onSelectMode('workspace')}
-              className={`flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border text-right transition-all cursor-pointer relative ${
-                currentMode === 'workspace'
-                  ? 'bg-white border-blue-600 shadow-xs ring-2 ring-blue-600/20 text-slate-900'
-                  : 'bg-white/60 hover:bg-white border-slate-200/80 text-slate-600 hover:text-slate-900 hover:border-slate-300'
-              }`}
-            >
-              <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                currentMode === 'workspace' 
-                  ? 'bg-blue-600 text-white shadow-xs' 
-                  : 'bg-blue-50 text-blue-600 border border-blue-200/60'
-              }`}>
-                <Layout className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1.5 mb-0.5">
-                  <span className="font-extrabold text-xs sm:text-sm truncate">
-                    3. مساحة العمل السياقية
-                  </span>
-                  {activeCaseId ? (
-                    <span className="font-mono text-[10px] bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded font-bold shrink-0 truncate max-w-[90px]">
-                      {activeCaseId}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded shrink-0">
-                      معالجة الحالة
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-slate-500 font-medium truncate">
-                  لفهم الحالة ومعالجتها وتوثيق القرار
-                </div>
-              </div>
-
-              {currentMode === 'workspace' && (
-                <span className="hidden sm:block absolute -top-1 right-1/2 translate-x-1/2 w-8 h-1 bg-blue-600 rounded-full" />
-              )}
-            </button>
-          </nav>
+          <button
+            onClick={() => onSelectMode('workspace')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
+              currentMode === 'workspace' 
+                ? 'bg-blue-500 text-white' 
+                : isDark ? 'text-slate-400 bg-slate-900' : 'text-slate-600 bg-white'
+            }`}
+          >
+            <Layout className="w-3.5 h-3.5" />
+            <span>مساحة العمل</span>
+          </button>
         </div>
       </header>
 
       {/* Body Area with Sidebar and Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Independent Operations Sidebar */}
+        {/* Desktop Operations Sidebar */}
         <div className="hidden lg:block">
           <OperationsSidebar
             currentPath={currentPath}
@@ -358,6 +458,7 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
             isRunningDiscovery={isRunningDiscovery}
             userRole={userRole}
             activeCaseId={activeCaseId}
+            theme={theme}
           />
         </div>
 
@@ -365,15 +466,23 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
         {isMobileSidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden flex" dir="rtl">
             <div 
-              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity" 
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs transition-opacity" 
               onClick={() => setIsMobileSidebarOpen(false)}
             />
-            <div className="relative w-72 max-w-[80vw] bg-white h-full shadow-2xl flex flex-col z-10">
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-                <div className="font-bold text-slate-900 text-sm">أقسام مركز العمليات</div>
+            <div className={`relative w-72 max-w-[80vw] h-full shadow-2xl flex flex-col z-10 ${
+              isDark ? 'bg-slate-950 border-l border-slate-800' : 'bg-white border-l border-slate-200'
+            }`}>
+              <div className={`p-4 border-b flex items-center justify-between ${
+                isDark ? 'border-slate-800' : 'border-slate-200'
+              }`}>
+                <div className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  أقسام مركز العمليات
+                </div>
                 <button 
                   onClick={() => setIsMobileSidebarOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                  className={`p-1 rounded-lg ${
+                    isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -394,6 +503,7 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
                   isRunningDiscovery={isRunningDiscovery}
                   userRole={userRole}
                   activeCaseId={activeCaseId}
+                  theme={theme}
                 />
               </div>
             </div>
@@ -402,7 +512,7 @@ export const OperationsShell: React.FC<OperationsShellProps> = ({
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-y-auto min-w-0">
-          <main className="flex-1 p-3 sm:p-5 max-w-[1720px] w-full mx-auto">
+          <main className="flex-1 p-3 sm:p-6 max-w-[1720px] w-full mx-auto">
             {children}
           </main>
         </div>
