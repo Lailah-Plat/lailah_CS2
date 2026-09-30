@@ -1,6 +1,12 @@
 # 👥 وثيقة النماذج المعيارية لبيانات المستخدمين، العملاء، الإدارة، والعاملين الميدانيين
 **Master Entity Data Models: System Users, Clients, Admin Governance & Provider Workforce**
 
+
+## تحديث حاكم — حقول المصادقة وحالة التحقق (30-09-2026)
+
+يحتفظ نموذج المستخدم بحقول منفصلة مثل `isPhoneVerified` و`isEmailVerified` وحالة الحساب. رقم الجوال الموثق شرط لجميع الأدوار. الدخول بالبريد أو الجوال مع كلمة مرور، وOTP للتحقق من القنوات واستعادة كلمة المرور مع حد يومي. سياسة كلمة المرور تمنع المسافات وتطلب حرفاً كبيراً وصغيراً ورقماً ورمزاً. تحفظ كلمات المرور بتجزئة مخصصة لكلمات المرور مثل bcrypt/Argon2؛ لا تكفي SHA-256 منفردة. حالة المستخدم غير الموثق لا تمنحه صلاحيات دور إنتاجي مكتمل.
+
+لا يعني وجود `otp` في قيمة قديمة لحقل مزود المصادقة السماح بتسجيل الدخول دون كلمة مرور؛ يجب تمثيل OTP كطريقة تحقق/استعادة مستقلة عن اعتماد تسجيل الدخول.
 ---
 
 ## 1. نموذج بيانات حسابات المستخدمين الموحدة (System User Master Data Entity)
@@ -12,7 +18,7 @@
 |                           Unified System User Entity Structure                    |
 +-----------------------------------------------------------------------------------+
 |  • Identifiers: userId, uuid, email (lowercase), phoneNumber                      |
-|  • Authentication: passwordHash (bcrypt), authProvider ('email' | 'otp' | 'sso')  |
+|  • Authentication: passwordHash (bcrypt), authProvider ('password' | 'apple' | 'google')؛ OTP للتحقق والاستعادة لا بديلاً عن كلمة المرور  |
 |  • Core Role: role ('customer' | 'provider' | 'admin' | 'provider_staff')        |
 |  • Account Status: isEmailVerified, isPhoneVerified, isActive, isBanned           |
 |  • Security: lastLoginAt, failedLoginAttempts, mfaEnabled, currentSessionToken    |
@@ -26,8 +32,8 @@
 | `userId` | `String` | فريد (Primary Key) | المعرف الفريد السحابي للمستخدم في المنظومة. |
 | `fullName` | `String` | إجباري، 3-80 حرف | الاسم الكامل المعتمد للمستخدم. |
 | `email` | `String` | فريد، صيغة بريد | البريد الإلكتروني المعتمد لتسجيل الدخول والإشعارات. |
-| `phoneNumber` | `String` | فريد، صيغة دولية | رقم الجوال المعتمد للتفعيل عبر رمز OTP. |
-| `passwordHash` | `String` | bcrypt encrypted | التشفير الآمن لكلمة المرور. |
+| `phoneNumber` | `String` | فريد، صيغة دولية | رقم جوال فريد وموثق إلزامياً لجميع الأدوار؛ يستخدم OTP للتحقق |
+| `passwordHash` | `String` | bcrypt/Argon2 hash؛ مع تحقق OTP للجوال والبريد | التشفير الآمن لكلمة المرور. |
 | `role` | `Enum` | `'customer'` \| `'provider'` \| `'admin'` \| `'provider_staff'` | الدور الأساسي للمستخدم والذي يُحدد الوجهة الافتراضية بعد تسجيل الدخول. |
 | `isActive` | `Boolean` | افتراضي: `true` | حالة الحساب النشطة. |
 
