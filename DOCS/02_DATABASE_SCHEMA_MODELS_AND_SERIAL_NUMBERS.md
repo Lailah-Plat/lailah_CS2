@@ -1,4 +1,8 @@
 # 📊 وثيقة مخططات قاعدة البيانات، النماذج، والتنسيق القياسي للمعرفات
+
+### تحديث حاكم — فصل الضريبة ووعائها
+ضريبة المزود يحددها ويحتسبها ويستخرجها ويصدر مستندها ويسددها المزود. يجوز عرضها للعميل مفصلة باسم المزود، لكنها ليست ضريبة أو إيراداً أو التزاماً لمنصة ليلة ولا تدخل دفاترها. تقتصر ضريبة ليلة على إيرادات ليلة الخاضعة للضريبة، ومنها عمولاتها ورسومها ومبيعاتها واشتراكاتها وإيراد التسويق الذي تحققه بنفسها عند عدم وجود وكالة. يجب فصل كل مكون ضريبي ومالكه ووعائه ومصدر احتسابه؛ ولا تحسب ضريبة ليلة على إجمالي قيمة المزود.
+
 **Database Schema, Entity Models & Standard Serial Number Specifications**
 
 ---
@@ -82,7 +86,9 @@
 - `eventDate` (DATE): تاريخ المناسبة/الحادثة.
 - `guestCount` (INTEGER): عدد الضيوف المتوقع.
 - `selectedAddons` (JSON): الخدمات المضافة المختارة من القاعة.
-- `totalAmount` (DECIMAL): القيمة الإجمالية للحجز شاملة الضريبة.
+- `totalAmount` (DECIMAL): إجمالي المبلغ النهائي المطلوب من العميل وفق لقطة الأسعار والضرائب، وليس إيراد ليلة أو وعاء ضريبتها بذاته.
+- `providerTaxTotal` / `platformTaxTotal` (DECIMAL): مجموع ضريبة كل مالك على حدة.
+- `taxComponentsSnapshot` (JSON): لقطة تفصيلية غير قابلة للتغيير عند تثبيت الحجز.
 - `commissionAmount` (DECIMAL): حصة عمولة منصة ليلة المقتطعة.
 - `providerNet` (DECIMAL): صافي مستحقات المزود.
 - `invoiceNumber` (STRING): رقم الفاتورة `INV-YYXXXXXXXXXX`.
@@ -94,12 +100,26 @@
 - `providerId` (INTEGER): معرف مزود الخدمة المستقلة.
 - `serviceId` (INTEGER): معرف الخدمة المطلوب تنفيذها.
 - `eventDate` (DATE): تاريخ تقديم الخدمة.
-- `totalAmount` (DECIMAL): السعر المعتمد للطلب.
+- `totalAmount` (DECIMAL): إجمالي المبلغ النهائي المطلوب من العميل وفق لقطة الطلب، وليس إيراد ليلة أو وعاء ضريبتها بذاته.
+- `providerTaxTotal` / `platformTaxTotal` (DECIMAL): مجموع ضريبة كل مالك على حدة.
+- `taxComponentsSnapshot` (JSON): لقطة تفصيلية لمكونات الضريبة لطلب الخدمة.
 - `commissionAmount` (DECIMAL): عمولة المنصة المقتطعة.
 - `invoiceNumber` (STRING): رقم الفاتورة `INV-YYXXXXXXXXXX`.
 - `status` (ENUM): حالة الطلب (`قيد التنفيذ` | `مكتمل` | `ملغى`).
 
-### 2.6 نموذج التعليقات والتقييمات (`Review` Model)
+
+
+### 2.6 بنية لقطة الضريبة المشتركة
+
+تُحفظ `taxComponentsSnapshot` كمصفوفة مكونات، يتضمن كل عنصر: `componentId`، و`lineItemId`، و`ownerType` (`PROVIDER` أو `PLATFORM`)، و`ownerId`، و`taxType`، و`taxRate`، و`taxableBaseAmount`، و`taxAmount`، و`includedInCustomerPayable`، و`calculationSource` (`PROVIDER_DECLARED` أو `PLATFORM_CALCULATED`)، و`ownerTaxNumberSnapshot` عند انطباقه.
+
+- ضريبة المزود يحددها ويحتسبها ويستخرجها ويصدر مستندها ويسددها المزود؛ يجوز عرضها للعميل مفصلة باسم المزود لكنها لا تدخل دفاتر ليلة.
+- ضريبة ليلة تخص إيرادات ليلة الخاضعة للضريبة فقط. لا يشمل وعاؤها قيمة المزود أو ضريبة المزود.
+- يساوي `providerTaxTotal` مجموع مكونات `PROVIDER`، و`platformTaxTotal` مجموع مكونات `PLATFORM`. لا تدمج الضريبتين ولا تخصم إحداهما من الأخرى.
+- تحفظ اللقطة بإصدار السعر والفاتورة المعتمد. التعديلات المعتمدة تنشئ إصداراً جديداً مع سجل تدقيق؛ ولا تعدل لقطة سابقة بصمت.
+- يجب مطابقة `totalAmount` مع تفاصيل العميل ومنع إضافة الضريبة مرتين إذا كانت مشمولة في سعر البند.
+
+### 2.7 نموذج التعليقات والتقييمات (`Review` Model)
 - `id` (INTEGER): معرف التقييم.
 - `customerId` / `customerName` (STRING): بيانات العميل التقييمي.
 - `targetType` (ENUM): نوع الهدف (`hall` | `service`).
